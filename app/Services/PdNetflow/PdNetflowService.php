@@ -91,7 +91,7 @@ class PdNetflowService
      * Tabel 3: Compound Flow to Loss – PD compound
      * Format: source_bucket | periode1 | periode2 | ...
      */
-    private function loadCompoundFlows(int $assessmentPeriodId, string $groupKey): array
+    public function loadCompoundFlows(int $assessmentPeriodId, string $groupKey): array
     {
         $rows = PdNetflowCompoundFlow::query()
             ->where('assessment_period_id', $assessmentPeriodId)
@@ -146,27 +146,13 @@ class PdNetflowService
     }
 
     /**
-     * Map bucket_no ke label hari tunggakan
+     * Map bucket_no ke label hari tunggakan.
+     * Sumber tunggal label: BucketAssignmentService (skema 1=Lancar/0 hari, 2-13 per
+     * interval 30 hari, 14=loss) agar tampilan T1 konsisten dgn pengisian bucket.
      */
     private function getBucketLabel(int $bucketNo): string
     {
-        return match ($bucketNo) {
-            1 => '0 hari',
-            2 => '1-30 hari',
-            3 => '31-60 hari',
-            4 => '61-90 hari',
-            5 => '91-120 hari',
-            6 => '121-150 hari',
-            7 => '151-180 hari',
-            8 => '181-210 hari',
-            9 => '211-240 hari',
-            10 => '241-270 hari',
-            11 => '271-300 hari',
-            12 => '301-330 hari',
-            13 => '331-360 hari',
-            14 => '>360+WO',
-            default => "Bucket {$bucketNo}",
-        };
+        return \App\Services\Bucket\BucketAssignmentService::getBucketLabel($bucketNo);
     }
 
     /**

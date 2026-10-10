@@ -45,20 +45,62 @@ class PdNetFlowController extends BaseCalculationController
             return $this->backTo($request, 'calculation.module.pd_netflow', [], 'Belum ada klasifikasi COLLECTIVE. Jalankan Modul 2 dulu.');
         }
 
-        // 2) Bangun snapshot historis per grup jika belum ada.
-        $this->buildSegmentedSnapshots($period, $startPeriod, $groups, $dims);
+        // 1) Panggil PdNetflowCalculator untuk menghitung 3 tabel (Bucket Snapshots, Transitions, Compound Flow)
+        $calculator = app(\App\Services\PdNetflow\PdNetflowCalculator::class);
+        $service    = app(\App\Services\PdNetflow\PdNetflowService::class);
 
-        // 3) Agregasi bucket per periode.
-        $this->aggregateHistoricalBuckets($period->id);
+        foreach ($groups as $g) {
+            $parts = explode('|', $g->group_key);
+            $paddedKey = implode('|', [
+                $parts[0] ?? 'NA',
+                $parts[1] ?? 'NA',
+                $parts[2] ?? 'NA',
+            ]);
+            $calculator->calculate($period->id, $paddedKey);
+        }
 
-        // 4) Migration rates per (group, from_bucket, to_bucket).
-        $this->computeMigrationRates($period->id);
+        // 2) Simpan PD final (PD Rate dari Bucket 1 Tabel 3 Compound Flow) ke stage_pd_results
+        DB::table('stage_pd_results')
+            ->where('assessment_period_id', $period->id)
+            ->where('method', 'NET_FLOW')
+            ->delete();
 
-        // 5) Compound flow loss per (group, from_bucket).
-        $this->computeCompoundFlow($period->id);
+        $batch = [];
+        $now   = now();
+        foreach ($groups as $g) {
+            $parts = explode('|', $g->group_key);
+            $paddedKey = implode('|', [
+                $parts[0] ?? 'NA',
+                $parts[1] ?? 'NA',
+                $parts[2] ?? 'NA',
+            ]);
 
-        // 6) PD akhir per grup: max dari bucket loss proxy dan compound flow avg.
-        $this->finalizePd($period->id);
+            $compoundData = $service->loadCompoundFlows($period->id, $paddedKey);
+            // Ambil PD Rate dari Bucket 1 (Lancar / 0 hari) — titik awal peminjam.
+            $pdRate = (float) ($compoundData[1]['pd_rate'] ?? 0.0);
+            $pdRate = min(1.0, max(0.0, $pdRate));
+
+            $batch[] = [
+                'assessment_period_id' => $period->id,
+                'group_key'            => $g->group_key,
+                'pd_calculated'        => round($pdRate, 6),
+                'method'               => 'NET_FLOW',
+                'periods_analyzed'     => $histM,
+                'detail'               => json_encode([
+                    'method'           => 'NET_FLOW_ENGINE',
+                    'source_bucket'    => 1,
+                    'pd_rate'          => round($pdRate, 6),
+                    'total_ead'        => round((float) $g->total_ead, 2),
+                    'member_count'     => (int) $g->member_count,
+                ]),
+                'created_at'           => $now,
+                'updated_at'           => $now,
+            ];
+        }
+
+        foreach (array_chunk($batch, 200) as $chunk) {
+            $this->safeInsert('stage_pd_results', $chunk);
+        }
 
         $this->audit('PD_NETFLOW', 'RUN', $period->id, [
             'groups' => $groups->count(),
@@ -66,7 +108,17 @@ class PdNetFlowController extends BaseCalculationController
             'dims'   => implode('|', $dims),
         ]);
 
-        return $this->backTo($request, 'calculation.module.pd_netflow', [
+        // Redirect dgn show=1 agar setelah kalkulasi langsung masuk state "data tampil".
+        $redirect = redirect()->route('calculation.module.pd_netflow', [
+            'assessment_period_id' => $period->id,
+            'show'                 => 1,
+        ]);
+
+        return $redirect->with('success', $this->formatSummary([
+            'groups'  => $groups->count(),
+            'method'  => 'NET_FLOW',
+            'window'  => $histM . ' bln',
+        ]))->with('result', [
             'groups'  => $groups->count(),
             'method'  => 'NET_FLOW',
             'window'  => $histM . ' bln',
@@ -154,7 +206,7 @@ class PdNetFlowController extends BaseCalculationController
                 foreach ($membersInGroup as $ln => $m) {
                     $hs = $snaps->get($periodeYm.'|'.$ln);
                     $snap = $hs instanceof \Illuminate\Support\Collection ? $hs->first() : $hs;
-                    $bucketNo = $snap ? $bucketService->calculateBucket($snap) : 0;
+                    $bucketNo = $snap ? $bucketService->calculateBucket($snap) : 1;
 
                     $insertBatch[] = [
                         'assessment_period_id' => $period->id,

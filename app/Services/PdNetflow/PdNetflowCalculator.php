@@ -35,7 +35,7 @@ class PdNetflowCalculator
         // Hapus hasil lama group ini agar periode di luar window tidak tertinggal (stale)
         $this->deleteGroupResults($assessmentPeriodId, $groupKey);
 
-        // 0. Update bucket_no untuk snapshot yang belum ada nilai (bucket_no IS NULL)
+        // 0. Re-assign bucket_no snapshot window agar konsisten dgn skema bucket aktif
         $this->updateMissingBuckets($officeCode, $akadCode, $usageCode, $historicalMonths, $assessmentDate);
 
         // 1. Load snapshot historis untuk group ini
@@ -146,8 +146,9 @@ class PdNetflowCalculator
     }
 
     /**
-     * Update bucket_no untuk snapshot yang NULL (belum pernah di-assign)
-     * Hanya untuk group & periode dalam Tabel 1 window: (N-H-1) .. (N-1)
+     * Re-assign bucket_no utk snapshot dalam window Tabel 1: (N-H-1) .. (N-1).
+     * Selalu re-assign SEMUA baris (bukan hanya yang NULL) agar skema bucket
+     * terjamin konsisten dgn skema aktif di BucketAssignmentService.
      */
     private function updateMissingBuckets(string $officeCode, string $akadCode, string $usageCode, int $historicalMonths, Carbon $assessmentDate): int
     {
@@ -160,7 +161,6 @@ class PdNetflowCalculator
         }
 
         $query = DB::table('snapshot')
-            ->whereNull('bucket_no')
             ->where('active_flag', true)
             ->whereIn('periode_snapshot', $windowPeriods);
 
@@ -284,15 +284,17 @@ class PdNetflowCalculator
 
             $date = Carbon::createFromFormat('Ym', $ym)->endOfMonth()->toDateString();
 
+            // Skema bucket: 1..13 lalu 14 (loss). Transisi 1→2, 2→3, ... 13→14.
             for ($fromBucket = 1; $fromBucket <= 13; $fromBucket++) {
-                $rate = $this->computeTransitionRate($bucketOutstanding, $prevPeriode, $periode, $fromBucket);
+                $toBucket = $fromBucket + 1;
+                $rate = $this->computeTransitionRate($bucketOutstanding, $prevPeriode, $periode, $fromBucket, $toBucket);
                 $rates[$fromBucket][$ym] = $rate;
 
                 $batch[] = [
                     'assessment_period_id' => $periodId,
                     'group_key' => $groupKey,
                     'from_bucket' => $fromBucket,
-                    'to_bucket' => $fromBucket + 1,
+                    'to_bucket' => $toBucket,
                     'periode' => $date,
                     'transition_rate' => round($rate, 6),
                     'flow_count' => 0, // ponytail: loan-level tracking for audit
@@ -340,12 +342,12 @@ class PdNetflowCalculator
     }
 
     /**
-     * Rate satu transisi: Outstanding_bucket_(i+1)(P) / Outstanding_bucket_i(P-1)
+     * Rate satu transisi: Outstanding_to_bucket(P) / Outstanding_from_bucket(P-1)
      */
-    private function computeTransitionRate($bucketOutstanding, string $prevPeriode, string $periode, int $fromBucket): float
+    private function computeTransitionRate($bucketOutstanding, string $prevPeriode, string $periode, int $fromBucket, int $toBucket): float
     {
         $outstandingFrom = $bucketOutstanding["{$prevPeriode}_{$fromBucket}"] ?? 0;
-        $outstandingTo = $bucketOutstanding["{$periode}_" . ($fromBucket + 1)] ?? 0;
+        $outstandingTo = $bucketOutstanding["{$periode}_{$toBucket}"] ?? 0;
 
         $rate = $outstandingFrom > 0 ? $outstandingTo / $outstandingFrom : 0.0;
         // Cap rate at 99.999999 to prevent Decimal(8,6) Out of Range SQL Error
@@ -401,9 +403,9 @@ class PdNetflowCalculator
     }
 
     /**
-     * Calculate compound PD dari source bucket ke target (loss bucket 14)
-     * Formula: CF(source) = Σ[P(source→source+1) × P(source+1→source+2) × ... × P(13→14)]
-     * Hanya direct path: source → source+1 → ... → target (sequential flow)
+     * Calculate compound PD dari source bucket ke loss bucket (14).
+     * Formula: CF(source) = P(source→source+1) × P(source+1→source+2) × ... × P(13→14)
+     * Skema bucket: 1..13 lalu 14 (loss) — transisi selalu +1 hingga loss.
      */
     private function calculateChainProbability(array $matrix, int $source, int $target): float
     {
@@ -411,11 +413,14 @@ class PdNetflowCalculator
             return 0.0;
         }
 
-        // Direct path only: source → source+1 → ... → 13 → 14
+        // Rantai mengikuti urutan bucket nyata: 1 → 2 → ... → 13 → 14
         $compoundPd = 1.0;
-        for ($i = $source; $i < $target; $i++) {
-            $rate = $matrix[$i][$i + 1] ?? 0.0;
+        $from = $source;
+        while ($from < $target) {
+            $to = $from + 1;
+            $rate = $matrix[$from][$to] ?? 0.0;
             $compoundPd *= $rate;
+            $from = $to;
         }
 
         return min(1.0, max(0.0, $compoundPd));

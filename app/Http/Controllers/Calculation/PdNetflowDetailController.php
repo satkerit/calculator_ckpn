@@ -15,9 +15,22 @@ class PdNetflowDetailController
         private PdNetflowCalculator $calculator,
     ) {}
 
-    public function show(Request $request, int $assessmentPeriod): View
+    public function show(Request $request, int $assessmentPeriod)
     {
         $groupKey = $request->query('group_key');
+
+        // Guard: matriks segmentasi hanya bisa diakses bila sudah ada
+        // riwayat perhitungan PD Net Flow pada periode ini.
+        $hasPd = DB::table('stage_pd_results')
+            ->where('assessment_period_id', $assessmentPeriod)
+            ->where('method', 'NET_FLOW')
+            ->exists();
+
+        if (!$hasPd) {
+            return redirect()
+                ->route('calculation.module.pd_netflow', ['assessment_period_id' => $assessmentPeriod])
+                ->with('error', 'Belum ada hasil perhitungan PD Net Flow. Jalankan tombol Hitung PD terlebih dahulu.');
+        }
 
         // Load config segmentation dimensions
         $dimsConfig = DB::table('stage_configs')

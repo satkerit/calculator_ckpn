@@ -59,8 +59,8 @@
                         <td class="px-3 py-2">{{ $r->akad_code ?? '-' }}</td>
                         <td class="px-3 py-2">{{ $r->usage_code ?? '-' }}</td>
                         <td class="px-3 py-2 text-right">{{ number_format((float) $r->total_ead, 0, ',', '.') }}</td>
-                        <td class="px-3 py-2 text-right">{{ number_format((float) $r->pd, 6, ',', '.') }}</td>
-                        <td class="px-3 py-2 text-right">{{ number_format((float) $r->lgd, 6, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right">{{ number_format((float) $r->pd * 100, 2, ',', '.') }}%</td>
+                        <td class="px-3 py-2 text-right">{{ number_format((float) $r->lgd * 100, 2, ',', '.') }}%</td>
                         <td class="px-3 py-2 text-right font-semibold">{{ number_format((float) $r->ckpn_kolektif, 0, ',', '.') }}</td>
                         <td class="px-3 py-2 text-right">{{ (int) $r->member_count }}</td>
                     </tr>

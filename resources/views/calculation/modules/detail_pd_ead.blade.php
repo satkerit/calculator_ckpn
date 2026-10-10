@@ -67,7 +67,7 @@
                     <tr>
                         <td class="px-3 py-2 font-mono">{{ $r->group_key }}</td>
                         <td class="px-3 py-2">{{ $r->method }}</td>
-                        <td class="px-3 py-2 text-right font-semibold">{{ number_format((float) $r->pd_calculated, 6, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right font-semibold">{{ number_format((float) $r->pd_calculated * 100, 2, ',', '.') }}%</td>
                         <td class="px-3 py-2 text-right">{{ (int) $r->periods_analyzed }}</td>
                     </tr>
                 @empty
@@ -105,7 +105,7 @@
                         <td class="px-3 py-2">{{ $r->akad_code }}</td>
                         <td class="px-3 py-2">{{ $r->usage_code }}</td>
                         <td class="px-3 py-2 text-right">{{ number_format((float) $r->ead_amount, 0, ',', '.') }}</td>
-                        <td class="px-3 py-2 text-right">{{ $r->pd_calculated !== null ? number_format((float) $r->pd_calculated, 6, ',', '.') : '-' }}</td>
+                        <td class="px-3 py-2 text-right">{{ $r->pd_calculated !== null ? number_format((float) $r->pd_calculated * 100, 2, ',', '.') . '%' : '-' }}</td>
                         <td class="px-3 py-2">{{ $r->pd_method ?? '-' }}</td>
                     </tr>
                 @empty

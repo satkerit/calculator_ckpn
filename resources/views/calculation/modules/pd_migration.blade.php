@@ -58,7 +58,7 @@
                 @forelse ($results['rows'] ?? [] as $r)
                     <tr>
                         <td class="px-3 py-2 font-mono">{{ $r->group_key }}</td>
-                        <td class="px-3 py-2 text-right font-semibold">{{ number_format((float) $r->pd_calculated, 6, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right font-semibold">{{ number_format((float) $r->pd_calculated * 100, 2, ',', '.') }}%</td>
                         <td class="px-3 py-2 text-right">{{ (int) $r->periods_analyzed }}</td>
                     </tr>
                 @empty

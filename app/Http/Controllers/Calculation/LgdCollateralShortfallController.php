@@ -46,61 +46,54 @@ class LgdCollateralShortfallController extends BaseCalculationController
             return $this->backTo($request, 'calculation.module.lgd_cs', [], 'Belum ada klasifikasi COLLECTIVE.');
         }
 
-        // Ambil write-off di window, join dengan agunan untuk net recovery.
-        $writeOffs = DB::table('write_offs as wo')
-            ->leftJoin('collateral as c', 'c.loan_number', '=', 'wo.financing_id')
-            ->whereBetween('wo.writeoff_date', [$startPeriod->toDateString(), $assessmentDate->toDateString()])
-            ->selectRaw('wo.financing_id, wo.amount as wo_amount, COALESCE(SUM(c.liquidity_value), 0) as liq_value, COALESCE(SUM(c.estimated_value), 0) as est_value')
-            ->groupBy('wo.id', 'wo.financing_id', 'wo.amount')
-            ->get();
+        // Window write-off: (N-60)..N, dihitung dari periode snapshot (yyyymm).
+        $assessYm = $assessmentDate->format('Ym');
+        $startYm  = $assessmentDate->copy()->subMonths($histM)->format('Ym');
 
-        // Map loan → segment (office_code/akad_code/usage_code)
-        // Prioritas stage_classifications (aktif), fallback ke snapshot historis untuk loan non-aktif/write-off.
-        $loanToSegment = DB::table('stage_classifications')
-            ->where('assessment_period_id', $period->id)
-            ->where('classification', 'COLLECTIVE')
-            ->select('loan_number', 'office_code', 'akad_code', 'usage_code')
-            ->get()
-            ->keyBy('loan_number');
-
-        $missingWoLoans = $writeOffs->pluck('financing_id')->filter(fn ($id) => ! $loanToSegment->has($id))->unique();
-        if ($missingWoLoans->isNotEmpty()) {
-            $fallbackSnaps = DB::table('snapshot')
-                ->whereIn('loan_number', $missingWoLoans)
-                ->select('loan_number', 'office_code', 'product_code', 'usage_type', 'financing_contract_code')
-                ->get()
-                ->groupBy('loan_number')
-                ->map(function ($rows) {
-                    $first = $rows->first();
-                    return (object) [
-                        'loan_number' => $first->loan_number,
-                        'office_code' => $first->office_code ?? 'NA',
-                        'akad_code'   => \App\Services\ProductAkadMappingService::resolveAkadCode($first->product_code ?? ''),
-                        'usage_code'  => $first->usage_type ?? $first->financing_contract_code ?? 'OTHER',
-                    ];
-                });
-
-            foreach ($fallbackSnaps as $ln => $segObj) {
-                $loanToSegment->put($ln, $segObj);
-            }
-        }
+        // Kertas kerja: write-off dengan tglwo di dalam rentang 5 tahun.
+        // Exposure = outstanding terakhir saat WO; kolateral dijoin per loan untuk net recovery.
+        $windowLoans = DB::table('snapshot')
+            ->where('write_off_flag', 1)
+            ->whereNotNull('tglwo')->where('tglwo', '<>', '')
+            ->whereRaw('SUBSTRING(tglwo, 1, 6) >= ?', [$startYm])
+            ->whereRaw('SUBSTRING(tglwo, 1, 6) <= ?', [$assessYm])
+            ->distinct()
+            ->pluck('loan_number');
 
         $byGroup = [];
-        foreach ($writeOffs as $wo) {
-            $seg = $loanToSegment->get($wo->financing_id);
-            if (! $seg) {
-                continue;
+
+        if ($windowLoans->isNotEmpty()) {
+            // Outstanding terakhir saat write-off + atribut segmen, per loan.
+            $woRows = DB::table('snapshot')
+                ->whereIn('loan_number', $windowLoans)
+                ->where('write_off_flag', 1)
+                ->orderBy('periode_snapshot')
+                ->get(['loan_number', 'outstanding_balance', 'office_code', 'product_code', 'usage_type', 'financing_contract_code'])
+                ->groupBy('loan_number')
+                ->map(fn ($rows) => $rows->last());
+
+            // Nilai agunan (liquidity value) per loan.
+            $collateralByLoan = DB::table('collateral')
+                ->whereIn('loan_number', $windowLoans)
+                ->selectRaw('loan_number, COALESCE(SUM(liquidity_value), 0) as liq_value')
+                ->groupBy('loan_number')
+                ->pluck('liq_value', 'loan_number');
+
+            foreach ($woRows as $loanNumber => $row) {
+                $exposure = (float) $row->outstanding_balance;
+                $liqValue = (float) ($collateralByLoan[$loanNumber] ?? 0.0);
+                $netRecov = max(0.0, $liqValue * (1 - $saleCost));
+                $shortfall = max(0.0, $exposure - $netRecov);
+
+                $akadCode  = \App\Services\ProductAkadMappingService::resolveAkadCode($row->product_code ?? '');
+                $usageCode = $row->usage_type ?? $row->financing_contract_code ?? 'OTHER';
+                $key = $this->collectiveGroupKey($dims, $row->office_code, $akadCode, $usageCode);
+
+                $byGroup[$key]['exposure']  = ($byGroup[$key]['exposure']  ?? 0.0) + $exposure;
+                $byGroup[$key]['shortfall'] = ($byGroup[$key]['shortfall'] ?? 0.0) + $shortfall;
+                $byGroup[$key]['net']       = ($byGroup[$key]['net']       ?? 0.0) + $netRecov;
+                $byGroup[$key]['count']     = ($byGroup[$key]['count']     ?? 0) + 1;
             }
-            $key = $this->collectiveGroupKey($dims, $seg->office_code, $seg->akad_code, $seg->usage_code);
-
-            $exposure  = (float) $wo->wo_amount;
-            $netRecov  = max(0.0, (float) $wo->liq_value * (1 - $saleCost));
-            $shortfall = max(0.0, $exposure - $netRecov);
-
-            $byGroup[$key]['exposure']  = ($byGroup[$key]['exposure']  ?? 0.0) + $exposure;
-            $byGroup[$key]['shortfall'] = ($byGroup[$key]['shortfall'] ?? 0.0) + $shortfall;
-            $byGroup[$key]['net']       = ($byGroup[$key]['net']       ?? 0.0) + $netRecov;
-            $byGroup[$key]['count']     = ($byGroup[$key]['count']     ?? 0) + 1;
         }
 
         $now   = now();
@@ -129,7 +122,10 @@ class LgdCollateralShortfallController extends BaseCalculationController
                 'detail'               => json_encode([
                     'method'        => 'CS',
                     'window_months' => $histM,
+                    'window_start'  => $startYm,
+                    'window_end'    => $assessYm,
                     'sale_cost'     => $saleCost,
+                    'fallback_used' => $agg['exposure'] == 0.0,
                 ]),
                 'created_at'           => $now,
                 'updated_at'           => $now,

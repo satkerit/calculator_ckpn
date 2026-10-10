@@ -155,9 +155,25 @@ class DetailCkpnController extends BaseCalculationController
         foreach ($eadGroups as $eg) {
             $key     = $eg->group_key;
             $pd      = isset($pdMap[$key]) ? (float) $pdMap[$key]->pd_calculated : 0.0;
-            $erVal   = isset($lgdEr[$key]) ? (float) $lgdEr[$key]->lgd_calculated : null;
-            $csVal   = isset($lgdCs[$key]) ? (float) $lgdCs[$key]->lgd_calculated : null;
+            $erObj = $lgdEr[$key] ?? null;
+            $csObj = $lgdCs[$key] ?? null;
+
+            $erVal = $erObj ? (float) $erObj->lgd_calculated : null;
+            $csVal = $csObj ? (float) $csObj->lgd_calculated : null;
+
+            // Kertas kerja (B4.LGD-Collateral Shortfall):
+            // Weighted LGD = Total Loss / Total Exposure = (Loss_ER + Loss_CS) / (Wo_ER + Exposure_CS)
+            $woEr    = $erObj ? (float) $erObj->total_write_off : 0.0;
+            $lossEr  = $erObj ? ($woEr - (float) $erObj->total_recovery) : 0.0;
+
+            $expCs   = $csObj ? (float) $csObj->total_exposure_wo : 0.0;
+            $lossCs  = $csObj ? (float) $csObj->total_shortfall : 0.0;
+
+            $totalExp  = $woEr + $expCs;
+            $totalLoss = max(0.0, $lossEr) + max(0.0, $lossCs);
+
             $lgd = match (true) {
+                $totalExp > 0                      => $totalLoss / $totalExp,
                 $erVal !== null && $csVal !== null => ($erVal + $csVal) / 2,
                 $erVal !== null                    => $erVal,
                 $csVal !== null                    => $csVal,

@@ -7,7 +7,24 @@
 @php
     $finalizeRoute = route('calculation.module.detail_ckpn.finalize');
     $exportRoute   = route('calculation.export.module.period', ['module' => 'detail-ckpn', 'assessmentPeriod' => $period->id]);
+    $staleLabels   = collect($stale ?? [])->map(fn ($t) => match ($t) {
+        'PD'    => 'PD Net Flow / Migration',
+        'LGD'   => 'LGD (ER & CS)',
+        'CKPN'  => 'CKPN Kolektif',
+        default => $t,
+    })->implode(', ');
 @endphp
+
+@if (! empty($stale))
+    {{-- Hasil tidak valid: konfigurasi berubah setelah PD/LGD/CKPN terakhir dihitung --}}
+    <div class="mb-6 p-4 rounded-xl border border-red-200 bg-red-50 flex items-start gap-3">
+        <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold shrink-0">⚠</div>
+        <div>
+            <p class="text-sm font-semibold text-red-900">Sebagian hasil KURANG AKURAT / TIDAK VALID — konfigurasi berubah</p>
+            <p class="text-xs text-red-700 mt-1">Konfigurasi (segmentasi / historical window / metode PD) berubah setelah perhitungan terakhir. Hasil tidak valid: <strong>{{ $staleLabels }}</strong>. Finalize CKPN akan <strong>diblokir</strong> sampai modul tersebut dihitung ulang.</p>
+        </div>
+    </div>
+@endif
 
 <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
     <div class="flex items-start justify-between gap-4">
@@ -16,7 +33,7 @@
             <p class="text-sm text-gray-600 mt-1">Hitung CKPN final pasca LGD & PD tersedia.</p>
         </div>
         <div class="flex gap-2">
-            <form method="POST" action="{{ $finalizeRoute }}">
+            <form method="POST" action="{{ $finalizeRoute }}" data-progress data-confirm-title="Konfirmasi Finalisasi CKPN" data-confirm-message="CKPN final periode ini akan dihitung ulang (Individual + Kolektif)." data-confirm-type="warning" data-confirm-button="Ya, Hitung Ulang" data-loading-message="Menghitung CKPN final…">
                 @csrf
                 <input type="hidden" name="assessment_period_id" value="{{ $period->id }}">
                 <button type="submit" class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700">▶ Hitung Ulang CKPN</button>

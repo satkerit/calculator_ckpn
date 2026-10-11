@@ -31,6 +31,7 @@ class ModularCalculationTest extends TestCase
         'stage_ead_buckets',
         'stage_individual_ckpn',
         'stage_collective_ckpn',
+        'stage_calculation_marks',
     ];
 
     /**

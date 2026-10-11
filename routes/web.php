@@ -39,11 +39,13 @@ Route::middleware(['auth'])->group(function () {
 
     // Offices
     Route::resource('office', OfficeController::class);
-    Route::delete('/office-bulk-destroy', [OfficeController::class, 'bulkDestroy'])->name('office.bulk-destroy');
+    Route::delete('/office-bulk-destroy', [OfficeController::class, 'bulkDestroy'])
+        ->middleware('permission:office.bulk-delete')->name('office.bulk-destroy');
 
     // Collateral & Collateral Setup
     Route::resource('collateral', CollateralController::class);
-    Route::delete('/collateral-bulk-destroy', [CollateralController::class, 'bulkDestroy'])->name('collateral.bulk-destroy');
+    Route::delete('/collateral-bulk-destroy', [CollateralController::class, 'bulkDestroy'])
+        ->middleware('permission:collateral.bulk-delete')->name('collateral.bulk-destroy');
     Route::resource('collateral-setup', CollateralSetupController::class);
     Route::delete('/collateral-setup-bulk-destroy', [CollateralSetupController::class, 'bulkDestroy'])->name('collateral-setup.bulk-destroy');
 
@@ -76,30 +78,50 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/import/product-akad', [ProductAkadMappingController::class, 'uploadImport'])->name('import.product-akad.upload');
 
     // CKPN Calculation — 8 Modul
+    // Polling progress realtime untuk proses kalkulasi berat (dipakai global).
+    Route::get('calculation/progress', function (\Illuminate\Http\Request $request) {
+        $token = (string) $request->query('token', '');
+
+        if ($token === '' || ! preg_match('/^[A-Za-z0-9_.\-]{8,80}$/', $token)) {
+            return response()->json(['status' => 'idle']);
+        }
+
+        $progress = \Illuminate\Support\Facades\Cache::store(config('calculation.progress_store', 'file'))->get("ckpn_progress_{$token}");
+
+        return response()->json($progress ? ['status' => 'running'] + $progress : ['status' => 'idle']);
+    })->name('calculation.progress');
+
     Route::prefix('calculation/module')->name('calculation.module.')->group(function () {
         Route::get('/config',         [ConfigurationController::class, 'index'])->name('config');
-        Route::post('/config',        [ConfigurationController::class, 'save'])->name('config.save');
+        Route::post('/config',        [ConfigurationController::class, 'save'])
+            ->middleware('permission:calculation.run')->name('config.save');
 
         Route::get('/classification', [ClassificationController::class, 'index'])->name('classification');
-        Route::post('/classification',[ClassificationController::class, 'run'])->name('classification.run');
+        Route::post('/classification',[ClassificationController::class, 'run'])
+            ->middleware('permission:calculation.run')->name('classification.run');
 
         Route::get('/pd-netflow',     [PdNetFlowController::class, 'index'])->name('pd_netflow');
-        Route::post('/pd-netflow',    [PdNetFlowController::class, 'run'])->name('pd_netflow.run');
+        Route::post('/pd-netflow',    [PdNetFlowController::class, 'run'])
+            ->middleware('permission:calculation.run')->name('pd_netflow.run');
         Route::get('/pd-netflow/{assessmentPeriod}/detail', [PdNetflowDetailController::class, 'show'])->name('pd_netflow.detail');
 
         Route::get('/pd-migration',   [PdMigrationController::class, 'index'])->name('pd_migration');
-        Route::post('/pd-migration',  [PdMigrationController::class, 'run'])->name('pd_migration.run');
+        Route::post('/pd-migration',  [PdMigrationController::class, 'run'])
+            ->middleware('permission:calculation.run')->name('pd_migration.run');
 
         Route::get('/lgd-er',         [LgdExpectedRecoveryController::class, 'index'])->name('lgd_er');
-        Route::post('/lgd-er',        [LgdExpectedRecoveryController::class, 'run'])->name('lgd_er.run');
+        Route::post('/lgd-er',        [LgdExpectedRecoveryController::class, 'run'])
+            ->middleware('permission:calculation.run')->name('lgd_er.run');
 
         Route::get('/lgd-cs',         [LgdCollateralShortfallController::class, 'index'])->name('lgd_cs');
-        Route::post('/lgd-cs',        [LgdCollateralShortfallController::class, 'run'])->name('lgd_cs.run');
+        Route::post('/lgd-cs',        [LgdCollateralShortfallController::class, 'run'])
+            ->middleware('permission:calculation.run')->name('lgd_cs.run');
 
         Route::get('/detail-pd-ead',  [DetailPdEadController::class, 'index'])->name('detail_pd_ead');
 
         Route::get('/detail-ckpn',    [DetailCkpnController::class, 'index'])->name('detail_ckpn');
-        Route::post('/detail-ckpn',   [DetailCkpnController::class, 'finalize'])->name('detail_ckpn.finalize');
+        Route::post('/detail-ckpn',   [DetailCkpnController::class, 'finalize'])
+            ->middleware('permission:calculation.run')->name('detail_ckpn.finalize');
     });
 
     // Tampilan hasil CKPN per komponen (Individual & Kolektif)

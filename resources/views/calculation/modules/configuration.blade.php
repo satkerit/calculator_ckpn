@@ -11,7 +11,7 @@
 @endphp
 
 <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-    <form method="POST" action="{{ $moduleRoute }}" class="space-y-6">
+    <form method="POST" action="{{ $moduleRoute }}" class="space-y-6" data-confirm-title="Simpan Konfigurasi CKPN" data-confirm-message="Pengaturan metode & parameter perhitungan periode ini akan diperbarui." data-confirm-button="Ya, Simpan" data-loading-message="Menyimpan konfigurasi…">
         @csrf
         <input type="hidden" name="assessment_period_id" value="{{ $period->id }}">
 
@@ -25,11 +25,12 @@
             </div>
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">LGD Method</label>
-                <select class="w-full border-gray-300 rounded-lg text-sm bg-gray-100 text-gray-600" disabled>
-                    <option value="WEIGHTED" selected>Weighted (ER + CS)</option>
+                <select name="lgd_method" class="w-full border-gray-300 rounded-lg text-sm">
+                    <option value="WEIGHTED" {{ ($config['lgd_method'] ?? 'WEIGHTED') === 'WEIGHTED' ? 'selected' : '' }}>Weighted (ER + CS)</option>
+                    <option value="EXPECTED_RECOVERY" {{ ($config['lgd_method'] ?? '') === 'EXPECTED_RECOVERY' ? 'selected' : '' }}>Expected Recovery (ER)</option>
+                    <option value="COLLATERAL_SHORTFALL" {{ ($config['lgd_method'] ?? '') === 'COLLATERAL_SHORTFALL' ? 'selected' : '' }}>Collateral Shortfall (CS)</option>
                 </select>
-                <input type="hidden" name="lgd_method" value="WEIGHTED">
-                <p class="text-xs text-gray-500 mt-1">Selalu weighted (ER + CS digabung).</p>
+                <p class="text-xs text-gray-500 mt-1">Weighted = penjumlahan Loss &amp; Exposure ER + CS sesuai kertas kerja; ER/CS = pakai satu metode saja.</p>
             </div>
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Historical Window (bulan)</label>
@@ -89,5 +90,6 @@
 <div class="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-900">
     <p class="font-semibold mb-1">Periode aktif: {{ $period->assessment_date?->format('Y-m-d') ?? '-' }} (ID: {{ $period->id }})</p>
     <p>Konfigurasi ini akan dipakai oleh Modul 2–8. Segmentasi menentukan group_key kolektif.</p>
+    <p class="mt-2"><strong>Perhatian:</strong> perubahan segmentasi membatalkan hasil PD, LGD &amp; CKPN Kolektif; perubahan historical window / metode PD membatalkan hasil PD &amp; CKPN Kolektif. Hasil yang dibatalkan otomatis ditandai <em>tidak valid</em> dan wajib dihitung ulang sebelum Finalize CKPN.</p>
 </div>
 @endsection

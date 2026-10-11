@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Calculation;
 
 use App\Models\Snapshot;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -18,124 +20,143 @@ class PdMigrationController extends BaseCalculationController
 {
     public function index(Request $request): View
     {
-        $period  = $this->resolvePeriod($request);
+        $period = $this->resolvePeriod($request);
         $periods = $this->periods();
-        $config  = $this->configFor($period->id);
+        $config = $this->configFor($period->id);
         $results = $this->loadResults($period->id);
+        // Hasil basi bila konfigurasi (segmentasi/window/metode PD) berubah setelah run terakhir.
+        $pdStale = in_array('PD', $this->staleResultTypes($period->id), true);
 
-        return view('calculation.modules.pd_migration', compact('period', 'periods', 'config', 'results'));
+        return view('calculation.modules.pd_migration', compact('period', 'periods', 'config', 'results', 'pdStale'));
     }
 
-    public function run(Request $request): RedirectResponse
+    public function run(Request $request): RedirectResponse|JsonResponse
     {
         $period = $this->resolvePeriod($request);
-        $config   = $this->configFor($period->id);
-        $histM    = (int) $config['historical_months'];
-        $dims     = $this->segmentDimensions($request, $period->id);
-        $assessmentDate = $period->assessment_date;
-        $startPeriod = $assessmentDate->copy()->subMonths($histM)->startOfMonth();
 
-        // Hanya hapus hasil MIGRATION (jangan sentuh NET_FLOW periode ini).
-        DB::table('stage_pd_results')
-            ->where('assessment_period_id', $period->id)
-            ->where('method', 'MIGRATION')
-            ->delete();
+        // Lock per-periode + transaksi agar penulisan hasil atomik & tidak bentrok antar user.
+        return $this->withRunLock($period->id, fn () => DB::transaction(function () use ($request, $period) {
+            $config = $this->configFor($period->id);
+            $histM = (int) $config['historical_months'];
+            $dims = $this->segmentDimensions($request, $period->id);
+            $assessmentDate = $period->assessment_date;
+            $startPeriod = $assessmentDate->copy()->subMonths($histM)->startOfMonth();
 
-        // Default bucket kolektif: rating >= 4 dianggap default.
-        $groups = $this->loadCollectiveGroups($period->id, $dims)->map(function ($g) use ($dims) {
-            $g->group_key = $this->collectiveGroupKey($dims, $g->office_code, $g->akad_code, $g->usage_code);
-            return $g;
-        });
+            // Hanya hapus hasil MIGRATION (jangan sentuh NET_FLOW periode ini).
+            DB::table('stage_pd_results')
+                ->where('assessment_period_id', $period->id)
+                ->where('method', 'MIGRATION')
+                ->delete();
 
-        if ($groups->isEmpty()) {
-            return $this->backTo($request, 'calculation.module.pd_migration', [], 'Belum ada klasifikasi COLLECTIVE.');
-        }
+            $groups = $this->loadCollectiveGroups($period->id, $dims)->map(function ($g) use ($dims) {
+                $g->group_key = $this->collectiveGroupKey($dims, $g->office_code, $g->akad_code, $g->usage_code);
 
-        $loanNumbers = DB::table('stage_classifications')
-            ->where('assessment_period_id', $period->id)
-            ->where('classification', 'COLLECTIVE')
-            ->pluck('loan_number');
+                return $g;
+            });
 
-        $cursor = $startPeriod->copy();
-        $allPeriods = [];
-        while ($cursor->format('Ym') <= $assessmentDate->format('Ym')) {
-            $allPeriods[] = $cursor->format('Ym');
-            $cursor->addMonth();
-        }
+            if ($groups->isEmpty()) {
+                return $this->backTo($request, 'calculation.module.pd_migration', [], 'Belum ada klasifikasi COLLECTIVE.');
+            }
 
-        $snaps = Snapshot::whereIn('loan_number', $loanNumbers)
-            ->whereIn('periode_snapshot', $allPeriods)
-            ->get()
-            ->groupBy(fn ($s) => $s->periode_snapshot . '|' . $s->loan_number);
+            $token = $this->progressToken($request);
+            $this->pushProgress($token, 'Memuat snapshot historis…', 5);
 
-        $now   = now();
-        $batch = [];
+            // N+1 fix: muat member per grup sekali (in-memory) alih-alih query per grup.
+            $classRows = DB::table('stage_classifications')
+                ->where('assessment_period_id', $period->id)
+                ->where('classification', 'COLLECTIVE')
+                ->get(['loan_number', 'office_code', 'akad_code', 'usage_code']);
 
-        foreach ($groups as $g) {
-            $pdRate = $this->computeMigrationPd($snaps, $g, $allPeriods, $period->id);
+            $loansByGroup = [];
+            foreach ($classRows as $c) {
+                $loansByGroup[$this->collectiveGroupKey($dims, $c->office_code, $c->akad_code, $c->usage_code)][] = $c->loan_number;
+            }
+            $loanNumbers = $classRows->pluck('loan_number')->unique()->values();
 
-            $batch[] = [
-                'assessment_period_id' => $period->id,
-                'group_key'            => $g->group_key,
-                'pd_calculated'        => round($pdRate, 6),
-                'method'               => 'MIGRATION',
-                'periods_analyzed'     => max(0, count($allPeriods) - 1),
-                'detail'               => json_encode(['method' => 'MIGRATION', 'dims' => implode('|', $dims)]),
-                'created_at'           => $now,
-                'updated_at'           => $now,
-            ];
-        }
+            $cursor = $startPeriod->copy();
+            $allPeriods = [];
+            while ($cursor->format('Ym') <= $assessmentDate->format('Ym')) {
+                $allPeriods[] = $cursor->format('Ym');
+                $cursor->addMonth();
+            }
 
-        // Replace existing MIGRATION rows for this period.
-        foreach (array_chunk($batch, 200) as $chunk) {
-            $this->safeInsert('stage_pd_results', $chunk);
-        }
+            $this->pushProgress($token, 'Memuat snapshot historis…', 15);
 
-        $this->audit('PD_MIGRATION', 'RUN', $period->id, [
-            'groups' => $groups->count(),
-            'window' => $histM,
-            'dims'   => implode('|', $dims),
-        ]);
+            // Filter: hanya snapshot pembiayaan aktif.
+            $snaps = Snapshot::whereIn('loan_number', $loanNumbers)
+                ->whereIn('periode_snapshot', $allPeriods)
+                ->where('active_flag', true)
+                ->get()
+                ->groupBy(fn ($s) => $s->periode_snapshot.'|'.$s->loan_number);
 
-        return $this->backTo($request, 'calculation.module.pd_migration', [
-            'groups'  => $groups->count(),
-            'method'  => 'MIGRATION',
-            'window'  => $histM . ' bln',
-        ]);
+            $now = now();
+            $batch = [];
+            $totalGroups = max(1, $groups->count());
+            $i = 0;
+
+            foreach ($groups as $g) {
+                $i++;
+                $this->pushProgress($token, "Menghitung matriks migrasi rating grup {$i}/{$totalGroups} ({$g->group_key})…", 15 + ($i / $totalGroups) * 75, [
+                    'current' => $i, 'total' => $totalGroups, 'label' => 'Hitung PD Migration',
+                ]);
+                $pdRate = $this->computeMigrationPd($snaps, $allPeriods, $loansByGroup[$g->group_key] ?? []);
+
+                $batch[] = [
+                    'assessment_period_id' => $period->id,
+                    'group_key' => $g->group_key,
+                    'pd_calculated' => round($pdRate, 6),
+                    'method' => 'MIGRATION',
+                    'periods_analyzed' => max(0, count($allPeriods) - 1),
+                    'detail' => json_encode(['method' => 'MIGRATION', 'dims' => implode('|', $dims)]),
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            // Replace existing MIGRATION rows for this period.
+            $this->pushProgress($token, 'Menyimpan hasil PD Migration…', 95);
+            foreach (array_chunk($batch, 200) as $chunk) {
+                $this->safeInsert('stage_pd_results', $chunk);
+            }
+
+            // Tandai hasil PD sah dengan konfigurasi yang dipakai saat run (fingerprint).
+            $this->markResults($period->id, 'PD', ['segment_dimensions' => $dims]);
+
+            $this->audit('PD_MIGRATION', 'RUN', $period->id, [
+                'groups' => $groups->count(),
+                'window' => $histM,
+                'inserted' => count($batch),
+            ]);
+
+            return $this->backTo($request, 'calculation.module.pd_migration', [
+                'groups' => $groups->count(),
+                'method' => 'MIGRATION',
+                'window' => $histM.' bln',
+            ]);
+        }));
     }
 
     /**
-     * Hitung PD via migration matrix (default state = rating >= 4).
+     * Hitung PD via migration matrix rating antar periode historis.
+     * State default: rating 4 (macet) dan 5 (WO) — konsisten dengan spec.
      */
-    private function computeMigrationPd($snaps, object $group, array $periods, int $periodId): float
+    private function computeMigrationPd(Collection $snaps, array $periods, array $loanNumbers): float
     {
-        $loanNumbers = DB::table('stage_classifications')
-            ->where('assessment_period_id', $periodId)
-            ->where('classification', 'COLLECTIVE')
-            ->where('office_code', $group->office_code)
-            ->where('akad_code',   $group->akad_code)
-            ->where('usage_code',  $group->usage_code)
-            ->pluck('loan_number');
-
-        if ($loanNumbers->isEmpty()) {
-            return 0.0;
-        }
-
         $migration = [];
         for ($i = 0; $i < count($periods) - 1; $i++) {
-            $curP  = $periods[$i];
+            $curP = $periods[$i];
             $nextP = $periods[$i + 1];
 
             foreach ($loanNumbers as $ln) {
-                $curRows  = $snaps->get($curP.'|'.$ln);
+                $curRows = $snaps->get($curP.'|'.$ln);
                 $nextRows = $snaps->get($nextP.'|'.$ln);
-                $cur  = $curRows instanceof \Illuminate\Support\Collection ? $curRows->first() : $curRows;
-                $next = $nextRows instanceof \Illuminate\Support\Collection ? $nextRows->first() : $nextRows;
+                $cur = $curRows instanceof Collection ? $curRows->first() : $curRows;
+                $next = $nextRows instanceof Collection ? $nextRows->first() : $nextRows;
                 if (! $cur || ! $next) {
                     continue;
                 }
                 $from = $this->ratingBucket($cur->quality_rating);
-                $to   = $this->ratingBucket($next->quality_rating);
+                $to = $this->ratingBucket($next->quality_rating);
                 $migration[$from][$to] = ($migration[$from][$to] ?? 0) + 1;
             }
         }
@@ -144,8 +165,8 @@ class PdMigrationController extends BaseCalculationController
             return 0.0;
         }
 
-        // Default state: rating bucket 3,4 = default.
-        $defaultBuckets = [3, 4];
+        // State default: rating 4 (macet), 5, dan WO (tulis-off) — konsisten dengan spec.
+        $defaultBuckets = [4, 5];
         $pd = 0.0;
         $totalFrom = 0;
 
@@ -168,6 +189,7 @@ class PdMigrationController extends BaseCalculationController
     private function ratingBucket(?string $rating): int
     {
         $r = (int) ($rating ?? 1);
+
         return max(1, min(5, $r));
     }
 
@@ -182,8 +204,8 @@ class PdMigrationController extends BaseCalculationController
         $avg = $rows->isEmpty() ? 0.0 : (float) $rows->avg('pd_calculated');
 
         return [
-            'rows'   => $rows,
-            'count'  => $rows->count(),
+            'rows' => $rows,
+            'count' => $rows->count(),
             'avg_pd' => round($avg, 6),
             'method' => 'MIGRATION',
         ];

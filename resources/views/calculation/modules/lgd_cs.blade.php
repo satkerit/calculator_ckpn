@@ -16,7 +16,7 @@
             <p class="text-sm text-gray-600 mt-1">Window: {{ $config['lgd_historical_months'] ?? 60 }} bulan · Sale cost: {{ number_format((float) ($config['sale_cost_percentage'] ?? 0) * 100, 2) }}% · Method: <span class="font-semibold">CS</span></p>
         </div>
         <div class="flex gap-2">
-            <form method="POST" action="{{ $runRoute }}">
+            <form method="POST" action="{{ $runRoute }}" data-progress data-confirm-title="Konfirmasi Hitung LGD CS" data-confirm-message="Proses akan menghitung ulang LGD Collateral Shortfall berbasis data agunan." data-confirm-type="warning" data-confirm-button="Ya, Hitung" data-loading-message="Menghitung LGD Collateral Shortfall…">
                 @csrf
                 <input type="hidden" name="assessment_period_id" value="{{ $period->id }}">
                 <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">▶ Hitung LGD CS</button>
@@ -24,6 +24,17 @@
             <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">⬇ Export XLSX</a>
         </div>
     </div>
+
+    @if (! empty($lgdStale))
+        {{-- Hasil tidak valid: dimensi segmentasi berubah setelah run terakhir --}}
+        <div class="mt-6 p-4 rounded-xl border border-red-200 bg-red-50 flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold shrink-0">⚠</div>
+            <div>
+                <p class="text-sm font-semibold text-red-900">Hasil LGD TIDAK VALID — segmentasi berubah</p>
+                <p class="text-xs text-red-700 mt-1">Dimensi segmentasi berubah setelah perhitungan terakhir sehingga group_key LGD tidak lagi cocok. Klik <strong>Hitung LGD CS</strong> untuk memperbarui sebelum Finalize CKPN.</p>
+            </div>
+        </div>
+    @endif
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
         <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">

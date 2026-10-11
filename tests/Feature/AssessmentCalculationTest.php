@@ -9,11 +9,11 @@ class AssessmentCalculationTest extends TestCase
     public function testRunCalculationSuccessLogic(): void
     {
         $snapshots = [
-            ['loan_number' => 'LN-001', 'outstanding_balance' => 1000000, 'principal_arrears' => 100000, 'product_code' => 'MURA'],
-            ['loan_number' => 'LN-002', 'outstanding_balance' => 2000000, 'principal_arrears' => 50000, 'product_code' => 'MJA'],
-            ['loan_number' => 'LN-003', 'outstanding_balance' => 3000000, 'principal_arrears' => 0, 'product_code' => 'MUSY'],
-            ['loan_number' => 'LN-004', 'outstanding_balance' => 4000000, 'principal_arrears' => 200000, 'product_code' => 'IMBT'],
-            ['loan_number' => 'LN-005', 'outstanding_balance' => 5000000, 'principal_arrears' => 150000, 'product_code' => 'MURA'],
+            ['loan_number' => 'LN-001', 'outstanding_balance' => 1000000, 'principal_arrears' => 100000, 'product_code' => '06'],
+            ['loan_number' => 'LN-002', 'outstanding_balance' => 2000000, 'principal_arrears' => 50000, 'product_code' => '13'],
+            ['loan_number' => 'LN-003', 'outstanding_balance' => 3000000, 'principal_arrears' => 0, 'product_code' => '03'],
+            ['loan_number' => 'LN-004', 'outstanding_balance' => 4000000, 'principal_arrears' => 200000, 'product_code' => '10'],
+            ['loan_number' => 'LN-005', 'outstanding_balance' => 5000000, 'principal_arrears' => 150000, 'product_code' => '06'],
         ];
 
         $this->assertCount(5, $snapshots);

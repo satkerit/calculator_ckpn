@@ -23,7 +23,7 @@
             <div class="flex flex-wrap items-center gap-2">
                 @if (!$hasHistory)
                     {{-- Belum ada riwayat: tombol Hitung PD + matriks disabled --}}
-                    <form method="POST" action="{{ $runRoute }}">
+                    <form method="POST" action="{{ $runRoute }}" data-progress>
                         @csrf
                         <input type="hidden" name="assessment_period_id" value="{{ $period->id }}">
                         <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-colors duration-200">▶ Hitung PD</button>
@@ -41,7 +41,7 @@
                         </button>
                     </template>
                     <template x-if="showData">
-                        <form method="POST" action="{{ $runRoute }}" onsubmit="return confirm('Jalankan ulang perhitungan PD Net Flow untuk periode ini? Hasil sebelumnya akan diganti.');">
+                        <form method="POST" action="{{ $runRoute }}" data-progress data-confirm-title="Konfirmasi Rekalkulasi PD Net Flow" data-confirm-message="Hasil perhitungan sebelumnya akan diganti dengan hasil baru." data-confirm-type="warning" data-confirm-button="Ya, Rekalkulasi" data-loading-message="Menghitung PD Net Flow, mohon tunggu…">
                             @csrf
                             <input type="hidden" name="assessment_period_id" value="{{ $period->id }}">
                             <button type="submit" class="inline-flex items-center px-4 py-2 bg-amber-600 border border-transparent text-white text-sm font-semibold rounded-lg hover:bg-amber-700 shadow-sm transition-colors duration-200">
@@ -55,10 +55,6 @@
                         <svg class="w-4 h-4 mr-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         Semua Matriks Segmentasi
                     </a>
-                    <button type="button" disabled title="Tampilkan data PD terlebih dahulu" x-show="!showData" x-cloak class="inline-flex items-center px-4 py-2 bg-gray-100 border border-gray-200 text-sm font-semibold text-gray-400 rounded-lg cursor-not-allowed">
-                        <svg class="w-4 h-4 mr-1.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        Semua Matriks Segmentasi
-                    </button>
                 @endif
                 <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-sm font-semibold text-gray-700 rounded-lg hover:bg-gray-50 shadow-sm transition-colors duration-200">
                     <svg class="w-4 h-4 mr-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
@@ -66,6 +62,17 @@
                 </a>
             </div>
         </div>
+
+        @if (! empty($pdStale) && $hasHistory)
+            {{-- Hasil tidak valid: konfigurasi (segmentasi/window/metode PD) berubah setelah run terakhir --}}
+            <div class="mt-6 p-4 rounded-xl border border-red-200 bg-red-50 flex items-start gap-3">
+                <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold shrink-0">⚠</div>
+                <div>
+                    <p class="text-sm font-semibold text-red-900">Hasil PD Net Flow TIDAK VALID — konfigurasi berubah</p>
+                    <p class="text-xs text-red-700 mt-1">Segmentasi (kombinasi dimensi), historical window, atau metode PD berubah setelah perhitungan terakhir, sehingga hasil di bawah ini tidak lagi akurat. Klik <strong>Rekalkulasi</strong> untuk memperbarui sebelum melanjutkan ke modul LGD / CKPN.</p>
+                </div>
+            </div>
+        @endif
 
         @if ($hasHistory)
             {{-- Info riwayat tersedia, muncul sebelum data ditampilkan --}}

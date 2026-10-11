@@ -8,10 +8,11 @@ use App\Services\ProductAkadMappingService;
 class EadStrategyFactory
 {
     private static array $strategies = [
-        'MURA' => MurabahahStrategy::class,
-        'MJA' => MultijasaStrategy::class,
-        'MUSY' => MusyarakahStrategy::class,
-        'IMBT' => ImbtStrategy::class,
+        // Kode strategi master akad_types: 06=Murabahah, 13=Multijasa, 03=Musyarakah, 10=IMBT
+        '06' => MurabahahStrategy::class,
+        '13' => MultijasaStrategy::class,
+        '03' => MusyarakahStrategy::class,
+        '10' => ImbtStrategy::class,
     ];
 
     private static array $configCache = [];

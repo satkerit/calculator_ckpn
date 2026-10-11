@@ -4,13 +4,17 @@ namespace App\Http\Controllers\Calculation;
 
 use App\Http\Controllers\Controller;
 use App\Models\AssessmentPeriod;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Helper bersama untuk 8 modul CKPN Calculation.
+ * Helper bersama untuk 9 modul CKPN Calculation.
  *
  * Semua modul eksekusi sinkron (sync < 60 detik) dan menulis hasil ke tabel
  * stage_* yang sama seperti pipeline lama agar report existing tetap jalan.
@@ -19,16 +23,16 @@ abstract class BaseCalculationController extends Controller
 {
     /** Default config bila belum diset user. */
     protected const CONFIG_DEFAULTS = [
-        'pd_method'                => 'NET_FLOW',
-        'lgd_method'               => 'WEIGHTED',
-        'historical_months'        => 36,
-        'lgd_historical_months'    => 60,
-        'sale_cost_percentage'     => 0.05,
-        'segment_dimensions'       => 'OFFICE',
+        'pd_method' => 'NET_FLOW',
+        'lgd_method' => 'WEIGHTED',
+        'historical_months' => 36,
+        'lgd_historical_months' => 60,
+        'sale_cost_percentage' => 0.05,
+        'segment_dimensions' => 'OFFICE',
         // Kriteria CKPN Individual: debitur NPL (kualitas/kolektibilitas 3,4,5)
         // dengan TOP N outstanding terbesar.
-        'individual_top_n'         => 30,
-        'npl_ratings'              => [3, 4, 5],
+        'individual_top_n' => 30,
+        'npl_ratings' => [3, 4, 5],
     ];
 
     /**
@@ -54,10 +58,10 @@ abstract class BaseCalculationController extends Controller
         }
 
         // Normalisasi tipe
-        $config['historical_months']        = (int) $config['historical_months'];
-        $config['lgd_historical_months']    = (int) $config['lgd_historical_months'];
-        $config['sale_cost_percentage']     = (float) $config['sale_cost_percentage'];
-        $config['individual_top_n']         = max(0, (int) $config['individual_top_n']);
+        $config['historical_months'] = (int) $config['historical_months'];
+        $config['lgd_historical_months'] = (int) $config['lgd_historical_months'];
+        $config['sale_cost_percentage'] = (float) $config['sale_cost_percentage'];
+        $config['individual_top_n'] = max(0, (int) $config['individual_top_n']);
 
         // npl_ratings: array kualitas yang dianggap NPL (default 3,4,5).
         $rawRatings = $config['npl_ratings'];
@@ -111,7 +115,7 @@ abstract class BaseCalculationController extends Controller
         }
 
         $values['assessment_period_id'] = $assessmentPeriodId;
-        $values['created_at']           = now();
+        $values['created_at'] = now();
         DB::table('stage_configs')->insert($values);
     }
 
@@ -126,33 +130,47 @@ abstract class BaseCalculationController extends Controller
             return AssessmentPeriod::findOrFail($id);
         }
 
+        // Hanya tampilkan periode terakhir; JANGAN auto-create dummy pada GET
+        // (sebelumnya membuat baris 'DEFAULT' diam-diam hanya dari membuka halaman).
         $period = AssessmentPeriod::orderByDesc('assessment_date')->first();
 
-        return $period ?: $this->createDefaultPeriod();
+        abort_if($period === null, 422, 'Belum ada periode assessment. Buat periode terlebih dahulu.');
+
+        return $period;
     }
 
     /**
-     * Daftar periode untuk dropdown, ensure minimal 1 periode exist.
+     * Daftar periode untuk dropdown. Bila belum ada periode sama sekali,
+     * kembalikan koleksi kosong (view menampilkan state kosong) — tidak lagi
+     * membuat baris 'DEFAULT' diam-diam.
      */
-    protected function periods(): \Illuminate\Support\Collection
+    protected function periods(): Collection
     {
-        $periods = AssessmentPeriod::orderByDesc('assessment_date')->get();
-
-        return $periods->isNotEmpty() ? $periods : collect([$this->createDefaultPeriod()]);
+        return AssessmentPeriod::orderByDesc('assessment_date')->get();
     }
 
-    /** ponytail: dedupe — kedua resolver di atas butuh perilaku "pastikan ada 1 periode". */
-    private function createDefaultPeriod(): AssessmentPeriod
+    /**
+     * Jalankan proses kalkulasi di bawah lock per-periode agar dua user tidak
+     * memproses periode yang sama secara bersamaan (mencegah hasil campuran).
+     *
+     * @template T
+     *
+     * @param  callable():T  $callback
+     * @return T
+     */
+    protected function withRunLock(int $assessmentPeriodId, callable $callback)
     {
-        return AssessmentPeriod::create([
-            'period_code' => 'DEFAULT',
-            'period_name' => 'Default Assessment Period',
-            'fiscal_month' => now()->month,
-            'fiscal_year' => now()->year,
-            'assessment_date' => now()->toDateString(),
-            'status' => 'DRAFT',
-            'created_by' => auth()->id() ?? 1,
-        ]);
+        $lock = Cache::lock("ckpn_run_{$assessmentPeriodId}", 600);
+
+        if (! $lock->block(5)) {
+            abort(423, 'Perhitungan periode ini sedang berjalan oleh proses lain. Coba lagi setelah selesai.');
+        }
+
+        try {
+            return $callback();
+        } finally {
+            optional($lock)->release();
+        }
     }
 
     /**
@@ -180,7 +198,7 @@ abstract class BaseCalculationController extends Controller
         ))));
 
         $allowed = ['OFFICE', 'AKAD', 'USAGE'];
-        $dims    = array_values(array_intersect($dims, $allowed));
+        $dims = array_values(array_intersect($dims, $allowed));
 
         return empty($dims) ? ['OFFICE'] : $dims;
     }
@@ -195,7 +213,7 @@ abstract class BaseCalculationController extends Controller
     protected function buildSegment(array $dims, ?string $office, ?string $akad, ?string $usage): array
     {
         $segments = [];
-        $parts    = [];
+        $parts = [];
 
         foreach (['OFFICE', 'AKAD', 'USAGE'] as $dim) {
             if (! in_array($dim, $dims, true)) {
@@ -204,52 +222,162 @@ abstract class BaseCalculationController extends Controller
 
             $value = match ($dim) {
                 'OFFICE' => $office ?: 'NA',
-                'AKAD'   => $akad ?: 'NA',
-                'USAGE'  => $usage ?: 'NA',
+                'AKAD' => $akad ?: 'NA',
+                'USAGE' => $usage ?: 'NA',
             };
 
             $segments[$dim] = $value;
-            $parts[]        = $value;
+            $parts[] = $value;
         }
 
         return [
             'group_key' => implode('|', $parts),
-            'segments'  => $segments,
+            'segments' => $segments,
         ];
     }
 
     /**
-     * Bersihkan isi satu atau lebih tabel stage untuk periode tertentu.
-     * Aman terhadap tabel yang belum exist (fresh install) dan selalu
-     * ter-scope ke assessment_period_id sehingga tidak menyentuh master data.
+     * Config yang membatalkan hasil kalkulasi saat nilainya berubah.
      *
-     * @param  array<int, string>  $tables
+     * - PD & CKPN Kolektif: dimensi segmentasi (group_key), window historis PD,
+     *   metode PD, dan metode LGD — semuanya langsung memengaruhi nilai per grup.
+     * - LGD: dimensi segmentasi (group_key per grup) + metode LGD yang dipakai
+     *   saat konsolidasi CKPN.
+     */
+    protected const FINGERPRINT_KEYS = [
+        'PD' => ['segment_dimensions', 'historical_months', 'pd_method'],
+        'CKPN' => ['segment_dimensions', 'historical_months', 'pd_method', 'lgd_method'],
+        'LGD' => ['segment_dimensions', 'lgd_method'],
+    ];
+
+    /**
+     * Fingerprint konfigurasi untuk deteksi hasil basi (stale).
+     *
+     * Dimensi disortir + dinormalkan agar urutan pilihan user tidak memengaruhi
+     * hash, dan overrides dapat membawa nilai efektif yang benar-benar dipakai
+     * saat run (mis. dimensi dari request, bukan dari config tersimpan).
+     *
+     * @param  array<string, mixed>  $config
+     * @param  array<int, string>  $keys
+     */
+    protected function fingerprintFrom(array $config, array $keys): string
+    {
+        $parts = [];
+
+        foreach ($keys as $key) {
+            $value = $config[$key] ?? '';
+
+            if ($key === 'segment_dimensions') {
+                $dims = is_array($value) ? $value : preg_split('/[|,]/', (string) $value);
+                $dims = array_values(array_unique(array_filter(array_map(
+                    fn ($d) => strtoupper(trim((string) $d)),
+                    (array) $dims
+                ))));
+                $dims = array_values(array_intersect($dims, ['OFFICE', 'AKAD', 'USAGE']));
+                sort($dims);
+                $value = implode('|', $dims);
+            } elseif ($key === 'historical_months') {
+                $value = (int) $value;
+            } elseif ($key === 'pd_method') {
+                $value = strtoupper((string) $value);
+            }
+
+            $parts[$key] = $value;
+        }
+
+        return sha1((string) json_encode($parts));
+    }
+
+    /**
+     * Tandai bahwa hasil kalkulasi $resultType untuk periode dihitung dengan
+     * konfigurasi saat ini (dipanggil setelah run sukses).
+     *
+     * @param  array<string, mixed>  $overrides  nilai efektif yang dipakai saat run
+     */
+    protected function markResults(int $assessmentPeriodId, string $resultType, array $overrides = []): void
+    {
+        if (! Schema::hasTable('stage_calculation_marks')) {
+            return;
+        }
+
+        $keys = self::FINGERPRINT_KEYS[$resultType] ?? self::FINGERPRINT_KEYS['PD'];
+        $config = array_merge($this->configFor($assessmentPeriodId), $overrides);
+
+        DB::table('stage_calculation_marks')->updateOrInsert(
+            ['assessment_period_id' => $assessmentPeriodId, 'result_type' => $resultType],
+            ['config_fingerprint' => $this->fingerprintFrom($config, $keys), 'updated_at' => now()]
+        );
+    }
+
+    /**
+     * Daftar hasil kalkulasi yang TIDAK VALID karena konfigurasi berubah setelah
+     * dihitung (mis. segmentasi ulang → group_key & hasil PD tidak akurat).
+     *
+     * Hasil yang ada tapi tanpa penanda (data lama / ditulis manual) ikut dianggap
+     * basi — tidak diketahui konfigurasi apa yang dipakai saat dihitung.
+     *
+     * @return array<int, string> subset dari ['PD', 'LGD', 'CKPN']
+     */
+    protected function staleResultTypes(int $assessmentPeriodId): array
+    {
+        $tables = [
+            'PD' => 'stage_pd_results',
+            'LGD' => 'stage_lgd_results',
+            'CKPN' => 'stage_collective_ckpn',
+        ];
+
+        $config = $this->configFor($assessmentPeriodId);
+        $stale = [];
+
+        foreach ($tables as $type => $table) {
+            if (! Schema::hasTable($table)) {
+                continue;
+            }
+
+            $hasResults = DB::table($table)
+                ->where('assessment_period_id', $assessmentPeriodId)
+                ->exists();
+            if (! $hasResults) {
+                continue;
+            }
+
+            $mark = null;
+            if (Schema::hasTable('stage_calculation_marks')) {
+                $mark = DB::table('stage_calculation_marks')
+                    ->where('assessment_period_id', $assessmentPeriodId)
+                    ->where('result_type', $type)
+                    ->value('config_fingerprint');
+            }
+
+            if ($mark !== $this->fingerprintFrom($config, self::FINGERPRINT_KEYS[$type])) {
+                $stale[] = $type;
+            }
+        }
+
+        return $stale;
+    }
+
+    /** Label hasil yang ramah dibaca user (untuk pesan error/banner). */
+    protected function staleResultLabel(string $resultType): string
+    {
+        return match ($resultType) {
+            'PD' => 'PD Net Flow / Migration',
+            'LGD' => 'LGD (ER & CS)',
+            'CKPN' => 'CKPN Kolektif',
+            default => $resultType,
+        };
+    }
+
+    /**
+     * Hapus hasil lama untuk periode (scoped per tabel stage).
      */
     protected function cleanStage(int $assessmentPeriodId, array $tables): void
     {
         foreach ($tables as $table) {
-            if (! Schema::hasTable($table)) {
-                continue;
+            if (Schema::hasTable($table) && Schema::hasColumn($table, 'assessment_period_id')) {
+                DB::table($table)->where('assessment_period_id', $assessmentPeriodId)->delete();
             }
-            DB::table($table)->where('assessment_period_id', $assessmentPeriodId)->delete();
         }
-    }
-
-    /**
-     * Upsert aman ke tabel stage. Cek tabel ada + scope ke period.
-     * Return jumlah baris ter-insert.
-     *
-     * @param  array<int, string>  $uniqueBy
-     * @param  array<int, string>  $updateOnly
-     */
-    protected function safeUpsert(string $table, array $rows, array $uniqueBy, array $updateOnly = []): int
-    {
-        if (! Schema::hasTable($table) || empty($rows)) {
-            return 0;
-        }
-        DB::table($table)->upsert($rows, $uniqueBy, $updateOnly);
-
-        return count($rows);
     }
 
     /**
@@ -276,24 +404,36 @@ abstract class BaseCalculationController extends Controller
         }
 
         DB::table('audit_logs')->insert([
-            'user_id'      => auth()->id(),
-            'agent_name'   => $module,
-            'action'       => $action,
-            'module'       => 'CKPN_CALCULATION',
-            'record_type'  => $module,
-            'record_id'    => $assessmentPeriodId,
-            'new_value'    => json_encode($detail),
-            'created_at'   => now(),
-            'updated_at'   => now(),
+            'user_id' => auth()->id(),
+            'agent_name' => $module,
+            'action' => $action,
+            'module' => 'CKPN_CALCULATION',
+            'record_type' => $module,
+            'record_id' => $assessmentPeriodId,
+            'new_value' => json_encode($detail),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
     }
 
     /**
      * Redirect kembali ke halaman modul dengan flash result.
+     * Mode progress (fetch + polling): balas JSON target redirect agar flash
+     * session tidak ikut terkonsumsi oleh permintaan fetch.
      */
-    protected function backTo(Request $request, string $route, array $result, ?string $error = null): RedirectResponse
+    protected function backTo(Request $request, string $route, array $result, ?string $error = null): RedirectResponse|JsonResponse
     {
         $redirect = redirect()->route($route, $request->input('assessment_period_id'));
+
+        if ($request->filled('progress_token')) {
+            if ($error) {
+                // Mode progress: tanggapi JSON penanda error agar frontend dapat
+                // menghentikan animasi & menampilkan pesan kesalahan.
+                return response()->json(['error' => $error]);
+            }
+
+            return response()->json(['redirect' => $redirect->with('success', $this->formatSummary($result))->with('result', $result)->getTargetUrl()]);
+        }
 
         if ($error) {
             return $redirect->with('error', $error);
@@ -310,18 +450,18 @@ abstract class BaseCalculationController extends Controller
      *
      * @param  array<int, string>|null  $dims
      */
-    protected function loadCollectiveGroups(int $periodId, ?array $dims = null): \Illuminate\Support\Collection
+    protected function loadCollectiveGroups(int $periodId, ?array $dims = null): Collection
     {
         $dims = empty($dims) ? ['OFFICE', 'AKAD', 'USAGE'] : $dims;
 
         $columns = ['OFFICE' => 'office_code', 'AKAD' => 'akad_code', 'USAGE' => 'usage_code'];
-        $select  = [];
-        $group   = [];
+        $select = [];
+        $group = [];
 
         foreach ($columns as $dim => $column) {
             if (in_array($dim, $dims, true)) {
                 $select[] = "COALESCE({$column}, 'NA') as {$column}";
-                $group[]  = "COALESCE({$column}, 'NA')";
+                $group[] = "COALESCE({$column}, 'NA')";
             } else {
                 $select[] = "'NA' as {$column}";
             }
@@ -330,7 +470,7 @@ abstract class BaseCalculationController extends Controller
         return DB::table('stage_classifications')
             ->where('assessment_period_id', $periodId)
             ->where('classification', 'COLLECTIVE')
-            ->selectRaw(implode(', ', $select) . ', COUNT(*) as member_count')
+            ->selectRaw(implode(', ', $select).', COUNT(*) as member_count')
             ->groupByRaw(implode(', ', $group))
             ->get();
     }
@@ -351,9 +491,83 @@ abstract class BaseCalculationController extends Controller
             if (is_array($value) || is_bool($value)) {
                 continue;
             }
-            $parts[] = str_replace('_', ' ', $key) . ': ' . $value;
+            $parts[] = str_replace('_', ' ', $key).': '.$value;
         }
 
         return $parts ? implode(' · ', $parts) : 'Selesai.';
+    }
+
+    /**
+     * Ambil token progress valid dari request (opsional; no-op bila tidak ada).
+     */
+    protected function progressToken(Request $request): ?string
+    {
+        $token = (string) $request->input('progress_token', '');
+
+        return preg_match('/^[A-Za-z0-9_.\-]{8,80}$/', $token) ? $token : null;
+    }
+
+    /**
+     * Store cache khusus progress realtime.
+     *
+     * WAJIB non-database: progress sering ditulis dari DALAM DB::transaction()
+     * (mis. loop matriks PD). Bila memakai store `database`, baris cache belum
+     * ter-commit sehingga request polling dari koneksi lain tidak melihatnya —
+     * animasi baru bergerak setelah transaksi selesai. Store `file` bebas dari
+     * batasan transaksi sehingga persentase tampil bertahap.
+     */
+    protected function progressStore(): string
+    {
+        return (string) config('calculation.progress_store', 'file');
+    }
+
+    /**
+     * Progress realtime untuk form berat: dipush ke Cache (store file),
+     * dibaca frontend via endpoint polling calculation.progress.
+     *
+     * @param  string|array<string, mixed>  $step  Label langkah, atau array {current,total,label}
+     */
+    protected function pushProgress(?string $token, string $message, float $percentage, $step = null): void
+    {
+        if ($token === null) {
+            return;
+        }
+
+        $store = Cache::store($this->progressStore());
+
+        // Throttle: minimal 0.8 detik ATAU kenaikan >= 2 poin, agar tidak membanjiri
+        // write cache. Status 100/0 dan pesan berubah tetap lolos.
+        if (! app()->runningUnitTests()) {
+            $prev = $store->get("ckpn_progress_{$token}");
+            if (is_array($prev)) {
+                $elapsed = now()->diffInMilliseconds(Carbon::parse($prev['updated_at']));
+                $delta = abs($percentage - (float) ($prev['percentage'] ?? 0));
+                $sameMsg = ($prev['message'] ?? null) === $message;
+                if ($elapsed < 800 && $delta < 2 && $percentage < 100 && $sameMsg) {
+                    return;
+                }
+            }
+        }
+
+        $store->put("ckpn_progress_{$token}", [
+            'message' => $message,
+            'percentage' => max(0.0, min(100.0, $percentage)),
+            'step' => is_array($step) ? ($step['label'] ?? null) : $step,
+            'current' => is_array($step) ? ($step['current'] ?? null) : null,
+            'total' => is_array($step) ? ($step['total'] ?? null) : null,
+            'updated_at' => now()->toDateTimeString(),
+        ], now()->addMinutes(15));
+
+        // Selesai → singkat TTL agar cache tidak menumpuk baris mati.
+        if ($percentage >= 100) {
+            $store->put("ckpn_progress_{$token}", [
+                'message' => $message,
+                'percentage' => 100.0,
+                'step' => is_array($step) ? ($step['label'] ?? null) : $step,
+                'current' => is_array($step) ? ($step['current'] ?? null) : null,
+                'total' => is_array($step) ? ($step['total'] ?? null) : null,
+                'updated_at' => now()->toDateTimeString(),
+            ], now()->addMinutes(1));
+        }
     }
 }

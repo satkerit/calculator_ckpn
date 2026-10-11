@@ -17,8 +17,6 @@ class PdNetflowDetailController
 
     public function show(Request $request, int $assessmentPeriod)
     {
-        $groupKey = $request->query('group_key');
-
         // Guard: matriks segmentasi hanya bisa diakses bila sudah ada
         // riwayat perhitungan PD Net Flow pada periode ini.
         $hasPd = DB::table('stage_pd_results')
@@ -73,7 +71,6 @@ class PdNetflowDetailController
         }
 
         return view('calculation.pd_netflow_detail', [
-            'groupKey' => $groupKey,
             'availableGroups' => $availableGroups,
             'allData' => $allData,
             'service' => $this->service,

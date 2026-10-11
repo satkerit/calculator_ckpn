@@ -17,9 +17,7 @@ class DetailPdEadController extends BaseCalculationController
 {
     public function index(Request $request): View
     {
-        $period  = $this->resolvePeriod($request);
-        $periods = $this->periods();
-        $config  = $this->configFor($period->id);
+        $period = $this->resolvePeriod($request);
 
         $eadBucket    = $this->eadPerBucket($period->id);
         $pdResults   = $this->pdResults($period->id);
@@ -28,8 +26,6 @@ class DetailPdEadController extends BaseCalculationController
 
         return view('calculation.modules.detail_pd_ead', compact(
             'period',
-            'periods',
-            'config',
             'eadBucket',
             'pdResults',
             'classificationCount',
@@ -88,10 +84,25 @@ class DetailPdEadController extends BaseCalculationController
 
     private function loanDetail(int $periodId): \Illuminate\Support\Collection
     {
+        // group_key PD dibangun dari dimensi segmentasi aktif (OFFICE/AKAD/USAGE) —
+        // join harus memakai ekspresi yang sama, bukan selalu 3 dimensi.
+        $dims = $this->configFor($periodId)['segment_dimensions'];
+        $colMap = ['OFFICE' => 'sc.office_code', 'AKAD' => 'sc.akad_code', 'USAGE' => 'sc.usage_code'];
+        $parts = [];
+        foreach (['OFFICE', 'AKAD', 'USAGE'] as $dim) {
+            if (in_array($dim, $dims, true)) {
+                $parts[] = "IFNULL({$colMap[$dim]}, 'NA')";
+            }
+        }
+        $groupKeyExpr = $parts === [] ? "'NA'" : "CONCAT_WS('|', ".implode(', ', $parts).")";
+
+        $pdMethod = $this->configFor($periodId)['pd_method'];
+
         return DB::table('stage_classifications as sc')
-            ->leftJoin('stage_pd_results as pd', function ($j) use ($periodId) {
-                $j->on(DB::raw("CONCAT_WS('|', sc.office_code, sc.akad_code, sc.usage_code)"), '=', 'pd.group_key')
-                  ->where('pd.assessment_period_id', '=', $periodId);
+            ->leftJoin('stage_pd_results as pd', function ($j) use ($periodId, $groupKeyExpr, $pdMethod) {
+                $j->on(DB::raw($groupKeyExpr), '=', 'pd.group_key')
+                  ->where('pd.assessment_period_id', '=', $periodId)
+                  ->where('pd.method', '=', $pdMethod);
             })
             ->where('sc.assessment_period_id', $periodId)
             ->orderBy('sc.classification')

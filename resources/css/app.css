@@ -1,3 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Alpine.js: sembunyikan elemen x-cloak sampai Alpine selesai init
+   (mencegah flash elemen yang visibility-nya dikontrol x-show). */
+[x-cloak] { display: none !important; }

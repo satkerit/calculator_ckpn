@@ -271,8 +271,7 @@
         </div>
     </div>
 
-    <!-- Confirmation Dialog Component -->
-    @include('components.confirm-dialog')
+    @include('components.sweetalert-global')
 
     <script>
         // Add active class to current route

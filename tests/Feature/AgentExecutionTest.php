@@ -9,19 +9,19 @@ class AgentExecutionTest extends TestCase
     public function testDataValidationAgent(): void
     {
         $validSnapshots = [
-            ['loan_number' => 'LN-001', 'office_code' => 'KC001', 'product_code' => 'MURA'],
-            ['loan_number' => 'LN-002', 'office_code' => 'KC002', 'product_code' => 'MJA'],
-            ['loan_number' => 'LN-003', 'office_code' => 'KC001', 'product_code' => 'MUSY'],
-            ['loan_number' => 'LN-004', 'office_code' => 'KPU', 'product_code' => 'IMBT'],
-            ['loan_number' => 'LN-005', 'office_code' => 'KC002', 'product_code' => 'MURA'],
-            ['loan_number' => 'LN-006', 'office_code' => 'KC001', 'product_code' => 'MJA'],
-            ['loan_number' => 'LN-007', 'office_code' => 'KPU', 'product_code' => 'MUSY'],
-            ['loan_number' => 'LN-008', 'office_code' => 'KC002', 'product_code' => 'IMBT'],
+            ['loan_number' => 'LN-001', 'office_code' => 'KC001', 'product_code' => '06'],
+            ['loan_number' => 'LN-002', 'office_code' => 'KC002', 'product_code' => '13'],
+            ['loan_number' => 'LN-003', 'office_code' => 'KC001', 'product_code' => '03'],
+            ['loan_number' => 'LN-004', 'office_code' => 'KPU', 'product_code' => '10'],
+            ['loan_number' => 'LN-005', 'office_code' => 'KC002', 'product_code' => '06'],
+            ['loan_number' => 'LN-006', 'office_code' => 'KC001', 'product_code' => '13'],
+            ['loan_number' => 'LN-007', 'office_code' => 'KPU', 'product_code' => '03'],
+            ['loan_number' => 'LN-008', 'office_code' => 'KC002', 'product_code' => '10'],
         ];
 
         $invalidSnapshots = [
-            ['loan_number' => 'LN-009', 'office_code' => null, 'product_code' => 'MURA'],
-            ['loan_number' => 'LN-010', 'office_code' => null, 'product_code' => 'MJA'],
+            ['loan_number' => 'LN-009', 'office_code' => null, 'product_code' => '06'],
+            ['loan_number' => 'LN-010', 'office_code' => null, 'product_code' => '13'],
         ];
 
         $validCount = count($validSnapshots);
@@ -40,7 +40,7 @@ class AgentExecutionTest extends TestCase
     {
         $snapshot = [
             'loan_number' => 'LN-001',
-            'product_code' => 'MURA',
+            'product_code' => '06',
             'outstanding_balance' => 1000000,
             'principal_arrears' => 100000,
         ];

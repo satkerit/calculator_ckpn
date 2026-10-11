@@ -8,7 +8,7 @@
 > setiap kali ada perubahan arsitektur, tabel, konvensi, atau keputusan desain.
 > Hapus/rapikan bagian yang sudah basi.
 
-**Terakhir diperbarui:** 10 Oktober 2026  
+**Terakhir diperbarui:** 11 Oktober 2026  
 **Kondisi:** working tree ada perubahan belum di-commit (lihat §9)
 
 ---
@@ -101,6 +101,7 @@ LGD ER + LGD CS → Detail PD-EAD → Detail CKPN (Finalize).
 | `resolvePeriod()` / `periods()` | resolve periode dari request; **auto-create periode `DEFAULT`** bila kosong |
 | `segmentDimensions()` / `buildSegment()` | dimensi segmentasi → `group_key` |
 | `cleanStage()` / `safeInsert()` / `safeUpsert()` | tulis stage — selalu cek `Schema::hasTable()` dulu (aman di test/fresh install) |
+| `markResults()` / `staleResultTypes()` / `fingerprintFrom()` | deteksi hasil basi: setiap run menulis fingerprint config ke `stage_calculation_marks`; config berubah → hasil PD/LGD/CKPN “TIDAK VALID” + Finalize diblokir |
 | `audit()` | tulis `audit_logs` (no-op bila tabel tidak ada) |
 | `backTo()` / `formatSummary()` | redirect + flash ringkasan |
 | `loadCollectiveGroups()` / `collectiveGroupKey()` | grup kolektif dari `stage_classifications` |
@@ -139,7 +140,8 @@ Kolom: `loan_number`, `product_code`, `office_code`, `usage_type`, `tglwo`,
 `stage_ead_buckets`, `stage_segmented_snapshots`, `stage_historical_buckets`,
 `stage_migration_rates`, `stage_compound_flow`, `stage_collective_ckpn`,
 `stage_lgd_results` + `pd_netflow_bucket_snapshots`, `pd_netflow_transitions`,
-`pd_netflow_compound_flows`.
+`pd_netflow_compound_flows` + `stage_calculation_marks` (penanda fingerprint config
+per `result_type`: PD | LGD | CKPN — lihat §10, 11 Okt).
 
 Daftar resmi juga dicek di `tests/Feature/ModularCalculationTest.php`
 ("stage table list covers all calculation outputs") — **tambah tabel stage ⇒ update test itu**.
@@ -248,6 +250,23 @@ di `tests/` lalu `php artisan test`.
 ## 10. Log Perubahan (append-only)
 
 > Tambah entri terbaru di **atas**. Format: `### YYYY-MM-DD — ringkasan`.
+
+### 2026-10-11 — Invalidasi hasil kalkulasi saat konfigurasi berubah
+Perubahan konfigurasi (segmentasi / historical window / metode PD) kini membatalkan
+hasil kalkulasi lama: setiap run menulis **fingerprint** config ke tabel baru
+`stage_calculation_marks` (`result_type` = PD | LGD | CKPN).
+
+- Pemicu: segmentasi + window PD + metode PD membatalkan **PD & CKPN Kolektif**;
+  hanya segmentasi yang membatalkan **LGD**.
+- Hasil tanpa penanda (data lama) dianggap basi → wajib hitung ulang sekali.
+- Banner merah “TIDAK VALID” di halaman PD Netflow, PD Migration, LGD ER/CS, Detail CKPN;
+  Finalize CKPN **diblokir** bila PD/LGD basi (`DetailCkpnController::finalize`).
+- Finalize kini juga mensyaratkan `stage_pd_results` sesuai `pd_method` aktif.
+- Config save (`ConfigurationController`) memberi tahu hasil mana yang jadi tidak valid +
+  audit `CONFIG/INVALIDATE_RESULTS`.
+- Helper baru di `BaseCalculationController`: `fingerprintFrom()`, `markResults()`,
+  `staleResultTypes()`, `staleResultLabel()`.
+- Test: `tests/Feature/CalculationConfigInvalidationTest.php` (9 tes, RefreshDatabase).
 
 ### 2026-10-10 — Pembuatan MEMORY.md
 File context ringkas ini dibuat agar perubahan/penambahan berikutnya cukup membaca

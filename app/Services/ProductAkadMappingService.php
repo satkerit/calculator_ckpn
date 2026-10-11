@@ -17,7 +17,14 @@ class ProductAkadMappingService
     public static function resolveAkadCode(string $productCode): string
     {
         $mappings = self::getMappings();
-        return $mappings[$productCode] ?? 'MURA';
+        if (!array_key_exists($productCode, $mappings)) {
+            // Fallback ke Murabahah ('06') HARUS tercatat agar EAD tidak salah tanpa jejak.
+            \Illuminate\Support\Facades\Log::warning('ProductAkadMapping: fallback ke default Murabahah (06)', [
+                'product_code' => $productCode,
+            ]);
+        }
+
+        return $mappings[$productCode] ?? '06'; // default: Murabahah
     }
 
     /**
@@ -26,6 +33,13 @@ class ProductAkadMappingService
     public static function resolveEadRuleType(string $productCode): string
     {
         $ruleTypes = self::getEadRuleTypes();
+        if (!array_key_exists($productCode, $ruleTypes)) {
+            // Fallback ke rule MURABAHAH HARUS tercatat agar EAD tidak salah tanpa jejak.
+            \Illuminate\Support\Facades\Log::warning('ProductAkadMapping: fallback EAD rule ke default MURABAHAH', [
+                'product_code' => $productCode,
+            ]);
+        }
+
         return $ruleTypes[$productCode] ?? 'MURABAHAH';
     }
 

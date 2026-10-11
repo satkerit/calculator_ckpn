@@ -14,7 +14,7 @@ class SnapshotFactory extends Factory
     {
         return [
             'loan_number' => 'LN-' . substr($this->faker->unique()->uuid(), 0, 8),
-            'product_code' => $this->faker->randomElement(['MURA', 'MJA', 'MUSY', 'IMBT']),
+            'product_code' => $this->faker->randomElement(['03', '06', '10', '13']),
             'office_code' => $this->faker->randomElement(['KC001', 'KC002', 'KPU']),
             'effective_date' => $this->faker->dateTimeBetween('-2 years')->format('Y-m-d'),
             'expired_date' => $this->faker->dateTimeBetween('+1 year', '+5 years')->format('Y-m-d'),

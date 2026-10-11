@@ -19,6 +19,18 @@ class PdNetflowCalculator
      */
     public function calculate(int $assessmentPeriodId, string $groupKey): void
     {
+        // Seluruh hitung + tulis dibungkus SATU transaksi: bila gagal di tengah,
+        // tidak menyisakan stage parsial (bucket_snapshots / transitions / compound_flows).
+        DB::transaction(function () use ($assessmentPeriodId, $groupKey) {
+            $this->doCalculate($assessmentPeriodId, $groupKey);
+        });
+    }
+
+    /**
+     * Implementasi kalkulasi aktual (dipanggil dalam transaksi oleh calculate()).
+     */
+    private function doCalculate(int $assessmentPeriodId, string $groupKey): void
+    {
         $parts = explode('|', $groupKey);
         
         // Dynamic assignment based on length or standard 3-part fallback
@@ -38,19 +50,21 @@ class PdNetflowCalculator
         // 0. Re-assign bucket_no snapshot window agar konsisten dgn skema bucket aktif
         $this->updateMissingBuckets($officeCode, $akadCode, $usageCode, $historicalMonths, $assessmentDate);
 
-        // 1. Load snapshot historis untuk group ini
+        // 1. Load snapshot historis untuk group ini (streaming — tidak memuat seluruh baris)
         // Tabel 1 window: (N-H-1) .. (N-1) — butuh P-1 dan P per transisi
-        $snapshots = $this->loadHistoricalSnapshots($officeCode, $akadCode, $usageCode, $historicalMonths, $assessmentDate);
+        $agg = $this->aggregateSnapshots(
+            $this->loadHistoricalSnapshots($officeCode, $akadCode, $usageCode, $historicalMonths, $assessmentDate)
+        );
 
-        if ($snapshots->isEmpty()) {
+        if ($agg['empty']) {
             return;
         }
 
         // 2. Hitung Tabel 1: Min. Bucket (outstanding per bucket per periode)
-        $this->calculateBucketSnapshots($assessmentPeriodId, $groupKey, $snapshots);
+        $this->calculateBucketSnapshots($assessmentPeriodId, $groupKey, $agg['bucket_outstanding'], $agg['counts']);
 
         // 3. Hitung Tabel 2: Perpindahan Bucket (historis dari Tabel 1 + proyeksi rolling avg 6 bln)
-        $this->calculateTransitions($assessmentPeriodId, $groupKey, $snapshots, $historicalMonths, $assessmentDate);
+        $this->calculateTransitions($assessmentPeriodId, $groupKey, $agg['bucket_outstanding'], $agg['periods'], $historicalMonths, $assessmentDate);
 
         // 4. Hitung Tabel 3: Compound Flow to Loss (PD compound dari Tabel 2, + kolom PD Rate)
         $this->calculateCompoundFlows($assessmentPeriodId, $groupKey);
@@ -196,7 +210,7 @@ class PdNetflowCalculator
             $this->tableOneEndYm($assessmentDate),
         );
         if (empty($windowPeriods)) {
-            return collect();
+            return null;
         }
 
         $query = DB::table('snapshot')
@@ -209,22 +223,56 @@ class PdNetflowCalculator
         if ($usageCode !== 'NA') $query->where('usage_type', $usageCode);
 
         return $query->orderBy('periode_snapshot')
-            ->orderBy('loan_number')
-            ->get(['loan_number', 'periode_snapshot', 'outstanding_balance', 'bucket_no', 'principal_arrears']);
+            ->orderBy('loan_number');
+    }
+
+    /**
+     * Stream snapshot historis (cursor) → agregasi memori ringkas.
+     * Semantik identik dgn versi ->get() lama (group by periode_bucket, sum outstanding,
+     * count rekening, daftar periode unik terurut) tanpa memuat seluruh baris ke memori.
+     *
+     * @return array{bucket_outstanding: array<string, float>, counts: array<string, int>, periods: list<string>, empty: bool}
+     */
+    private function aggregateSnapshots($query): array
+    {
+        if ($query === null) {
+            return ['bucket_outstanding' => [], 'counts' => [], 'periods' => [], 'empty' => true];
+        }
+
+        $bucketOutstanding = []; // "periode_bucket" => sum outstanding
+        $counts = [];            // "periode_bucket" => count rekening
+        $periods = [];           // daftar periode_snapshot unik
+
+        foreach ($query->cursor() as $s) {
+            $key = $s->periode_snapshot . '_' . $s->bucket_no;
+            $bucketOutstanding[$key] = ($bucketOutstanding[$key] ?? 0) + (float) $s->outstanding_balance;
+            $counts[$key] = ($counts[$key] ?? 0) + 1;
+            if (! in_array($s->periode_snapshot, $periods, true)) {
+                $periods[] = $s->periode_snapshot;
+            }
+        }
+
+        // Samakan dgn sort() koleksi lama (nilai string YYYYMM sama panjang).
+        sort($periods);
+
+        return [
+            'bucket_outstanding' => $bucketOutstanding,
+            'counts'             => $counts,
+            'periods'            => $periods,
+            'empty'              => $counts === [],
+        ];
     }
 
     /**
      * Tabel 1: Calculate outstanding per bucket per periode
      */
-    private function calculateBucketSnapshots(int $periodId, string $groupKey, $snapshots): void
+    private function calculateBucketSnapshots(int $periodId, string $groupKey, array $bucketOutstanding, array $counts): void
     {
-        $grouped = $snapshots->groupBy(fn($s) => $s->periode_snapshot . '_' . $s->bucket_no);
-
         $batch = [];
         $now = now();
-        foreach ($grouped as $key => $group) {
+        foreach ($bucketOutstanding as $key => $outstanding) {
             [$periode, $bucketNo] = explode('_', $key);
-            
+
             // Format YYYYMM to YYYY-MM-DD for date column (normalize format campuran)
             $date = Carbon::createFromFormat('Ym', $this->normalizePeriode($periode))->endOfMonth()->toDateString();
 
@@ -233,8 +281,8 @@ class PdNetflowCalculator
                 'group_key' => $groupKey,
                 'bucket_no' => (int) $bucketNo,
                 'periode_snapshot' => $date,
-                'outstanding_balance' => $group->sum('outstanding_balance'),
-                'account_count' => $group->count(),
+                'outstanding_balance' => $outstanding,
+                'account_count' => $counts[$key] ?? 0,
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
@@ -258,14 +306,8 @@ class PdNetflowCalculator
      * Periode proyeksi N..(N+K-1): rata-rata bergerak dari ROLLING_AVG_MONTHS
      * bulan terakhir Tabel 2 itu sendiri (bukan dari snapshot).
      */
-    private function calculateTransitions(int $periodId, string $groupKey, $snapshots, int $historicalMonths, Carbon $assessmentDate): void
+    private function calculateTransitions(int $periodId, string $groupKey, array $bucketOutstanding, array $periods, int $historicalMonths, Carbon $assessmentDate): void
     {
-        // Outstanding per bucket per periode — sumber data: Tabel 1 yang sudah dihitung
-        $bucketOutstanding = $snapshots->groupBy(fn($s) => $s->periode_snapshot . '_' . $s->bucket_no)
-            ->map(fn($g) => $g->sum('outstanding_balance'));
-
-        $periods = $snapshots->pluck('periode_snapshot')->unique()->sort()->values();
-
         // Window historis Tabel 2: (N-H) .. (N-1)
         $histStartYm = $assessmentDate->copy()->subMonths($historicalMonths)->format('Ym');
         $histEndYm = $this->tableOneEndYm($assessmentDate);
@@ -315,7 +357,8 @@ class PdNetflowCalculator
 
             for ($fromBucket = 1; $fromBucket <= 13; $fromBucket++) {
                 $lastRates = array_slice(array_values($rates[$fromBucket] ?? []), -self::ROLLING_AVG_MONTHS);
-                $rate = !empty($lastRates) ? array_sum($lastRates) / count($lastRates) : 0.0;
+                // Guard division by zero: bila belum ada rate historis, proyeksi = 0.
+                $rate = count($lastRates) > 0 ? array_sum($lastRates) / count($lastRates) : 0.0;
                 $rates[$fromBucket][$ym] = $rate;
 
                 $batch[] = [

@@ -18,7 +18,7 @@
             <p class="text-xs text-gray-500 mt-1">Kriteria Individual: <span class="font-semibold">NPL (kualitas/kolektibilitas {{ implode(', ', $config['npl_ratings'] ?? [3,4,5]) }})</span> diambil <span class="font-semibold">TOP {{ $config['individual_top_n'] ?? 20 }}</span> outstanding terbesar.</p>
         </div>
         <div class="flex gap-2">
-            <form method="POST" action="{{ $runRoute }}">
+            <form method="POST" action="{{ $runRoute }}" data-progress data-confirm-title="Konfirmasi Klasifikasi & Segmentasi" data-confirm-message="Proses akan mengklasifikasi ulang seluruh debitur periode ini menjadi Individual/Kolektif beserta segmentasinya." data-confirm-type="warning" data-confirm-button="Ya, Jalankan" data-loading-message="Menjalankan klasifikasi & segmentasi…">
                 @csrf
                 <input type="hidden" name="assessment_period_id" value="{{ $period->id }}">
                 @foreach ($dimList as $d)

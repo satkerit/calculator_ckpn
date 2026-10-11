@@ -20,7 +20,6 @@ class PdNetflowService
         $compounds = $this->loadCompoundFlows($assessmentPeriodId, $groupKey);
 
         return [
-            'group_key' => $groupKey,
             'buckets' => $buckets,
             'transitions' => $transitions,
             'compounds' => $compounds,
@@ -49,7 +48,6 @@ class PdNetflowService
                 'bucket_no' => $bucketNo,
                 'hari_tunggakan' => $this->getBucketLabel($bucketNo),
                 'periods' => $bucketRows->pluck('outstanding_balance', 'periode_snapshot')->toArray(),
-                'account_counts' => $bucketRows->pluck('account_count', 'periode_snapshot')->toArray(),
             ];
         }
 
@@ -109,9 +107,8 @@ class PdNetflowService
                 'source_bucket' => $sourceBucket,
                 'label' => $this->getBucketLabel($sourceBucket),
                 'periods' => $periods,
-                'flow_paths' => $compoundRows->pluck('flow_path', 'periode')->toArray(),
-                // Kolom terakhir: rata-rata PD compound per bucket (PD Rate)
-                'pd_rate' => !empty($periods) ? array_sum($periods) / count($periods) : 0.0,
+                // Kolom terakhir: PD Rate per bucket = MIN(100%, AVERAGE PD compound semua periode).
+                'pd_rate' => !empty($periods) ? min(1.0, array_sum($periods) / count($periods)) : 0.0,
             ];
         }
 

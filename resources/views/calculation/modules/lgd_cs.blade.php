@@ -7,13 +7,14 @@
 @php
     $runRoute    = route('calculation.module.lgd_cs.run');
     $exportRoute = route('calculation.export.module.period', ['module' => 'lgd-cs', 'assessmentPeriod' => $period->id]);
+    $detailRoute = route('calculation.module.lgd_detail', ['method' => 'CS', 'assessment_period_id' => $period->id]);
 @endphp
 
 <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
     <div class="flex items-start justify-between gap-4">
         <div>
-            <h2 class="text-base font-bold text-gray-900">LGD Collateral Shortfall (Shortfall Agunan Write-Off)</h2>
-            <p class="text-sm text-gray-600 mt-1">Window: {{ $config['lgd_historical_months'] ?? 60 }} bulan · Sale cost: {{ number_format((float) ($config['sale_cost_percentage'] ?? 0) * 100, 2) }}% · Method: <span class="font-semibold">CS</span></p>
+            <h2 class="text-base font-bold text-gray-900">LGD Collateral Shortfall (Shortfall Agunan)</h2>
+            <p class="text-sm text-gray-600 mt-1">Populasi: kualitas 5 / write-off aktif · Sale cost: {{ number_format((float) ($config['sale_cost_percentage'] ?? 0) * 100, 2) }}% · Method: <span class="font-semibold">CS</span></p>
         </div>
         <div class="flex gap-2">
             <form method="POST" action="{{ $runRoute }}" data-progress data-confirm-title="Konfirmasi Hitung LGD CS" data-confirm-message="Proses akan menghitung ulang LGD Collateral Shortfall berbasis data agunan." data-confirm-type="warning" data-confirm-button="Ya, Hitung" data-loading-message="Menghitung LGD Collateral Shortfall…">
@@ -21,6 +22,7 @@
                 <input type="hidden" name="assessment_period_id" value="{{ $period->id }}">
                 <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">▶ Hitung LGD CS</button>
             </form>
+            <a href="{{ $detailRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">🔍 Detail Debitur</a>
             <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">⬇ Export XLSX</a>
         </div>
     </div>

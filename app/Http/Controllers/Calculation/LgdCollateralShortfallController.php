@@ -37,8 +37,7 @@ class LgdCollateralShortfallController extends BaseCalculationController
         return $this->withRunLock($period->id, fn () => DB::transaction(function () use ($request, $period) {
             $config = $this->configFor($period->id);
             $dims = $this->segmentDimensions($request, $period->id);
-            // Kertas kerja: window LGD 5 tahun (60 bulan) dari data snapshot.
-            $histM = (int) ($config['lgd_historical_months'] ?? 60);
+            // Kertas kerja CS: haircut/biaya penjualan atas nilai agunan.
             $saleCost = (float) $config['sale_cost_percentage'];
             $assessmentDate = $period->assessment_date;
 
@@ -48,52 +47,62 @@ class LgdCollateralShortfallController extends BaseCalculationController
                 ->delete();
 
             $token = $this->progressToken($request);
-            $this->pushProgress($token, 'Memuat data write-off & agunan historis…', 5);
+            $this->pushProgress($token, 'Memuat data kualitas 5 / WO aktif & agunan…', 5);
 
             $groups = $this->loadCollectiveGroups($period->id, $dims);
             if ($groups->isEmpty()) {
                 return $this->backTo($request, 'calculation.module.lgd_cs', [], 'Belum ada klasifikasi COLLECTIVE.');
             }
 
-            // Window write-off: (N-60)..N, dihitung dari periode snapshot (yyyymm).
+            // Periode assessment (yyyymm).
             $assessYm = $assessmentDate->format('Ym');
-            $startYm = $assessmentDate->copy()->subMonths($histM)->format('Ym');
 
-            // Kertas kerja: write-off dengan tglwo di dalam rentang 5 tahun.
-            // Exposure = outstanding terakhir saat WO; kolateral dijoin per loan untuk net recovery.
-            $windowLoans = DB::table('snapshot')
-                ->where('write_off_flag', 1)
-                ->whereNotNull('tglwo')->where('tglwo', '<>', '')
-                // tglwo string 'yyyymmdd' → perbandingan rentang string (leksikografis, tetap ter-index).
-                ->where('tglwo', '>=', $startYm.'01')
-                ->where('tglwo', '<=', $assessYm.'31')
-                ->distinct()
-                ->pluck('loan_number');
+            // Populasi CS: pembiayaan kualitas 5 (kolektibilitas macet) ATAU
+            // berstatus write-off, yang MASIH AKTIF pada periode assessment,
+            // DAN penyelesaian via eksekusi jaminan → WAJIB punya jaminan aktif.
+            // Debitur tanpa jaminan otomatis dikecualikan (menjadi populasi LGD ER).
+            // Baki debet = outstanding terakhir (posisi periode assessment).
+            // quality_rating tersimpan sebagai string → dikonversi ke int.
+            $csRows = DB::table('snapshot')
+                ->where('periode_snapshot', $assessYm)
+                ->where('active_flag', 1)
+                ->where(function ($q) {
+                    $q->where('write_off_flag', 1)
+                        ->orWhereRaw('CAST(quality_rating AS UNSIGNED) = 5');
+                })
+                ->get(['loan_number', 'outstanding_balance', 'office_code', 'product_code', 'usage_type', 'financing_contract_code'])
+                ->keyBy('loan_number');
 
-            $this->pushProgress($token, 'Memuat data write-off & agunan historis…', 20);
+            $this->pushProgress($token, 'Memuat data baki debet & agunan...', 20);
 
             $byGroup = [];
 
-            if ($windowLoans->isNotEmpty()) {
-                // Outstanding terakhir saat write-off + atribut segmen, per loan.
-                $woRows = DB::table('snapshot')
-                    ->whereIn('loan_number', $windowLoans)
-                    ->where('write_off_flag', 1)
-                    ->orderBy('periode_snapshot')
-                    ->get(['loan_number', 'outstanding_balance', 'office_code', 'product_code', 'usage_type', 'financing_contract_code'])
-                    ->groupBy('loan_number')
-                    ->map(fn ($rows) => $rows->last());
-
-                // Nilai agunan (liquidity value) per loan.
+            if ($csRows->isNotEmpty()) {
+                // Nilai agunan (liquidity value) per loan — hanya jaminan aktif.
                 $collateralByLoan = DB::table('collateral')
-                    ->whereIn('loan_number', $windowLoans)
+                    ->whereIn('loan_number', $csRows->keys())
+                    ->where('active_flag', 1)
                     ->selectRaw('loan_number, COALESCE(SUM(liquidity_value), 0) as liq_value')
                     ->groupBy('loan_number')
                     ->pluck('liq_value', 'loan_number');
 
-                foreach ($woRows as $loanNumber => $row) {
+                // Wajib berjamin: hanya loan dengan jaminan aktif yang dihitung.
+                $csRows = $csRows->only($collateralByLoan->keys()->all());
+
+                $totalWo = max(1, $csRows->count());
+                $woIdx = 0;
+
+                foreach ($csRows as $loanNumber => $row) {
+                    $woIdx++;
+                    if ($token !== null && ($woIdx % 50 === 0 || $woIdx === $totalWo)) {
+                        $this->pushProgress($token, "Memproses baki debet & agunan rekening {$woIdx}/{$totalWo}…", 20 + ($woIdx / $totalWo) * 45, [
+                            'current' => $woIdx, 'total' => $totalWo, 'label' => 'Proses Debitur CS',
+                        ]);
+                    }
+                    // Baki debet posisi periode assessment.
                     $exposure = (float) $row->outstanding_balance;
                     $liqValue = (float) ($collateralByLoan[$loanNumber] ?? 0.0);
+                    // Net recovery = nilai agunan − (nilai agunan × haircut/biaya penjualan).
                     $netRecov = max(0.0, $liqValue * (1 - $saleCost));
                     $shortfall = max(0.0, $exposure - $netRecov);
 
@@ -110,9 +119,17 @@ class LgdCollateralShortfallController extends BaseCalculationController
 
             $now = now();
             $batch = [];
+            $totalGroups = max(1, $groups->count());
+            $gIdx = 0;
 
             foreach ($groups as $g) {
+                $gIdx++;
                 $key = $this->collectiveGroupKey($dims, $g->office_code, $g->akad_code, $g->usage_code);
+                if ($token !== null && ($gIdx % 20 === 0 || $gIdx === $totalGroups)) {
+                    $this->pushProgress($token, "Menghitung LGD Collateral Shortfall grup {$gIdx}/{$totalGroups} ({$key})…", 65 + ($gIdx / $totalGroups) * 27, [
+                        'current' => $gIdx, 'total' => $totalGroups, 'label' => 'Hitung LGD CS',
+                    ]);
+                }
                 $agg = $byGroup[$key] ?? ['exposure' => 0.0, 'shortfall' => 0.0, 'net' => 0.0, 'count' => 0];
                 $lgd = $agg['exposure'] > 0
                     ? min(1.0, max(0.0, $agg['shortfall'] / $agg['exposure']))
@@ -133,9 +150,8 @@ class LgdCollateralShortfallController extends BaseCalculationController
                     'lgd_calculated' => round($lgd, 6),
                     'detail' => json_encode([
                         'method' => 'CS',
-                        'window_months' => $histM,
-                        'window_start' => $startYm,
-                        'window_end' => $assessYm,
+                        'population' => 'quality_rating=5 OR write_off_flag=1 (aktif, wajib berjamin aktif)',
+                        'assessment_ym' => $assessYm,
                         'sale_cost' => $saleCost,
                         'fallback_used' => $agg['exposure'] == 0.0,
                     ]),
@@ -154,14 +170,14 @@ class LgdCollateralShortfallController extends BaseCalculationController
 
             $this->audit('LGD_CS', 'RUN', $period->id, [
                 'groups' => $groups->count(),
-                'window' => $histM,
+                'population' => 'quality_rating=5 atau write-off, aktif',
                 'inserted' => count($batch),
             ]);
 
             return $this->backTo($request, 'calculation.module.lgd_cs', [
                 'groups' => $groups->count(),
                 'method' => 'CS',
-                'window' => $histM.' bln',
+                'population' => 'Kualitas 5 / WO aktif',
             ]);
         }));
     }

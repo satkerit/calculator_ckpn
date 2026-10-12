@@ -42,6 +42,62 @@ class DetailPdEadController extends BaseCalculationController
             ->orderBy('bucket_no')
             ->get();
 
+        if ($rows->isEmpty()) {
+            // Auto-populate jika stage_ead_buckets belum terisi
+            $period = DB::table('assessment_periods')->where('id', $periodId)->first();
+            if ($period) {
+                $periodeYm = str_replace('-', '', substr($period->assessment_date, 0, 7));
+                
+                // Ambil data dari stage_classifications join snapshot
+                $joined = DB::table('stage_classifications as sc')
+                    ->join('snapshot as s', function ($j) use ($periodeYm) {
+                        $j->on('sc.loan_number', '=', 's.loan_number')
+                          ->where('s.periode_snapshot', '=', $periodeYm);
+                    })
+                    ->where('sc.assessment_period_id', $periodId)
+                    ->select('s.bucket_no', 'sc.ead_amount', 'sc.office_code', 'sc.akad_code', 'sc.usage_code')
+                    ->get();
+
+                $grouped = [];
+                foreach ($joined as $item) {
+                    $bNo = (int) ($item->bucket_no ?? 1);
+                    if (!isset($grouped[$bNo])) {
+                        $grouped[$bNo] = ['ead' => 0.0, 'count' => 0];
+                    }
+                    $grouped[$bNo]['ead'] += (float) $item->ead_amount;
+                    $grouped[$bNo]['count']++;
+                }
+
+                $batch = [];
+                foreach ($grouped as $bNo => $val) {
+                    $batch[] = [
+                        'assessment_period_id' => $periodId,
+                        'group_key'            => 'ALL_SEGMENTS',
+                        'bucket_no'            => $bNo,
+                        'hari_tunggakan'       => BucketAssignmentService::getBucketLabel($bNo),
+                        'office_code'          => null,
+                        'akad_code'            => null,
+                        'usage_code'           => null,
+                        'ead'                  => $val['ead'],
+                        'member_count'         => $val['count'],
+                        'created_at'           => now(),
+                        'updated_at'           => now(),
+                    ];
+                }
+
+                if (!empty($batch)) {
+                    DB::table('stage_ead_buckets')->insert($batch);
+                }
+
+                $rows = DB::table('stage_ead_buckets')
+                    ->where('assessment_period_id', $periodId)
+                    ->selectRaw('bucket_no, SUM(ead) as total_ead, SUM(member_count) as total_members')
+                    ->groupBy('bucket_no')
+                    ->orderBy('bucket_no')
+                    ->get();
+            }
+        }
+
         $labels = [];
         foreach ($rows as $r) {
             $labels[(int) $r->bucket_no] = BucketAssignmentService::getBucketLabel((int) $r->bucket_no);
@@ -86,7 +142,11 @@ class DetailPdEadController extends BaseCalculationController
     {
         // group_key PD dibangun dari dimensi segmentasi aktif (OFFICE/AKAD/USAGE) —
         // join harus memakai ekspresi yang sama, bukan selalu 3 dimensi.
-        $dims = $this->configFor($periodId)['segment_dimensions'];
+        // Config tersimpan sebagai string "OFFICE|AKAD" → parse ke array.
+        $rawDims = $this->configFor($periodId)['segment_dimensions'];
+        $dims = is_array($rawDims)
+            ? $rawDims
+            : array_values(array_filter(array_map('trim', explode('|', (string) $rawDims))));
         $colMap = ['OFFICE' => 'sc.office_code', 'AKAD' => 'sc.akad_code', 'USAGE' => 'sc.usage_code'];
         $parts = [];
         foreach (['OFFICE', 'AKAD', 'USAGE'] as $dim) {

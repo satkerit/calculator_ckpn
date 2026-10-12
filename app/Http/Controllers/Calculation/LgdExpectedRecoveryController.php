@@ -59,7 +59,9 @@ class LgdExpectedRecoveryController extends BaseCalculationController
             $assessYm = $assessmentDate->format('Ym');
             $startYm = $assessmentDate->copy()->subMonths($histM)->format('Ym');
 
-            // Kertas kerja: hanya write-off dengan tglwo di dalam rentang 5 tahun.
+            // Kertas kerja ER: write-off dengan tglwo di dalam rentang 5 tahun
+            // DAN tanpa jaminan (penyelesaian via pembayaran cash). Debitur
+            // write-off yang punya jaminan aktif menjadi populasi LGD CS.
             $windowLoans = DB::table('snapshot')
                 ->where('write_off_flag', 1)
                 ->whereNotNull('tglwo')->where('tglwo', '<>', '')
@@ -68,20 +70,36 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                 ->distinct()
                 ->pluck('loan_number');
 
+            $collateralLoans = DB::table('collateral')
+                ->whereIn('loan_number', $windowLoans)
+                ->where('active_flag', 1)
+                ->distinct()
+                ->pluck('loan_number');
+
+            $windowLoans = $windowLoans->diff($collateralLoans)->values();
+
             $this->pushProgress($token, 'Memuat data write-off historis…', 20);
 
             $byGroup = [];
             $fallbackCount = 0; // jumlah grup yang memakai LGD fallback (tanpa data write-off)
 
             if ($windowLoans->isNotEmpty()) {
-                // Outstanding "terakhir pada saat write-off dijalankan" = snapshot WO dengan periode terbesar.
+                // OS awal write-off = snapshot pada periode tglwo
+                // (mis. tglwo 20230115 → periode 202301). Bila periode tsb tidak
+                // ada snapshot-nya, pakai snapshot pertama SETELAH periode WO.
                 $woBalances = DB::table('snapshot')
                     ->whereIn('loan_number', $windowLoans)
                     ->where('write_off_flag', 1)
                     ->orderBy('periode_snapshot')
-                    ->get(['loan_number', 'periode_snapshot', 'outstanding_balance', 'office_code', 'product_code', 'usage_type', 'financing_contract_code'])
+                    ->get(['loan_number', 'periode_snapshot', 'outstanding_balance', 'office_code', 'product_code', 'usage_type', 'financing_contract_code', 'tglwo'])
                     ->groupBy('loan_number')
-                    ->map(fn ($rows) => $rows->last());
+                    ->map(function ($rows) {
+                        $woYm = substr((string) $rows->last()->tglwo, 0, 6);
+
+                        return $rows->first(fn ($r) => substr((string) $r->periode_snapshot, 0, 6) === $woYm)
+                            ?? $rows->first(fn ($r) => (string) $r->periode_snapshot >= $woYm)
+                            ?? $rows->last();
+                    });
 
                 // Posisi outstanding pada periode assessment terakhir.
                 $lastBalances = DB::table('snapshot')
@@ -89,11 +107,66 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                     ->where('periode_snapshot', $assessYm)
                     ->pluck('outstanding_balance', 'loan_number');
 
+                $totalWo = max(1, $woBalances->count());
+                $woIdx = 0;
+
                 foreach ($woBalances as $loanNumber => $row) {
+                    $woIdx++;
+                    if ($token !== null && ($woIdx % 50 === 0 || $woIdx === $totalWo)) {
+                        $this->pushProgress($token, "Memproses write-off rekening {$woIdx}/{$totalWo}…", 20 + ($woIdx / $totalWo) * 45, [
+                            'current' => $woIdx, 'total' => $totalWo, 'label' => 'Proses Write-off',
+                        ]);
+                    }
                     $woNominal = (float) $row->outstanding_balance;
                     // Tidak ditemukan pada periode terakhir → debitur lunas dari write-off → recovery 100%.
                     $lastPos = isset($lastBalances[$loanNumber]) ? (float) $lastBalances[$loanNumber] : 0.0;
                     $recovery = max(0.0, $woNominal - $lastPos);
+
+                    // Sync ke tabel write_offs & recoveries
+                    $woDate = $row->tglwo ? date('Y-m-d', strtotime($row->tglwo)) : null;
+                    if ($woDate) {
+                        $writeOff = DB::table('write_offs')->where('financing_id', $loanNumber)->first();
+                        $rate = $woNominal > 0 ? min(1.0, $recovery / $woNominal) : 0;
+                        $nowTs = now();
+                        if (!$writeOff) {
+                            $writeOffId = DB::table('write_offs')->insertGetId([
+                                'financing_id'   => $loanNumber,
+                                'writeoff_date'  => $woDate,
+                                'amount'         => $woNominal,
+                                'recovery_rate'  => $rate,
+                                'reason'         => 'calculated_from_snapshot',
+                                'created_at'     => $nowTs,
+                                'updated_at'     => $nowTs,
+                            ]);
+                        } else {
+                            $writeOffId = $writeOff->id;
+                            DB::table('write_offs')->where('id', $writeOffId)->update([
+                                'recovery_rate' => $rate,
+                                'updated_at'    => $nowTs,
+                            ]);
+                        }
+
+                        if ($recovery > 0) {
+                            $recDate = $assessmentDate->format('Y-m-d');
+                            $existingRec = DB::table('recoveries')->where('write_off_id', $writeOffId)->first();
+                            if (!$existingRec) {
+                                DB::table('recoveries')->insert([
+                                    'write_off_id'    => $writeOffId,
+                                    'recovery_date'   => $recDate,
+                                    'amount'          => $recovery,
+                                    'recovery_source' => 'CASH_PAYMENT_SNAPSHOT',
+                                    'created_at'      => $nowTs,
+                                    'updated_at'      => $nowTs,
+                                ]);
+                            } else {
+                                DB::table('recoveries')->where('id', $existingRec->id)->update([
+                                    'amount'     => $recovery,
+                                    'recovery_date' => $recDate,
+                                    'updated_at' => $nowTs,
+                                ]);
+                            }
+                        }
+                    }
 
                     $akadCode = ProductAkadMappingService::resolveAkadCode($row->product_code ?? '');
                     $usageCode = $row->usage_type ?? $row->financing_contract_code ?? 'OTHER';
@@ -107,9 +180,17 @@ class LgdExpectedRecoveryController extends BaseCalculationController
 
             $now = now();
             $batch = [];
+            $totalGroups = max(1, $groups->count());
+            $gIdx = 0;
 
             foreach ($groups as $g) {
+                $gIdx++;
                 $key = $this->collectiveGroupKey($dims, $g->office_code, $g->akad_code, $g->usage_code);
+                if ($token !== null && ($gIdx % 20 === 0 || $gIdx === $totalGroups)) {
+                    $this->pushProgress($token, "Menghitung LGD Expected Recovery grup {$gIdx}/{$totalGroups} ({$key})…", 65 + ($gIdx / $totalGroups) * 27, [
+                        'current' => $gIdx, 'total' => $totalGroups, 'label' => 'Hitung LGD ER',
+                    ]);
+                }
                 $agg = $byGroup[$key] ?? ['wo' => 0.0, 'recovery' => 0.0, 'count' => 0];
                 $recoveryRate = $agg['wo'] > 0
                     ? min(1.0, max(0.0, $agg['recovery'] / $agg['wo']))
@@ -141,6 +222,7 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                         'window_months' => $histM,
                         'window_start' => $startYm,
                         'window_end' => $assessYm,
+                        'population' => 'write-off 5 tahun tanpa jaminan (cash)',
                         'wo_accounts' => $agg['count'],
                         'fallback_used' => $fallbackUsed,
                     ]),

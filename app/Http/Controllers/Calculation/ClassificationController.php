@@ -136,15 +136,23 @@ class ClassificationController extends BaseCalculationController
             // sehingga tidak ada stage parsial bila gagal di tengah. Baca berat (cursor snapshot)
             // sudah selesai sebelum titik ini agar tidak menahan lock terlalu lama.
             DB::transaction(function () use ($period, $rows, $topN, $now, &$totalIndi, &$totalColl, &$totalEad) {
-                $this->cleanStage($period->id, ['stage_classifications']);
+                $this->cleanStage($period->id, ['stage_classifications', 'stage_ead_buckets']);
 
                 $insertBatch = [];
                 $batchSize   = 200;
+                $bucketSummary = [];
 
                 foreach ($rows as $r) {
                     $isIndividual = $r['_individual'];
                     $isIndividual ? $totalIndi++ : $totalColl++;
                     $totalEad += (float) $r['ead'];
+
+                    $bNo = (int) ($r['snapshot']->bucket_no ?? 1);
+                    if (!isset($bucketSummary[$bNo])) {
+                        $bucketSummary[$bNo] = ['ead' => 0.0, 'count' => 0];
+                    }
+                    $bucketSummary[$bNo]['ead'] += (float) $r['ead'];
+                    $bucketSummary[$bNo]['count']++;
 
                     $insertBatch[] = [
                         'assessment_period_id' => $period->id,
@@ -170,6 +178,27 @@ class ClassificationController extends BaseCalculationController
 
                 if (! empty($insertBatch)) {
                     $this->safeInsert('stage_classifications', $insertBatch);
+                }
+
+                // Simpan agregasi EAD per bucket ke stage_ead_buckets
+                $eadBucketBatch = [];
+                foreach ($bucketSummary as $bNo => $val) {
+                    $eadBucketBatch[] = [
+                        'assessment_period_id' => $period->id,
+                        'group_key'            => 'ALL_SEGMENTS',
+                        'bucket_no'            => $bNo,
+                        'hari_tunggakan'       => BucketAssignmentService::getBucketLabel($bNo),
+                        'office_code'          => null,
+                        'akad_code'            => null,
+                        'usage_code'           => null,
+                        'ead'                  => $val['ead'],
+                        'member_count'         => $val['count'],
+                        'created_at'           => $now,
+                        'updated_at'           => $now,
+                    ];
+                }
+                if (!empty($eadBucketBatch)) {
+                    $this->safeInsert('stage_ead_buckets', $eadBucketBatch);
                 }
             });
 

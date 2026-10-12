@@ -76,19 +76,21 @@
         <div class="overflow-x-auto max-h-[500px]">
             <table class="min-w-full text-xs">
                 <thead class="bg-gray-50 text-gray-600 uppercase sticky top-0">
-                    <tr><th class="px-3 py-2 text-left">Loan</th><th class="px-3 py-2 text-right">Nilai Tercatat</th><th class="px-3 py-2 text-right">Recovery</th><th class="px-3 py-2 text-right">CKPN</th><th class="px-3 py-2 text-left">Method</th></tr>
+                    <tr><th class="px-3 py-2 text-left">Loan</th><th class="px-3 py-2 text-right">Nilai Tercatat</th><th class="px-3 py-2 text-right">Nilai Agunan</th><th class="px-3 py-2 text-right">Biaya Penjualan</th><th class="px-3 py-2 text-right">Recovery</th><th class="px-3 py-2 text-right">CKPN</th><th class="px-3 py-2 text-left">Method</th></tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse ($individuals as $r)
                         <tr>
                             <td class="px-3 py-2 font-mono">{{ $r->loan_number }}</td>
                             <td class="px-3 py-2 text-right">{{ number_format((float) $r->nilai_tercatat, 0, ',', '.') }}</td>
+                            <td class="px-3 py-2 text-right">{{ number_format((float) ($r->liquidity_value ?? 0), 0, ',', '.') }}</td>
+                            <td class="px-3 py-2 text-right text-red-600">-{{ number_format((float) ($r->sale_cost ?? 0), 0, ',', '.') }}</td>
                             <td class="px-3 py-2 text-right">{{ number_format((float) $r->estimated_recovery, 0, ',', '.') }}</td>
                             <td class="px-3 py-2 text-right font-semibold">{{ number_format((float) $r->ckpn_individual, 0, ',', '.') }}</td>
                             <td class="px-3 py-2">{{ $r->recovery_method }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="px-3 py-6 text-center text-gray-500">Belum ada CKPN individual.</td></tr>
+                        <tr><td colspan="7" class="px-3 py-6 text-center text-gray-500">Belum ada CKPN individual.</td></tr>
                     @endforelse
                 </tbody>
             </table>

@@ -156,6 +156,7 @@ class DetailCkpnController extends BaseCalculationController
             $loanNumber = $ind->loan_number;
             $liquidity = (float) ($collateralMap[$loanNumber] ?? 0);
             $nilai = (float) $ind->ead_amount;
+            $saleCost = round($liquidity * $saleCostPct, 2);
 
             $ckpn = CkpnCalculator::calculateIndividual($nilai, $liquidity, $saleCostPct);
 
@@ -163,7 +164,9 @@ class DetailCkpnController extends BaseCalculationController
                 'assessment_period_id' => $periodId,
                 'loan_number' => $loanNumber,
                 'nilai_tercatat' => $nilai,
-                'estimated_recovery' => round($nilai - $ckpn, 2),
+                'liquidity_value' => round($liquidity, 2),
+                'sale_cost' => $saleCost,
+                'estimated_recovery' => round($liquidity - $saleCost, 2),
                 'ckpn_individual' => $ckpn,
                 'recovery_method' => $liquidity > 0 ? 'COLLATERAL_LIQUIDITY' : 'NO_COLLATERAL',
                 'created_at' => $now,
@@ -292,37 +295,13 @@ class DetailCkpnController extends BaseCalculationController
     }
 
     /**
-     * EAD totals per grup segmentasi: prioritas stage_ead_buckets, fallback ke
-     * stage_classifications (agar CKPN kolektif tetap terhitung walau modul
-     * EAD bucket belum dijalankan).
+     * EAD totals per grup segmentasi khusus untuk rekening COLLECTIVE.
+     * Mengambil langsung dari stage_classifications agar sinkron dengan dimensi
+     * segmentasi aktif dan group_key pada PD dan LGD.
      */
     private function eadGroups(int $periodId): Collection
     {
         $dims = $this->segmentDimensions(request(), $periodId);
-
-        if (Schema::hasTable('stage_ead_buckets')) {
-            $fromBuckets = DB::table('stage_ead_buckets')
-                ->where('assessment_period_id', $periodId)
-                ->selectRaw('office_code, akad_code, usage_code, SUM(ead) as total_ead, SUM(member_count) as member_count')
-                ->groupBy('office_code', 'akad_code', 'usage_code')
-                ->get();
-
-            if ($fromBuckets->isNotEmpty()) {
-                // Rakit group_key dinamis sesuai segmentasi config (konsisten dgn PD & LGD).
-                return $fromBuckets->map(function ($g) use ($dims) {
-                    $seg = $this->buildSegment($dims, $g->office_code, $g->akad_code, $g->usage_code);
-                    $g->group_key = $seg['group_key'];
-
-                    return $g;
-                })->groupBy('group_key')->map(function ($subGroups, $groupKey) {
-                    $first = $subGroups->first();
-                    $first->total_ead = (float) $subGroups->sum('total_ead');
-                    $first->member_count = (int) $subGroups->sum('member_count');
-
-                    return $first;
-                })->values();
-            }
-        }
 
         $rows = DB::table('stage_classifications')
             ->where('assessment_period_id', $periodId)

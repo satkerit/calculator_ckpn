@@ -131,6 +131,7 @@ Route::middleware(['auth'])->group(function () {
     // Bucket Configuration Routes
     Route::resource('bucket', BucketConfigurationController::class);
     Route::post('bucket/{bucket}/restore', [BucketConfigurationController::class, 'restore'])->name('bucket.restore');
+    Route::delete('bucket-bulk-destroy', [BucketConfigurationController::class, 'bulkDestroy'])->name('bucket.bulk-destroy');
 
     // Tampilan hasil CKPN per komponen (Individual & Kolektif)
     Route::prefix('calculation/ckpn')->name('calculation.ckpn.')->group(function () {

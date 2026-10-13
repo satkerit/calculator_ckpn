@@ -4,70 +4,90 @@ namespace App\Http\Controllers;
 
 use App\Models\BucketDefinition;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class BucketConfigurationController extends Controller
 {
     public function index()
     {
-        $buckets = BucketDefinition::where('active', true)
-            ->orderBy('id', 'asc')
-            ->get();
+        $activeBuckets = BucketDefinition::where('active', true)->orderBy('urutan', 'asc')->get();
+        $inactiveBuckets = BucketDefinition::where('active', false)->orderBy('urutan', 'asc')->get();
 
-        return view('bucket.index', compact('buckets'));
+        return view('bucket.index', [
+            'activeBuckets' => $activeBuckets,
+            'inactiveBuckets' => $inactiveBuckets,
+            'activeCount' => $activeBuckets->count(),
+            'inactiveCount' => $inactiveBuckets->count(),
+        ]);
     }
 
     public function create()
     {
-        return view('bucket.create');
+        $nextUrutan = (BucketDefinition::max('urutan') ?? 0) + 1;
+        $bucket = null;
+
+        return view('bucket.create', compact('bucket', 'nextUrutan'));
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'kode_bucket' => 'required|string|unique:bucket_definitions,kode_bucket',
-            'deskripsi_hari' => 'required|string',
-            'hari_min' => 'required|integer|min:0',
-            'hari_max' => 'required|integer|min:0|gte:hari_min',
-            'urutan' => 'required|integer|min:1',
-        ]);
+        $validated = $this->validateBucket($request);
 
-        BucketDefinition::create($validated);
+        BucketDefinition::create($validated + ['active' => true]);
 
-        return redirect()->route('bucket.index')->with('success', 'Bucket berhasil ditambahkan');
+        return redirect()->route('bucket.index')->with('success', 'Bucket "' . $validated['kode_bucket'] . '" berhasil ditambahkan');
     }
 
     public function edit(BucketDefinition $bucket)
     {
-        return view('bucket.edit', compact('bucket'));
+        return view('bucket.edit', ['bucket' => $bucket, 'nextUrutan' => null]);
     }
 
     public function update(Request $request, BucketDefinition $bucket)
     {
-        $validated = $request->validate([
-            'kode_bucket' => 'required|string|unique:bucket_definitions,kode_bucket,' . $bucket->id,
-            'deskripsi_hari' => 'required|string',
-            'hari_min' => 'required|integer|min:0',
-            'hari_max' => 'required|integer|min:0|gte:hari_min',
-            'urutan' => 'required|integer|min:1',
-        ]);
+        $validated = $this->validateBucket($request, $bucket->id);
 
         $bucket->update($validated);
 
-        return redirect()->route('bucket.index')->with('success', 'Bucket berhasil diperbarui');
+        return redirect()->route('bucket.index')->with('success', 'Bucket "' . $validated['kode_bucket'] . '" berhasil diperbarui');
     }
 
     public function destroy(BucketDefinition $bucket)
     {
         $bucket->update(['active' => false]);
 
-        return redirect()->route('bucket.index')->with('success', 'Bucket berhasil dihapus');
+        return redirect()->route('bucket.index')->with('success', 'Bucket "' . $bucket->kode_bucket . '" berhasil dinonaktifkan');
     }
 
     public function restore(BucketDefinition $bucket)
     {
         $bucket->update(['active' => true]);
 
-        return redirect()->route('bucket.index')->with('success', 'Bucket berhasil dipulihkan');
+        return redirect()->route('bucket.index')->with('success', 'Bucket "' . $bucket->kode_bucket . '" berhasil diaktifkan kembali');
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer|exists:bucket_definitions,id',
+        ]);
+
+        $count = BucketDefinition::whereIn('id', $validated['ids'])->update(['active' => false]);
+
+        return redirect()->route('bucket.index')->with('success', "{$count} bucket berhasil dinonaktifkan");
+    }
+
+    private function validateBucket(Request $request, ?int $ignoreId = null): array
+    {
+        return $request->validate([
+            'kode_bucket' => 'required|string|max:20|unique:bucket_definitions,kode_bucket' . ($ignoreId ? ',' . $ignoreId : ''),
+            'deskripsi_hari' => 'required|string|max:100',
+            'hari_min' => 'required|integer|min:0',
+            'hari_max' => 'required|integer|min:0|gte:hari_min',
+            'urutan' => 'required|integer|min:1',
+        ], [
+            'kode_bucket.unique' => 'Kode bucket sudah digunakan',
+            'hari_max.gte' => 'Hari maksimum harus lebih besar atau sama dengan hari minimum',
+        ]);
     }
 }

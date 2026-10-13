@@ -1,30 +1,22 @@
 @extends('layouts.app')
 
-@section('content')
-<div class="container-fluid px-4">
-    <div class="d-flex justify-content-between align-items-center my-4">
-        <h1 class="h3 mb-0 text-gray-800">Tambah Bucket PD Netflow</h1>
-        <a href="{{ route('bucket.index') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Kembali
-        </a>
-    </div>
+@section('title', 'Tambah PD Bucket - CKPN Calculator')
 
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Form Tambah Bucket</h6>
-        </div>
-        <div class="card-body">
-            <form action="{{ route('bucket.store') }}" method="POST">
-                @csrf
-                @include('bucket._form')
-                <div class="mt-4">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Simpan
-                    </button>
-                    <a href="{{ route('bucket.index') }}" class="btn btn-secondary ms-2">Batal</a>
-                </div>
-            </form>
-        </div>
-    </div>
+@section('content')
+<div class="mb-6">
+    <nav class="flex items-center gap-2 text-sm text-gray-500 mb-3">
+        <a href="{{ route('bucket.index') }}" class="hover:text-blue-600 transition-colors">PD Bucket Config</a>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <span class="text-gray-900 font-medium">Tambah</span>
+    </nav>
+    <h1 class="text-2xl font-bold text-gray-900">Tambah Bucket Baru</h1>
+    <p class="text-sm text-gray-500 mt-1">Definisikan bucket baru untuk klasifikasi DPD</p>
+</div>
+
+<div class="bg-white rounded-lg shadow-md p-6 max-w-3xl">
+    <form action="{{ route('bucket.store') }}" method="POST">
+        @csrf
+        @include('bucket._form')
+    </form>
 </div>
 @endsection

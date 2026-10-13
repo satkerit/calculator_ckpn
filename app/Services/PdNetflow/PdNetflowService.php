@@ -25,12 +25,14 @@ class PdNetflowService
             'compounds' => $compounds,
             'periods' => $this->extractPeriods($buckets),
             'transition_periods' => $this->extractTransitionPeriods($transitions),
+            'compound_periods' => $this->extractCompoundPeriods($compounds),
         ];
     }
 
     /**
      * Tabel 1: Min. Bucket – outstanding per bucket per periode
      * Format: bucket_no | periode1 | periode2 | ...
+     * Memastikan bucket 1 s/d 14 selalu ada di output.
      */
     private function loadBucketSnapshots(int $assessmentPeriodId, string $groupKey): array
     {
@@ -43,21 +45,29 @@ class PdNetflowService
             ->groupBy('bucket_no');
 
         $result = [];
-        foreach ($rows as $bucketNo => $bucketRows) {
+        for ($bucketNo = 1; $bucketNo <= 14; $bucketNo++) {
+            $bucketRows = $rows->get($bucketNo, collect());
+            $periods = [];
+            foreach ($bucketRows as $row) {
+                $key = $row->periode_snapshot instanceof \Carbon\Carbon
+                    ? $row->periode_snapshot->format('Y-m-d')
+                    : (string) $row->periode_snapshot;
+                $periods[$key] = $row->outstanding_balance;
+            }
             $result[$bucketNo] = [
                 'bucket_no' => $bucketNo,
                 'hari_tunggakan' => $this->getBucketLabel($bucketNo),
-                'periods' => $bucketRows->pluck('outstanding_balance', 'periode_snapshot')->toArray(),
+                'periods' => $periods,
             ];
         }
 
-        ksort($result);
         return $result;
     }
 
     /**
      * Tabel 2: Perpindahan Bucket – transition rate
      * Format: from_bucket→to_bucket | periode1 | periode2 | ...
+     * Memastikan semua transisi 1..13 selalu ada.
      */
     private function loadTransitions(int $assessmentPeriodId, string $groupKey): array
     {
@@ -71,14 +81,27 @@ class PdNetflowService
             ->groupBy(fn ($r) => "{$r->from_bucket}_{$r->to_bucket}");
 
         $result = [];
-        foreach ($rows as $key => $transRows) {
-            [$from, $to] = explode('_', $key);
+        for ($from = 1; $from <= 13; $from++) {
+            $to = $from + 1;
+            $key = "{$from}_{$to}";
+            $transRows = $rows->get($key, collect());
+
+            $periods = [];
+            $flowCounts = [];
+            foreach ($transRows as $row) {
+                $periodeKey = $row->periode instanceof \Carbon\Carbon
+                    ? $row->periode->format('Y-m-d')
+                    : (string) $row->periode;
+                $periods[$periodeKey] = $row->transition_rate;
+                $flowCounts[$periodeKey] = $row->flow_count;
+            }
+
             $result[$key] = [
-                'from_bucket' => (int) $from,
-                'to_bucket' => (int) $to,
+                'from_bucket' => $from,
+                'to_bucket' => $to,
                 'label' => "{$from} to {$to}",
-                'periods' => $transRows->pluck('transition_rate', 'periode')->toArray(),
-                'flow_counts' => $transRows->pluck('flow_count', 'periode')->toArray(),
+                'periods' => $periods,
+                'flow_counts' => $flowCounts,
             ];
         }
 
@@ -88,6 +111,7 @@ class PdNetflowService
     /**
      * Tabel 3: Compound Flow to Loss – PD compound
      * Format: source_bucket | periode1 | periode2 | ...
+     * Memastikan source bucket 1..13 selalu ada.
      */
     public function loadCompoundFlows(int $assessmentPeriodId, string $groupKey): array
     {
@@ -100,8 +124,16 @@ class PdNetflowService
             ->groupBy('source_bucket');
 
         $result = [];
-        foreach ($rows as $sourceBucket => $compoundRows) {
-            $periods = $compoundRows->pluck('compound_pd', 'periode')->toArray();
+        for ($sourceBucket = 1; $sourceBucket <= 13; $sourceBucket++) {
+            $compoundRows = $rows->get($sourceBucket, collect());
+            
+            $periods = [];
+            foreach ($compoundRows as $row) {
+                $periodeKey = $row->periode instanceof \Carbon\Carbon
+                    ? $row->periode->format('Y-m-d')
+                    : (string) $row->periode;
+                $periods[$periodeKey] = $row->compound_pd;
+            }
 
             $result[$sourceBucket] = [
                 'source_bucket' => $sourceBucket,
@@ -129,14 +161,28 @@ class PdNetflowService
     }
 
     /**
-     * Extract unique periode dari transitions (column headers Tabel 2 & 3).
-     * Tabel 2/3 berperiode (N-H)..(N+K-1) — berbeda dari periode Tabel 1.
+     * Extract unique periode dari transitions (column headers Tabel 2).
+     * Tabel 2 memuat data historis + proyeksi 12 bulan ke depan.
      */
     private function extractTransitionPeriods(array $transitions): array
     {
         $periods = [];
         foreach ($transitions as $transition) {
             $periods = array_unique(array_merge($periods, array_keys($transition['periods'] ?? [])));
+        }
+        sort($periods);
+        return $periods;
+    }
+
+    /**
+     * Extract unique periode dari compounds (column headers Tabel 3).
+     * Berakhir di periode historis akhir Tabel 1 (tanpa proyeksi 12 bulan Tabel 2).
+     */
+    private function extractCompoundPeriods(array $compounds): array
+    {
+        $periods = [];
+        foreach ($compounds as $compound) {
+            $periods = array_unique(array_merge($periods, array_keys($compound['periods'] ?? [])));
         }
         sort($periods);
         return $periods;

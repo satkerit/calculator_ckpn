@@ -8,7 +8,7 @@ use Carbon\Carbon;
 
 class PdNetflowCalculator
 {
-    private const ROLLING_AVG_MONTHS = 6; // jendela rata-rata utk proyeksi Tabel 2
+    private const ROLLING_AVG_MONTHS = 6;
     private const DEFAULT_PROJECTION_MONTHS = 12;
 
     /**
@@ -61,13 +61,16 @@ class PdNetflowCalculator
         }
 
         // 2. Hitung Tabel 1: Min. Bucket (outstanding per bucket per periode)
-        $this->calculateBucketSnapshots($assessmentPeriodId, $groupKey, $agg['bucket_outstanding'], $agg['counts']);
+        $this->calculateBucketSnapshots($assessmentPeriodId, $groupKey, $agg['bucket_outstanding'], $agg['counts'], $agg['periods']);
 
-        // 3. Hitung Tabel 2: Perpindahan Bucket (historis dari Tabel 1 + proyeksi rolling avg 6 bln)
+        $histEndYm = $this->tableOneEndYm($assessmentDate);
+        $histEndDate = Carbon::createFromFormat('Ym', $histEndYm)->endOfMonth()->toDateString();
+
+        // 3. Hitung Tabel 2: Perpindahan Bucket (historis + proyeksi 12 bulan ke depan)
         $this->calculateTransitions($assessmentPeriodId, $groupKey, $agg['bucket_outstanding'], $agg['periods'], $historicalMonths, $assessmentDate);
 
-        // 4. Hitung Tabel 3: Compound Flow to Loss (PD compound dari Tabel 2, + kolom PD Rate)
-        $this->calculateCompoundFlows($assessmentPeriodId, $groupKey);
+        // 4. Hitung Tabel 3: Compound Flow to Loss (hanya sampai akhir periode historis Tabel 1, tanpa proyeksi)
+        $this->calculateCompoundFlows($assessmentPeriodId, $groupKey, $histEndDate);
     }
 
     /**
@@ -80,23 +83,6 @@ class PdNetflowCalculator
             ->value('historical_months');
 
         return $config ? (int)$config : 36; // default 36 bulan
-    }
-
-    /**
-     * Jumlah bulan proyeksi ke depan utk Tabel 2/3 (default 12 bulan).
-     * Kolom `projection_months` opsional; fallback ke default bila belum ada.
-     */
-    private function getProjectionMonthsFromConfig(int $assessmentPeriodId): int
-    {
-        if (! \Illuminate\Support\Facades\Schema::hasColumn('stage_configs', 'projection_months')) {
-            return self::DEFAULT_PROJECTION_MONTHS;
-        }
-
-        $config = DB::table('stage_configs')
-            ->where('assessment_period_id', $assessmentPeriodId)
-            ->value('projection_months');
-
-        return $config ? (int) $config : self::DEFAULT_PROJECTION_MONTHS;
     }
 
     /**
@@ -264,28 +250,33 @@ class PdNetflowCalculator
     }
 
     /**
-     * Tabel 1: Calculate outstanding per bucket per periode
+     * Tabel 1: Calculate outstanding per bucket per periode.
+     * Bucket 1 s/d 14 selalu diisi untuk setiap periode (default 0 jika tidak ada saldo).
      */
-    private function calculateBucketSnapshots(int $periodId, string $groupKey, array $bucketOutstanding, array $counts): void
+    private function calculateBucketSnapshots(int $periodId, string $groupKey, array $bucketOutstanding, array $counts, array $periods): void
     {
         $batch = [];
         $now = now();
-        foreach ($bucketOutstanding as $key => $outstanding) {
-            [$periode, $bucketNo] = explode('_', $key);
 
-            // Format YYYYMM to YYYY-MM-DD for date column (normalize format campuran)
+        foreach ($periods as $periode) {
             $date = Carbon::createFromFormat('Ym', $this->normalizePeriode($periode))->endOfMonth()->toDateString();
 
-            $batch[] = [
-                'assessment_period_id' => $periodId,
-                'group_key' => $groupKey,
-                'bucket_no' => (int) $bucketNo,
-                'periode_snapshot' => $date,
-                'outstanding_balance' => $outstanding,
-                'account_count' => $counts[$key] ?? 0,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
+            for ($bucketNo = 1; $bucketNo <= 14; $bucketNo++) {
+                $key = "{$periode}_{$bucketNo}";
+                $outstanding = $bucketOutstanding[$key] ?? 0.0;
+                $count = $counts[$key] ?? 0;
+
+                $batch[] = [
+                    'assessment_period_id' => $periodId,
+                    'group_key' => $groupKey,
+                    'bucket_no' => $bucketNo,
+                    'periode_snapshot' => $date,
+                    'outstanding_balance' => (float) $outstanding,
+                    'account_count' => (int) $count,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
         }
 
         if (!empty($batch)) {
@@ -300,13 +291,13 @@ class PdNetflowCalculator
     /**
      * Tabel 2: Calculate transition rate (outstanding ratio)
      *
-     * Periode historis (N-H)..(N-1): dihitung dari outstanding Tabel 1
+     * Periode historis (N-H)..(N-1): dihitung dari outstanding Tabel 1.
      * Formula: transition_rate(i→i+1, P) = Outstanding_bucket_i+1(P) / Outstanding_bucket_i(P-1)
      *
-     * Periode proyeksi N..(N+K-1): rata-rata bergerak dari ROLLING_AVG_MONTHS
-     * bulan terakhir Tabel 2 itu sendiri (bukan dari snapshot).
+     * Periode proyeksi N..(N+K-1): proyeksi 12 bulan ke depan menggunakan rata-rata bergerak
+     * 6 bulan ke belakang dari Tabel 2 itu sendiri.
      */
-    private function calculateTransitions(int $periodId, string $groupKey, array $bucketOutstanding, array $periods, int $historicalMonths, Carbon $assessmentDate): void
+    public function calculateTransitions(int $periodId, string $groupKey, array $bucketOutstanding, array $periods, int $historicalMonths, Carbon $assessmentDate): void
     {
         // Window historis Tabel 2: (N-H) .. (N-1)
         $histStartYm = $assessmentDate->copy()->subMonths($historicalMonths)->format('Ym');
@@ -346,8 +337,8 @@ class PdNetflowCalculator
             }
         }
 
-        // Proyeksi: N..(N+K-1) — rata-rata 6 bulan ke belakang dari Tabel 2 itu sendiri
-        $projectionMonths = $this->getProjectionMonthsFromConfig($periodId);
+        // Proyeksi 12 bulan ke depan: N..(N+K-1) — rata-rata 6 bulan ke belakang dari Tabel 2 itu sendiri
+        $projectionMonths = self::DEFAULT_PROJECTION_MONTHS;
         $projectionStart = $assessmentDate->copy()->startOfMonth();
 
         for ($k = 0; $k < $projectionMonths; $k++) {
@@ -357,8 +348,10 @@ class PdNetflowCalculator
 
             for ($fromBucket = 1; $fromBucket <= 13; $fromBucket++) {
                 $lastRates = array_slice(array_values($rates[$fromBucket] ?? []), -self::ROLLING_AVG_MONTHS);
-                // Guard division by zero: bila belum ada rate historis, proyeksi = 0.
-                $rate = count($lastRates) > 0 ? array_sum($lastRates) / count($lastRates) : 0.0;
+                // Rumus Excel: =ROUND(AVERAGEIF(AG25:AL25,">0"),2)
+                // Hanya rata-rata nilai yang > 0 dari 6 bulan terakhir
+                $nonZeroRates = array_filter($lastRates, fn($r) => $r > 0);
+                $rate = count($nonZeroRates) > 0 ? array_sum($nonZeroRates) / count($nonZeroRates) : 0.0;
                 $rates[$fromBucket][$ym] = $rate;
 
                 $batch[] = [
@@ -386,49 +379,98 @@ class PdNetflowCalculator
 
     /**
      * Rate satu transisi: Outstanding_to_bucket(P) / Outstanding_from_bucket(P-1)
+     * Rumus Excel: =IF(ISBLANK(prev),1,IFERROR(to/from,0))
+     * Jika prev blank/0 → rate = 1.0 (tidak 0.0)
      */
     private function computeTransitionRate($bucketOutstanding, string $prevPeriode, string $periode, int $fromBucket, int $toBucket): float
     {
         $outstandingFrom = $bucketOutstanding["{$prevPeriode}_{$fromBucket}"] ?? 0;
         $outstandingTo = $bucketOutstanding["{$periode}_{$toBucket}"] ?? 0;
 
-        $rate = $outstandingFrom > 0 ? $outstandingTo / $outstandingFrom : 0.0;
+        $rate = $outstandingFrom > 0 ? $outstandingTo / $outstandingFrom : 1.0;
         // Cap rate at 99.999999 to prevent Decimal(8,6) Out of Range SQL Error
         return min(99.999999, $rate);
     }
 
     /**
-     * Tabel 3: Calculate compound PD (chain probability ke loss bucket 14)
+     * Tabel 3: Calculate compound PD (diagonal multiplication lintas periode)
+     * Bucket i periode t: rate[i→i+1][t] × rate[i+1→i+2][t+1] × ... × rate[13→14][t+(13-i)]
+     * Hanya historis menjadi titik awal; butuh data proyeksi untuk diagonal lengkap.
      */
-    private function calculateCompoundFlows(int $periodId, string $groupKey): void
+    private function calculateCompoundFlows(int $periodId, string $groupKey, string $histEndDate): void
     {
-        // Load transition rates
-        $transitions = DB::table('pd_netflow_transitions')
+        // Load SEMUA transition (historis + proyeksi)
+        $allTransitions = DB::table('pd_netflow_transitions')
             ->where('assessment_period_id', $periodId)
             ->where('group_key', $groupKey)
-            ->get()
-            ->groupBy('periode');
+            ->orderBy('periode', 'asc')
+            ->get();
+
+        if ($allTransitions->isEmpty()) {
+            return;
+        }
+
+        // Normalisasi periode key: cast Carbon/string ke YYYY-MM-DD format
+        $normalized = collect();
+        foreach ($allTransitions->groupBy('periode') as $periode => $group) {
+            $key = $periode instanceof \Carbon\Carbon
+                ? $periode->format('Y-m-d')
+                : (string) $periode;
+            $normalized[$key] = $group;
+        }
+
+        // Susun periode terurut sebagai indexed array
+        $sortedPeriodes = array_keys($normalized->toArray());
+        $periodIndex = array_flip($sortedPeriodes);
+        
+        // Tentukan akhir periode historis (batas dimulainya proyeksi)
+        $histEndIdx = $periodIndex[$histEndDate] ?? null;
+        if ($histEndIdx === null) {
+            return;
+        }
 
         $batch = [];
         $now = now();
 
-        foreach ($transitions as $periode => $trans) {
-            // Build transition matrix untuk periode ini
-            $matrix = [];
-            foreach ($trans as $t) {
-                $matrix[$t->from_bucket][$t->to_bucket] = (float) $t->transition_rate;
-            }
+        // Iterate hanya periode historis sebagai titik awal (indeks 0 s/d histEndIdx)
+        for ($startIdx = 0; $startIdx <= $histEndIdx; $startIdx++) {
+            $startPeriode = $sortedPeriodes[$startIdx];
 
-            // Calculate compound PD dari setiap source bucket ke bucket 14 (loss)
+            // Untuk setiap source bucket (1..13)
             for ($sourceBucket = 1; $sourceBucket <= 13; $sourceBucket++) {
-                $compoundPd = $this->calculateChainProbability($matrix, $sourceBucket, 14);
+                $compoundPd = 1.0;
+
+                // Diagonal: bucket i di periode t, i+1 di t+1, ..., 13 di t+(13-i)
+                for ($step = 0; $step <= 13 - $sourceBucket; $step++) {
+                    $fromBucket = $sourceBucket + $step;
+                    $stepPeriodeIdx = $startIdx + $step;
+
+                    // Jika periode tidak ada dalam data, gunakan 0.0
+                    if ($stepPeriodeIdx >= count($sortedPeriodes)) {
+                        $rate = 0.0;
+                    } else {
+                        $stepPeriode = $sortedPeriodes[$stepPeriodeIdx];
+                        $transitions = $normalized[$stepPeriode] ?? [];
+                        
+                        // Cari rate dari_bucket → (dari_bucket+1)
+                        $rate = 0.0;
+                        foreach ($transitions as $t) {
+                            if ($t->from_bucket == $fromBucket && $t->to_bucket == $fromBucket + 1) {
+                                $rate = (float) $t->transition_rate;
+                                break;
+                            }
+                        }
+                    }
+
+                    $compoundPd *= $rate;
+                }
 
                 $batch[] = [
                     'assessment_period_id' => $periodId,
                     'group_key' => $groupKey,
                     'source_bucket' => $sourceBucket,
-                    'periode' => $periode,
-                    'compound_pd' => round($compoundPd, 6),
+                    'periode' => $startPeriode,
+                    'compound_pd' => round(min(1.0, max(0.0, $compoundPd)), 6),
                     'flow_path' => json_encode([$sourceBucket, 14]),
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -439,33 +481,9 @@ class PdNetflowCalculator
         if (!empty($batch)) {
             DB::table('pd_netflow_compound_flows')->upsert(
                 $batch,
-                ['assessment_period_id', 'group_key', 'source_bucket', 'periode'], // Unique key
+                ['assessment_period_id', 'group_key', 'source_bucket', 'periode'],
                 ['compound_pd', 'flow_path', 'updated_at']
             );
         }
-    }
-
-    /**
-     * Calculate compound PD dari source bucket ke loss bucket (14).
-     * Formula: CF(source) = P(source→source+1) × P(source+1→source+2) × ... × P(13→14)
-     * Skema bucket: 1..13 lalu 14 (loss) — transisi selalu +1 hingga loss.
-     */
-    private function calculateChainProbability(array $matrix, int $source, int $target): float
-    {
-        if ($source >= $target) {
-            return 0.0;
-        }
-
-        // Rantai mengikuti urutan bucket nyata: 1 → 2 → ... → 13 → 14
-        $compoundPd = 1.0;
-        $from = $source;
-        while ($from < $target) {
-            $to = $from + 1;
-            $rate = $matrix[$from][$to] ?? 0.0;
-            $compoundPd *= $rate;
-            $from = $to;
-        }
-
-        return min(1.0, max(0.0, $compoundPd));
     }
 }

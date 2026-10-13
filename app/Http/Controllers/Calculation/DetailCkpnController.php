@@ -222,6 +222,21 @@ class DetailCkpnController extends BaseCalculationController
         $totalGroups = max(1, $eadGroups->count());
         $groupIdx = 0;
 
+        // Portfolio-level LGD (PSAK 414): aggregate WO & recovery ER serta
+        // exposure & shortfall CS dari SELURUH grup. Dipakai sebagai fallback
+        // terakhir untuk grup yang tidak punya data historis sama sekali
+        // (weightedLgd mengembalikan null karena total exposure = 0).
+        $portWoEr = (float) $lgdEr->sum('total_write_off');
+        $portRecEr = (float) $lgdEr->sum('total_recovery');
+        $portExpCs = (float) $lgdCs->sum('total_exposure_wo');
+        $portShortCs = (float) $lgdCs->sum('total_shortfall');
+        $portfolioLossEr = max(0.0, $portWoEr - $portRecEr);
+        $portfolioLossCs = max(0.0, $portShortCs);
+        $portfolioExp = $portWoEr + $portExpCs;
+        $portfolioLgd = $portfolioExp > 0
+            ? min(1.0, max(0.0, ($portfolioLossEr + $portfolioLossCs) / $portfolioExp))
+            : 1.0;
+
         foreach ($eadGroups as $eg) {
             $groupIdx++;
             if ($token !== null) {
@@ -248,10 +263,10 @@ class DetailCkpnController extends BaseCalculationController
             $lossCs = $csObj ? (float) $csObj->total_shortfall : 0.0;
 
             $lgd = match ($lgdMethod) {
-                'EXPECTED_RECOVERY' => $erVal ?? $this->weightedLgd($woEr, $lossEr, $expCs, $lossCs) ?? 1.0,
-                'COLLATERAL_SHORTFALL' => $csVal ?? $this->weightedLgd($woEr, $lossEr, $expCs, $lossCs) ?? 1.0,
+                'EXPECTED_RECOVERY' => $erVal ?? $this->weightedLgd($woEr, $lossEr, $expCs, $lossCs) ?? $portfolioLgd,
+                'COLLATERAL_SHORTFALL' => $csVal ?? $this->weightedLgd($woEr, $lossEr, $expCs, $lossCs) ?? $portfolioLgd,
                 default => $this->weightedLgd($woEr, $lossEr, $expCs, $lossCs)
-                    ?? ($erVal !== null && $csVal !== null ? ($erVal + $csVal) / 2 : ($erVal ?? $csVal ?? 1.0)),
+                    ?? ($erVal !== null && $csVal !== null ? ($erVal + $csVal) / 2 : ($erVal ?? $csVal ?? $portfolioLgd)),
             };
             $lgd = min(1.0, max(0.0, $lgd));
             $totalEad = (float) $eg->total_ead;
@@ -303,25 +318,32 @@ class DetailCkpnController extends BaseCalculationController
     {
         $dims = $this->segmentDimensions(request(), $periodId);
 
-        $rows = DB::table('stage_classifications')
+        // Group langsung sesuai dimensi segmentasi aktif (bukan selalu 3 dimensi),
+        // agar group_key identik dengan yang dipakai PD & LGD (buildSegment).
+        $columns = ['OFFICE' => 'office_code', 'AKAD' => 'akad_code', 'USAGE' => 'usage_code'];
+        $select = [];
+        $group = [];
+
+        foreach ($columns as $dim => $column) {
+            if (in_array($dim, $dims, true)) {
+                $select[] = "COALESCE({$column}, 'NA') as {$column}";
+                $group[] = "COALESCE({$column}, 'NA')";
+            } else {
+                $select[] = "'NA' as {$column}";
+            }
+        }
+
+        return DB::table('stage_classifications')
             ->where('assessment_period_id', $periodId)
             ->where('classification', 'COLLECTIVE')
-            ->selectRaw('office_code, akad_code, usage_code, SUM(ead_amount) as total_ead, COUNT(*) as member_count')
-            ->groupBy('office_code', 'akad_code', 'usage_code')
-            ->get();
+            ->selectRaw(implode(', ', $select).', SUM(ead_amount) as total_ead, COUNT(*) as member_count')
+            ->groupByRaw(implode(', ', $group))
+            ->get()
+            ->map(function ($g) use ($dims) {
+                $g->group_key = $this->collectiveGroupKey($dims, $g->office_code, $g->akad_code, $g->usage_code);
 
-        return $rows->map(function ($g) use ($dims) {
-            $seg = $this->buildSegment($dims, $g->office_code, $g->akad_code, $g->usage_code);
-            $g->group_key = $seg['group_key'];
-
-            return $g;
-        })->groupBy('group_key')->map(function ($subGroups, $groupKey) {
-            $first = $subGroups->first();
-            $first->total_ead = (float) $subGroups->sum('total_ead');
-            $first->member_count = (int) $subGroups->sum('member_count');
-
-            return $first;
-        })->values();
+                return $g;
+            });
     }
 
     private function individualRows(int $periodId): Collection

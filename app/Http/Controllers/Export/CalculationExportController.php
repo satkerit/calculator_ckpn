@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Export;
 
 use App\Http\Controllers\Controller;
 use App\Models\AssessmentPeriod;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use OpenSpout\Common\Entity\Row;
+use OpenSpout\Common\Entity\Style\Style;
 use OpenSpout\Writer\XLSX\Writer;
 
 /**
@@ -62,23 +64,23 @@ class CalculationExportController extends Controller
     /**
      * Bundle semua modul jadi 1 file XLSX multi-sheet.
      */
-    public function backtestBundle(AssessmentPeriod $period): Response
+    public function backtestBundle(AssessmentPeriod $assessmentPeriod): Response
     {
         $writer = $this->makeWriter();
         $writer->getCurrentSheet()->setName('00_Index');
 
-        $this->writeBundleIndex($writer, $period);
+        $this->writeBundleIndex($writer, $assessmentPeriod);
 
         foreach (self::MODULES as $key => $meta) {
             $writer->addNewSheetAndMakeItCurrent()->setName($meta['sheet']);
-            $this->writeMetaHeader($writer, $period, $key);
-            $this->writeModuleContent($writer, $key, $period);
+            $this->writeMetaHeader($writer, $assessmentPeriod, $key);
+            $this->writeModuleContent($writer, $key, $assessmentPeriod);
         }
 
         return $this->respond($writer, sprintf(
             'backtest_bundle_%s_%s.xlsx',
-            $period->assessment_date?->format('Ym') ?? 'unknown',
-            substr(hash('sha256', $period->id . '|' . now()->format('U')), 0, 8),
+            $assessmentPeriod->assessment_date?->format('Ym') ?? 'unknown',
+            substr(hash('sha256', $assessmentPeriod->id . '|' . now()->format('U')), 0, 8),
         ));
     }
 
@@ -91,6 +93,161 @@ class CalculationExportController extends Controller
         abort_if(! $period, 404, 'Belum ada periode assessment.');
 
         return $this->backtestBundle($period);
+    }
+
+    /**
+     * Export PD Net Flow Detail: 1 sheet per grup, 3 tabel identik dengan view
+     * (Tabel 1 Min. Bucket, Tabel 2 Perpindahan Bucket, Tabel 3 Compound Flow to Loss).
+     * Filter: seluruh grup (?), atau satu kombinasi segmentasi (?group_key=OFFICE|AKAD|USAGE).
+     */
+    public function pdNetflowBacktest(AssessmentPeriod $assessmentPeriod, Request $request): Response
+    {
+        $groupKeyFilter = trim((string) $request->query('group_key', ''));
+
+        // Ambil semua grup yang sudah dihitung pada periode ini.
+        $pdRows = DB::table('stage_pd_results')
+            ->where('assessment_period_id', $assessmentPeriod->id)
+            ->where('method', 'NET_FLOW')
+            ->orderBy('group_key')
+            ->get()
+            ->keyBy('group_key');
+
+        abort_if($pdRows->isEmpty(), 422, 'Belum ada hasil PD Net Flow pada periode ini. Jalankan perhitungan PD terlebih dahulu.');
+
+        if ($groupKeyFilter !== '') {
+            abort_unless($pdRows->has($groupKeyFilter), 422, "Grup {$groupKeyFilter} tidak ditemukan pada hasil PD Net Flow periode ini.");
+            $pdRows = $pdRows->only([$groupKeyFilter]);
+        }
+
+        /** @var \App\Services\PdNetflow\PdNetflowService $service */
+        $service = app(\App\Services\PdNetflow\PdNetflowService::class);
+        /** @var \App\Services\PdNetflow\PdNetflowCalculator $calculator */
+        $calculator = app(\App\Services\PdNetflow\PdNetflowCalculator::class);
+
+        $writer = $this->makeWriter();
+
+        // Sheet 00_Info
+        $writer->getCurrentSheet()->setName('00_Info');
+        foreach ([
+            ['Modul',              'PD Net Flow Detail'],
+            ['Assessment Period',  $assessmentPeriod->id],
+            ['Assessment Date',    $assessmentPeriod->assessment_date?->format('Y-m-d') ?? '-'],
+            ['Scope',              $groupKeyFilter !== '' ? "Grup: {$groupKeyFilter}" : 'Seluruh grup'],
+            ['Jumlah Grup',        $pdRows->count()],
+            ['Tanggal Export',     now()->format('Y-m-d H:i:s')],
+        ] as $r) {
+            $writer->addRow(Row::fromValues($r));
+        }
+
+        // Header style: bold white on blue
+        $headerStyle = (new Style())
+            ->setFontBold()
+            ->setFontColor('FFFFFF')
+            ->setBackgroundColor('1F4E78');
+        
+        // Table title style: bold light gray bg
+        $tableTitleStyle = (new Style())
+            ->setFontBold()
+            ->setBackgroundColor('D9E1F2');
+        
+        // Satu sheet per grup, identik dengan tampilan view.
+        foreach ($pdRows as $gk => $pdResult) {
+            // Pastikan data snapshot kalkulasi ada (seperti di view controller)
+            $hasData = DB::table('pd_netflow_bucket_snapshots')
+                ->where('assessment_period_id', $assessmentPeriod->id)
+                ->where('group_key', $gk)
+                ->exists();
+
+            if (!$hasData) {
+                $calculator->calculate($assessmentPeriod->id, $gk);
+            }
+
+            $data = $service->loadGroupDetail($assessmentPeriod->id, $gk);
+
+            $sheetLabel = str_replace(['|', '/'], '-', $gk);
+            $sheetName  = strlen($sheetLabel) > 31 ? substr($sheetLabel, 0, 31) : $sheetLabel;
+            $writer->addNewSheetAndMakeItCurrent()->setName($sheetName);
+
+            // --- Header grup ---
+            $writer->addRow(Row::fromValues(["Group Segmentasi: {$gk}"])->setStyle($tableTitleStyle));
+            $writer->addRow(Row::fromValues([
+                'PD Final (%)',
+                number_format((float) $pdResult->pd_calculated * 100, 2, '.', ''),
+            ]));
+            $writer->addRow(Row::fromValues([
+                'Periode Analisis (bulan)',
+                (int) $pdResult->periods_analyzed,
+            ]));
+            $writer->addRow(Row::fromValues(['']));
+
+            // --- Tabel 1: Min. Bucket – Outstanding Balance per Bucket per Periode ---
+            $writer->addRow(Row::fromValues(['Tabel 1: Min. Bucket'])->setStyle($tableTitleStyle));
+            $writer->addRow(Row::fromValues(['Outstanding Balance per Bucket per Periode (Rupiah)']));
+
+            $periods = $data['periods'];
+            $periodLabels = array_map(
+                fn ($p) => \Carbon\Carbon::parse($p)->format('M-y'),
+                $periods
+            );
+            $writer->addRow(Row::fromValues(array_merge(['No. Bucket', 'Hari Tunggakan'], $periodLabels))->setStyle($headerStyle));
+
+            foreach ($data['buckets'] as $bucket) {
+                $row = [$bucket['bucket_no'], $bucket['hari_tunggakan']];
+                foreach ($periods as $p) {
+                    $row[] = (float) ($bucket['periods'][$p] ?? 0);
+                }
+                $writer->addRow(Row::fromValues($row));
+            }
+
+            $writer->addRow(Row::fromValues(['']));
+
+            // --- Tabel 2: Perpindahan Bucket – Transition Rate ---
+            $writer->addRow(Row::fromValues(['Tabel 2: Perpindahan Bucket'])->setStyle($tableTitleStyle));
+            $writer->addRow(Row::fromValues(['Transition Rate antar Bucket (Persentase 0-100%)']));
+
+            $transPeriods = $data['transition_periods'];
+            $transLabels  = array_map(fn ($p) => \Carbon\Carbon::parse($p)->format('M-y'), $transPeriods);
+            $writer->addRow(Row::fromValues(array_merge(['Perpindahan', 'Flow Count (avg)'], $transLabels))->setStyle($headerStyle));
+
+            foreach ($data['transitions'] as $transition) {
+                $counts   = array_values($transition['flow_counts'] ?? []);
+                $avgCount = !empty($counts) ? (int) round(array_sum($counts) / count($counts)) : 0;
+                $row = [$transition['label'], $avgCount > 0 ? $avgCount : '-'];
+                foreach ($transPeriods as $p) {
+                    $rate = ($transition['periods'][$p] ?? 0) * 100;
+                    $row[] = round((float) $rate, 2);
+                }
+                $writer->addRow(Row::fromValues($row));
+            }
+
+            $writer->addRow(Row::fromValues(['']));
+
+            // --- Tabel 3: Compound Flow to Loss – PD Compound ---
+            $writer->addRow(Row::fromValues(['Tabel 3: Compound Flow to Loss'])->setStyle($tableTitleStyle));
+            $writer->addRow(Row::fromValues(['PD Compound per Source Bucket (Persentase 0-100%)']));
+
+            $compoundPeriods = $data['compound_periods'] ?? $data['transition_periods'];
+            $compoundLabels  = array_map(fn ($p) => \Carbon\Carbon::parse($p)->format('M-y'), $compoundPeriods);
+            $writer->addRow(Row::fromValues(array_merge(['Bucket', 'Label'], $compoundLabels, ['PD Rate (%)']))->setStyle($headerStyle));
+
+            foreach ($data['compounds'] as $compound) {
+                $row = [$compound['source_bucket'], $compound['label']];
+                foreach ($compoundPeriods as $p) {
+                    $row[] = round((float) ($compound['periods'][$p] ?? 0) * 100, 2);
+                }
+                $row[] = round((float) $compound['pd_rate'] * 100, 2);
+                $writer->addRow(Row::fromValues($row));
+            }
+
+            $writer->addRow(Row::fromValues(['']));
+        }
+
+        return $this->respond($writer, sprintf(
+            'pd_netflow_detail_%s%s_%s.xlsx',
+            $assessmentPeriod->assessment_date?->format('Ym') ?? 'unknown',
+            $groupKeyFilter !== '' ? '_' . str_replace(['|', '/'], '-', $groupKeyFilter) : '',
+            now()->format('Ymd_His'),
+        ));
     }
 
     private array $currentFile = [];

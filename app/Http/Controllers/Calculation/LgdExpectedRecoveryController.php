@@ -59,9 +59,11 @@ class LgdExpectedRecoveryController extends BaseCalculationController
             $assessYm = $assessmentDate->format('Ym');
             $startYm = $assessmentDate->copy()->subMonths($histM)->format('Ym');
 
-            // Kertas kerja ER: write-off dengan tglwo di dalam rentang 5 tahun
-            // DAN tanpa jaminan (penyelesaian via pembayaran cash). Debitur
-            // write-off yang punya jaminan aktif menjadi populasi LGD CS.
+            // Kertas kerja ER: write-off dengan tglwo di dalam rentang 5 tahun.
+            // Populasi ER = write-off yang PENYELESAIANNYA via cash payment, yaitu
+            // WO yang TIDAK memiliki jaminan aktif bernilai berkode eligible.
+            // WO dengan jaminan eligible bernilai masuk ke populasi LGD CS (saling eksklusif).
+            // Recovery = WO nominal - outstanding terakhir (pergerakan baki debet).
             $windowLoans = DB::table('snapshot')
                 ->where('write_off_flag', 1)
                 ->whereNotNull('tglwo')->where('tglwo', '<>', '')
@@ -70,9 +72,15 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                 ->distinct()
                 ->pluck('loan_number');
 
+            // Loan yang memiliki jaminan aktif bernilai (liquidity_value > 0) DAN
+            // berkode jenis agunan eligible → masuk populasi CS, dikecualikan dari ER.
+            // Agunan berkode non-eligible tidak dapat dieksekusi → tetap di ER.
+            $eligibleCollateralCodes = ['02','04','08','11','12','17','18','19','21','22','23','24','25','26','27','28','29'];
             $collateralLoans = DB::table('collateral')
                 ->whereIn('loan_number', $windowLoans)
                 ->where('active_flag', 1)
+                ->where('liquidity_value', '>', 0)
+                ->whereIn('collateral_type', $eligibleCollateralCodes)
                 ->distinct()
                 ->pluck('loan_number');
 
@@ -183,6 +191,19 @@ class LgdExpectedRecoveryController extends BaseCalculationController
             $totalGroups = max(1, $groups->count());
             $gIdx = 0;
 
+            // Portfolio-level LGD ER (PSAK 414): aggregate semua WO & recovery
+            // dari seluruh populasi ER. Dipakai sebagai fallback untuk grup yang
+            // tidak punya data historis write-off (sparsity akibat segmentasi).
+            $portfolioWo = 0.0;
+            $portfolioRec = 0.0;
+            foreach ($byGroup as $agg) {
+                $portfolioWo += $agg['wo'];
+                $portfolioRec += $agg['recovery'];
+            }
+            $portfolioLgdEr = $portfolioWo > 0
+                ? min(1.0, max(0.0, 1.0 - ($portfolioRec / $portfolioWo)))
+                : 0.5;
+
             foreach ($groups as $g) {
                 $gIdx++;
                 $key = $this->collectiveGroupKey($dims, $g->office_code, $g->akad_code, $g->usage_code);
@@ -197,10 +218,11 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                     : 0.0;
                 $lgd = min(1.0, max(0.0, 1.0 - $recoveryRate));
 
-                // Fallback LGD 50% (sesuai spec) bila grup tidak punya write-off historis sama sekali.
+                // Fallback PSAK 414: bila grup tidak punya data WO historis,
+                // pakai LGD portfolio-level (bukan nilai tetap 50%).
                 $fallbackUsed = $agg['wo'] == 0.0;
                 if ($fallbackUsed) {
-                    $lgd = 0.5;
+                    $lgd = $portfolioLgdEr;
                     $fallbackCount++;
                 }
 
@@ -222,9 +244,12 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                         'window_months' => $histM,
                         'window_start' => $startYm,
                         'window_end' => $assessYm,
-                        'population' => 'write-off 5 tahun tanpa jaminan (cash)',
+                        'population' => 'write-off 5 tahun tanpa jaminan bernilai (cash recovery)',
                         'wo_accounts' => $agg['count'],
                         'fallback_used' => $fallbackUsed,
+                        'fallback_lgd' => $fallbackUsed ? round($portfolioLgdEr, 6) : null,
+                        'portfolio_wo' => round($portfolioWo, 2),
+                        'portfolio_recovery' => round($portfolioRec, 2),
                     ]),
                     'created_at' => $now,
                     'updated_at' => $now,

@@ -122,7 +122,7 @@
                             <tr class="border border-gray-300">
                                 <th class="px-3 py-2 text-left font-bold text-gray-900 border-r border-gray-300 w-20">Bucket</th>
                                 <th class="px-3 py-2 text-left font-bold text-gray-900 border-r border-gray-300 w-32">Label</th>
-                                @foreach ($data['transition_periods'] as $period)
+                                @foreach ($data['compound_periods'] ?? $data['transition_periods'] as $period)
                                     <th class="px-2 py-2 text-center font-bold text-gray-900 border-r border-gray-300 whitespace-nowrap w-24">
                                         {{ \Carbon\Carbon::parse($period)->format('M-y') }}
                                     </th>
@@ -139,7 +139,7 @@
                                     <td class="px-3 py-2 text-gray-700 border-r border-gray-300 font-mono text-xs bg-blue-50">
                                         {{ $compound['label'] }}
                                     </td>
-                                    @foreach ($data['transition_periods'] as $period)
+                                    @foreach ($data['compound_periods'] ?? $data['transition_periods'] as $period)
                                         <td class="px-2 py-2 text-right text-gray-900 border-r border-gray-300 font-mono">
                                             {{ $service->formatValue(($compound['periods'][$period] ?? 0) * 100, 'number') }}%
                                         </td>

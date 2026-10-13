@@ -77,6 +77,18 @@ class BucketConfigurationController extends Controller
         return redirect()->route('bucket.index')->with('success', "{$count} bucket berhasil dinonaktifkan");
     }
 
+    public function bulkRestore(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer|exists:bucket_definitions,id',
+        ]);
+
+        $count = BucketDefinition::whereIn('id', $validated['ids'])->update(['active' => true]);
+
+        return redirect()->route('bucket.index')->with('success', "{$count} bucket berhasil diaktifkan kembali");
+    }
+
     private function validateBucket(Request $request, ?int $ignoreId = null): array
     {
         return $request->validate([

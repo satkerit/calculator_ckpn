@@ -251,17 +251,27 @@ class PdNetflowCalculator
 
     /**
      * Tabel 1: Calculate outstanding per bucket per periode.
-     * Bucket 1 s/d 14 selalu diisi untuk setiap periode (default 0 jika tidak ada saldo).
+     * Iterasi semua bucket dari bucket_definitions (dinamis, bukan hardcode 1..14).
      */
     private function calculateBucketSnapshots(int $periodId, string $groupKey, array $bucketOutstanding, array $counts, array $periods): void
     {
+        $bucketIds = DB::table('bucket_definitions')
+            ->where('active', true)
+            ->orderBy('id', 'asc')
+            ->pluck('id')
+            ->all();
+
+        if (empty($bucketIds)) {
+            return;
+        }
+
         $batch = [];
         $now = now();
 
         foreach ($periods as $periode) {
             $date = Carbon::createFromFormat('Ym', $this->normalizePeriode($periode))->endOfMonth()->toDateString();
 
-            for ($bucketNo = 1; $bucketNo <= 14; $bucketNo++) {
+            foreach ($bucketIds as $bucketNo) {
                 $key = "{$periode}_{$bucketNo}";
                 $outstanding = $bucketOutstanding[$key] ?? 0.0;
                 $count = $counts[$key] ?? 0;
@@ -317,8 +327,21 @@ class PdNetflowCalculator
 
             $date = Carbon::createFromFormat('Ym', $ym)->endOfMonth()->toDateString();
 
-            // Skema bucket: 1..13 lalu 14 (loss). Transisi 1→2, 2→3, ... 13→14.
-            for ($fromBucket = 1; $fromBucket <= 13; $fromBucket++) {
+            $bucketIds = DB::table('bucket_definitions')
+            ->where('active', true)
+            ->orderBy('id', 'asc')
+            ->pluck('id')
+            ->all();
+
+        if (empty($bucketIds)) {
+            return;
+        }
+
+        $maxBucketId = max($bucketIds);
+
+        // Transisi dari setiap bucket ke bucket berikutnya hingga max bucket.
+            foreach ($bucketIds as $fromBucket) {
+                if ($fromBucket >= $maxBucketId) continue;
                 $toBucket = $fromBucket + 1;
                 $rate = $this->computeTransitionRate($bucketOutstanding, $prevPeriode, $periode, $fromBucket, $toBucket);
                 $rates[$fromBucket][$ym] = $rate;
@@ -429,6 +452,18 @@ class PdNetflowCalculator
             return;
         }
 
+        // Load bucket definitions dinamis
+        $bucketIds = DB::table('bucket_definitions')
+            ->where('active', true)
+            ->orderBy('id', 'asc')
+            ->pluck('id')
+            ->all();
+
+        if (empty($bucketIds)) {
+            return;
+        }
+
+        $maxBucketId = max($bucketIds);
         $batch = [];
         $now = now();
 
@@ -436,12 +471,17 @@ class PdNetflowCalculator
         for ($startIdx = 0; $startIdx <= $histEndIdx; $startIdx++) {
             $startPeriode = $sortedPeriodes[$startIdx];
 
-            // Untuk setiap source bucket (1..13)
-            for ($sourceBucket = 1; $sourceBucket <= 13; $sourceBucket++) {
-                $compoundPd = 1.0;
+            // Untuk setiap source bucket (kecuali bucket loss/max)
+            foreach ($bucketIds as $sourceBucket) {
+                if ($sourceBucket >= $maxBucketId) {
+                    continue;
+                }
 
-                // Diagonal: bucket i di periode t, i+1 di t+1, ..., 13 di t+(13-i)
-                for ($step = 0; $step <= 13 - $sourceBucket; $step++) {
+                $compoundPd = 1.0;
+                $totalSteps = $maxBucketId - $sourceBucket;
+
+                // Diagonal: bucket i→i+1 di t, i+1→i+2 di t+1, ..., (max-1)→max di t+(max-i-1)
+                for ($step = 0; $step < $totalSteps; $step++) {
                     $fromBucket = $sourceBucket + $step;
                     $stepPeriodeIdx = $startIdx + $step;
 
@@ -451,7 +491,7 @@ class PdNetflowCalculator
                     } else {
                         $stepPeriode = $sortedPeriodes[$stepPeriodeIdx];
                         $transitions = $normalized[$stepPeriode] ?? [];
-                        
+
                         // Cari rate dari_bucket → (dari_bucket+1)
                         $rate = 0.0;
                         foreach ($transitions as $t) {
@@ -471,10 +511,19 @@ class PdNetflowCalculator
                     'source_bucket' => $sourceBucket,
                     'periode' => $startPeriode,
                     'compound_pd' => round(min(1.0, max(0.0, $compoundPd)), 6),
-                    'flow_path' => json_encode([$sourceBucket, 14]),
+                    'flow_path' => json_encode([$sourceBucket, $maxBucketId]),
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
+
+                if (count($batch) >= 500) {
+                    DB::table('pd_netflow_compound_flows')->upsert(
+                        $batch,
+                        ['assessment_period_id', 'group_key', 'source_bucket', 'periode'],
+                        ['compound_pd', 'flow_path', 'updated_at']
+                    );
+                    $batch = [];
+                }
             }
         }
 

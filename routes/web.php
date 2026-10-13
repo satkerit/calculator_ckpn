@@ -25,6 +25,7 @@ use App\Http\Controllers\Calculation\DetailPdEadController;
 use App\Http\Controllers\Calculation\DetailCkpnController;
 use App\Http\Controllers\Calculation\CkpnDetailController;
 use App\Http\Controllers\Export\CalculationExportController;
+use App\Http\Controllers\BucketConfigurationController;
 
 Route::get('/', function () {
     return auth()->check() ? redirect()->route('dashboard') : redirect()->route('login');
@@ -126,6 +127,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/detail-ckpn',   [DetailCkpnController::class, 'finalize'])
             ->middleware('permission:calculation.run')->name('detail_ckpn.finalize');
     });
+
+    // Bucket Configuration Routes
+    Route::resource('bucket', BucketConfigurationController::class);
+    Route::post('bucket/{bucket}/restore', [BucketConfigurationController::class, 'restore'])->name('bucket.restore');
 
     // Tampilan hasil CKPN per komponen (Individual & Kolektif)
     Route::prefix('calculation/ckpn')->name('calculation.ckpn.')->group(function () {

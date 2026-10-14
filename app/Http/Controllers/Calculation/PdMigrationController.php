@@ -212,33 +212,62 @@ class PdMigrationController extends BaseCalculationController
             foreach ($loanNumbers as $ln) {
                 $curRows = $snaps->get($startYm.'|'.$ln);
                 $cur = $curRows instanceof Collection ? $curRows->first() : $curRows;
-                if (! $cur) {
+                if (! $cur || (bool) ($cur->write_off_flag ?? false)) {
+                    // t_start hanya debitur aktif non-WO, rating 1..5.
                     continue;
                 }
                 $from = $this->ratingBucket($cur->quality_rating);
-                $baseBalance = (float) ($cur->outstanding_balance ?? 0);
-                if ($baseBalance < 0) {
-                    $baseBalance = 0;
+                $startBalance = (float) ($cur->outstanding_balance ?? 0);
+                if ($startBalance < 0) {
+                    $startBalance = 0;
                 }
+                // Saldo Awal (kolom B kertas kerja) = posisi t_start per rating.
+                $rowTotals[$from] += $startBalance;
 
                 $nextRows = $snaps->get($endYm.'|'.$ln);
                 $next = $nextRows instanceof Collection ? $nextRows->first() : $nextRows;
                 if (! $next) {
-                    // Hilang dari snapshot tanpa jejak → Pembayaran bila bukan WO,
-                    // Hapus Buku bila WO flag ada (kolom I kertas kerja).
-                    $to = (bool) ($cur->write_off_flag ?? false) ? self::DEST_WRITE_OFF : self::DEST_PAID;
-                } else {
-                    $to = $this->destState($cur, $next);
+                    // Debitur lenyap di t_end: saldo awal tidak di-place ke sel manapun,
+                    // menjadi Pembayaran via komputasi residual per baris (selisih).
+                    continue;
                 }
-                $matrix[$from][$to] = ($matrix[$from][$to] ?? 0) + $baseBalance;
+                // Sel matriks (C..H kertas kerja) = outstanding posisi t_end.
+                // Saldo awal tetap di $rowTotals dari t_start.
+                $endBalance = max(0.0, (float) ($next->outstanding_balance ?? 0));
+                $to = $this->destState($cur, $next);
+                if ($to === self::DEST_PAID) {
+                    // Lunas di t_end: jangan place langsung, serap via residual
+                    // agar Pembayaran murni = Saldo Awal - Σ(1..5) - WO.
+                    continue;
+                }
+                $matrix[$from][$to] = ($matrix[$from][$to] ?? 0) + $endBalance;
             }
 
-            for ($r = 1; $r <= 5; $r++) {
-                $rowTotals[$r] = array_sum($matrix[$r] ?? []);
-            }
             $rowSum = array_sum($rowTotals);
             if ($rowSum <= 0) {
                 continue;
+            }
+
+            // Pembayaran = residual per baris sumber:
+            // Saldo Awal[from] - Σ tujuan 1..5 - Hapus Buku[from].
+            // Loan yang lenyap di t_end otomatis terserap di sini.
+            for ($r = 1; $r <= 5; $r++) {
+                $sumToRating = 0.0;
+                for ($t = 1; $t <= 5; $t++) {
+                    $sumToRating += $matrix[$r][$t] ?? 0;
+                }
+                $wo = $matrix[$r][self::DEST_WRITE_OFF] ?? 0;
+                $candidate = $rowTotals[$r] - $sumToRating - $wo;
+                $matrix[$r][self::DEST_PAID] = $candidate > 0 ? $candidate : 0.0;
+            }
+
+            // Padatkan matriks agar tiap baris 1..5 punya semua kolom 1..7
+            // (blade/export akses langsung tanpa ?? di beberapa titik).
+            for ($r = 1; $r <= 5; $r++) {
+                for ($t = 1; $t <= self::DEST_PAID; $t++) {
+                    $matrix[$r][$t] = $matrix[$r][$t] ?? 0.0;
+                }
+                ksort($matrix[$r]);
             }
 
             // Rate per sel = saldo tujuan / saldo awal sumber.
@@ -275,7 +304,7 @@ class PdMigrationController extends BaseCalculationController
                 }
             }
 
-            // Pembayaran = kolom tujuan 7 (loan lenyap tanpa jejak / tidak aktif).
+            // Pembayaran = residual per baris (saldo awal - tujuan 1..5 - hapus buku).
             $matrixSnapshots[$idx] = [
                 'quarter' => $m['quarter'],
                 't_start' => $m['t_start'],
@@ -378,8 +407,8 @@ class PdMigrationController extends BaseCalculationController
      * Tentukan state tujuan dari sepasang snapshot.
      *
      * Kertas kerja memisahkan Hapus Buku dan Pembayaran dari rating 1..5.
-     * Deteksi: write_off_flag → Hapus Buku; lenyapnya saldo dengan
-     * active_flag=false dan bukan WO → Pembayaran; sisanya rating tujuan.
+     * Deteksi: write_off_flag → Hapus Buku; saldo habis dengan active_flag=false
+     * → Pembayaran; sisanya rating tujuan.
      */
     private function destState(object $cur, object $next): int
     {

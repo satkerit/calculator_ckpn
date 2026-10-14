@@ -453,6 +453,92 @@ class ModularCalculationTest extends TestCase
     }
 
     /**
+     * Self-check: kolom Pembayaran = residual per baris sumber
+     * (Saldo Awal - Σ tujuan 1..5 - Hapus Buku). Debitur yang lenyap di
+     * t_end otomatis terserap di sini, sesuai contoh kertas kerja:
+     * jika rating 1 punya saldo awal 600jt dan hanya 300jt yang ditemukan
+     * di t_end (rating 1..5), maka 300jt sisanya masuk Pembayaran via
+     * selisih, bukan sebagai "event" tersendiri.
+     */
+    public function testPdMigrationPaymentColumnIsResidualPerSourceRow(): void
+    {
+        $ctrl = new class extends \App\Http\Controllers\Calculation\PdMigrationController {
+            public function snap(string $periode, string $loan, ?int $rating, float $bal, bool $wo = false, bool $active = true): object
+            {
+                return (object) [
+                    'loan_number' => $loan,
+                    'periode_snapshot' => $periode,
+                    'quality_rating' => $rating,
+                    'outstanding_balance' => $bal,
+                    'principal_arrears' => 0,
+                    'write_off_flag' => $wo,
+                    'active_flag' => $active,
+                ];
+            }
+            public function buildSnapshots(): array
+            {
+                $s = [];
+                // Rating 1: saldo awal 600jt = 100 + 200 + 300.
+                // t_end: L1a tetap r1 (100jt), L1b pindah ke r2 (200jt), L1c lenyap.
+                $s['202503|L1a'] = collect([$this->snap('202503', 'L1a', 1, 100_000_000)]);
+                $s['202503|L1b'] = collect([$this->snap('202503', 'L1b', 1, 200_000_000)]);
+                $s['202503|L1c'] = collect([$this->snap('202503', 'L1c', 1, 300_000_000)]);
+                $s['202603|L1a'] = collect([$this->snap('202603', 'L1a', 1, 100_000_000)]);
+                $s['202603|L1b'] = collect([$this->snap('202603', 'L1b', 2, 200_000_000)]);
+                // L1c tidak ada di 202603 → masuk Pembayaran (residual).
+
+                // Rating 3: saldo awal 900jt = 400 + 500.
+                // t_end: L3a WO (400jt), L3b tetap r3 (500jt).
+                $s['202503|L3a'] = collect([$this->snap('202503', 'L3a', 3, 400_000_000)]);
+                $s['202503|L3b'] = collect([$this->snap('202503', 'L3b', 3, 500_000_000)]);
+                $s['202603|L3a'] = collect([$this->snap('202603', 'L3a', 3, 0, true, false)]);
+                $s['202603|L3b'] = collect([$this->snap('202603', 'L3b', 3, 500_000_000)]);
+
+                return $s;
+            }
+        };
+
+        $ref = new \ReflectionClass($ctrl);
+        $m = $ref->getMethod('computeMigrationPd');
+        $m->setAccessible(true);
+
+        $matrices = [[
+            'quarter' => 'Q1 2026',
+            't_start' => '2025-03-01',
+            't_end' => '2026-03-31',
+            't_start_ym' => '202503',
+            't_end_ym' => '202603',
+        ]];
+
+        $out = $m->invoke($ctrl, collect($ctrl->buildSnapshots()), $matrices, ['L1a', 'L1b', 'L1c', 'L3a', 'L3b'], '202603');
+        $this->assertSame(1, $out['matrices_used']);
+        $snap = $out['matrices'][0]['matrix'];
+        $paid = 7; // DEST_PAID
+        $wo = 6;   // DEST_WRITE_OFF
+
+        // Rating 1: saldo awal 600jt; tujuan r1=100, r2=200, wo=0, paid=300.
+        $this->assertEqualsWithDelta(600_000_000, $out['matrices'][0]['saldo_awal'][1], 1e-6);
+        $this->assertEqualsWithDelta(100_000_000, $snap[1][1], 1e-6);
+        $this->assertEqualsWithDelta(200_000_000, $snap[1][2], 1e-6);
+        $this->assertEqualsWithDelta(0, $snap[1][$wo], 1e-6);
+        $this->assertEqualsWithDelta(300_000_000, $snap[1][$paid], 1e-6);
+        $this->assertEqualsWithDelta(0.5, $out['matrices'][0]['rate'][1][$paid], 1e-6);
+
+        // Rating 3: saldo awal 900jt; tujuan r3=500jt (end bal L3b), wo=0
+        // (L3a t_end balance = 0 setelah WO), paid=400jt (residual).
+        $this->assertEqualsWithDelta(900_000_000, $out['matrices'][0]['saldo_awal'][3], 1e-6);
+        $this->assertEqualsWithDelta(500_000_000, $snap[3][3], 1e-6);
+        $this->assertEqualsWithDelta(0, $snap[3][$wo], 1e-6);
+        $this->assertEqualsWithDelta(400_000_000, $snap[3][$paid], 1e-6);
+        $this->assertEqualsWithDelta(0, $out['matrices'][0]['rate'][3][$wo], 1e-6);
+        $this->assertEqualsWithDelta(4 / 9, $out['matrices'][0]['rate'][3][$paid], 1e-6);
+
+        // Total saldo awal = total tujuan seluruh kolom.
+        $this->assertEqualsWithDelta(1_500_000_000, $out['matrices'][0]['grand_total'], 1e-6);
+        $this->assertEqualsWithDelta(1_500_000_000, array_sum($out['matrices'][0]['total_to']), 1e-6);
+    }
+
+    /**
      * Self-check: uniqueSheetLabels() di CalculationExportController harus
      * men-disambiguasi nama sheet yang panjangnya > 31 char, yang sama
      * setelah trunc, atau case-insensitive collision, sambil menghormati

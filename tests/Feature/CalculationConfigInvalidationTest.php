@@ -383,4 +383,104 @@ class CalculationConfigInvalidationTest extends TestCase
             ->assertOk()
             ->assertDontSee('TIDAK VALID');
     }
+
+    public function test_pd_migration_page_renders_four_quarterly_matrix_tables(): void
+    {
+        $this->seedResults();
+
+        // Seed hasil PD Migration dengan detail 4 matriks (8 tabel: outstanding + rate).
+        $matrices = [];
+        for ($i = 1; $i <= 4; $i++) {
+            $matrix = [];
+            $rate = [];
+            for ($s = 1; $s <= 5; $s++) {
+                for ($t = 1; $t <= 7; $t++) {
+                    $matrix[$s][$t] = $s === $t ? 1_000_000.0 : 0.0;
+                    $rate[$s][$t] = $s === $t ? 1.0 : 0.0;
+                }
+            }
+            $matrices[] = [
+                'quarter' => "Q{$i} 2026",
+                't_start' => '2025-0'.$i.'-01',
+                't_end' => '2026-0'.$i.'-28',
+                't_start_ym' => '20250'.$i,
+                't_end_ym' => '20260'.$i,
+                'matrix' => $matrix,
+                'rate' => $rate,
+                'saldo_awal' => [1 => 1_000_000.0, 2 => 1_000_000.0, 3 => 1_000_000.0, 4 => 1_000_000.0, 5 => 1_000_000.0],
+                'total_from' => [1 => 1_000_000.0, 2 => 1_000_000.0, 3 => 1_000_000.0, 4 => 1_000_000.0, 5 => 1_000_000.0],
+                'total_to' => [1 => 1_000_000.0, 2 => 1_000_000.0, 3 => 1_000_000.0, 4 => 1_000_000.0, 5 => 1_000_000.0, 6 => 0.0, 7 => 0.0],
+                'grand_total' => 5_000_000.0,
+                'pd' => [1 => 0.0, 2 => 0.0, 3 => 0.0, 4 => 0.0, 5 => 0.0],
+            ];
+        }
+
+        DB::table('stage_pd_results')->insert([
+            'assessment_period_id' => $this->periodId,
+            'group_key' => '01',
+            'pd_calculated' => 0.02,
+            'method' => 'MIGRATION',
+            'periods_analyzed' => 4,
+            'detail' => json_encode([
+                'method' => 'MIGRATION',
+                'matrices' => $matrices,
+                'matrices_used' => 4,
+                'matrix' => $matrices[0]['rate'],
+                'rating_pd' => [1 => 0.0, 2 => 0.0, 3 => 0.0, 4 => 0.0, 5 => 0.0],
+                'rating_exposure' => [1 => 1_000_000.0, 2 => 1_000_000.0, 3 => 1_000_000.0, 4 => 1_000_000.0, 5 => 1_000_000.0],
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->get(route('calculation.module.pd_migration', ['assessment_period_id' => $this->periodId]))
+            ->assertOk()
+            ->assertSee('Q1 2026')
+            ->assertSee('Q4 2026')
+            ->assertSee('Pergerakan Outstanding');
+    }
+
+    public function test_pd_migration_export_contains_group_detail_sheet(): void
+    {
+        // Seed minimal + satu grup agar export 200 (bukan 422).
+        $this->seedResults();
+        DB::table('stage_pd_results')->insert([
+            'assessment_period_id' => $this->periodId,
+            'group_key' => '01',
+            'pd_calculated' => 0.02,
+            'method' => 'MIGRATION',
+            'periods_analyzed' => 1,
+            'detail' => json_encode([
+                'method' => 'MIGRATION',
+                'matrices' => [
+                    [
+                        'quarter' => 'Q4 2026', 't_start_ym' => '202512', 't_end_ym' => '202612',
+                        'matrix' => [1 => [1 => 1_000.0]],
+                        'rate' => [1 => [1 => 1.0]],
+                        'saldo_awal' => [1 => 1_000.0],
+                        'total_from' => [1 => 1_000.0],
+                        'total_to' => [1 => 1_000.0],
+                        'grand_total' => 1_000.0,
+                        'pd' => [1 => 0.0, 2 => 0.0, 3 => 0.0, 4 => 0.0, 5 => 0.0],
+                    ],
+                ],
+                'matrices_used' => 1,
+                'matrix' => [1 => [1 => 1.0]],
+                'rating_pd' => [1 => 0.0, 2 => 0.0, 3 => 0.0, 4 => 0.0, 5 => 0.0],
+                'rating_exposure' => [1 => 1_000.0],
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->get(route('calculation.export.module.period', [
+            'module' => 'pd-migration',
+            'assessmentPeriod' => $this->periodId,
+        ]));
+
+        $response->assertOk();
+        $contentType = $response->headers->get('Content-Type') ?? '';
+        $this->assertStringContainsString('spreadsheet', strtolower($contentType));
+        $this->assertGreaterThan(4000, strlen($response->getContent()));
+    }
 }

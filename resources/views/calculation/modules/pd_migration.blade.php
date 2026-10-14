@@ -97,10 +97,93 @@
                     </tr>
                     @if ($hasMatrix)
                         <tr id="{{ $rowId }}" class="hidden bg-gray-50">
-                            <td colspan="9" class="px-4 py-4">
+                            <td colspan="9" class="px-4 py-4 space-y-6">
+                                {{-- Per triwulan: 1 tabel pergerakan outstanding + 1 tabel rate/PD --}}
+                                @php $snaps = $r->matrixSnapshots ?? []; @endphp
+                                @forelse ($snaps as $s)
+                                    @php
+                                        $mTitik  = ($s['t_start_ym'] ?? '') . ' → ' . ($s['t_end_ym'] ?? '');
+                                        $totalFr = $s['total_from'] ?? [];
+                                        $totalTo = $s['total_to'] ?? [];
+                                    @endphp
+                                    <div>
+                                        <p class="text-xs font-bold text-gray-800 uppercase mb-2">
+                                            {{ $s['quarter'] ?? '' }} · {{ $mTitik }}
+                                        </p>
+                                        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                            {{-- Tabel 1: pergerakan outstanding (rupiah) --}}
+                                            <div>
+                                                <p class="text-xs font-semibold text-gray-600 mb-1">Pergerakan Outstanding (rupiah) — posisi {{ $s['t_start_ym'] ?? '' }}</p>
+                                                <div class="overflow-x-auto">
+                                                    <table class="min-w-full text-xs border border-gray-200">
+                                                        <thead class="bg-gray-100 text-gray-700">
+                                                            <tr>
+                                                                <th class="px-2 py-1 text-left">Saldo Awal ↓</th>
+                                                                @foreach ($destLabels as $dl)
+                                                                    <th class="px-2 py-1 text-right">{{ $dl }}</th>
+                                                                @endforeach
+                                                                <th class="px-2 py-1 text-right bg-gray-200">Total</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @for ($src = 1; $src <= 5; $src++)
+                                                                <tr class="border-t border-gray-100">
+                                                                    <td class="px-2 py-1 font-semibold text-gray-700">Rating {{ $src }}</td>
+                                                                    @for ($tgt = 1; $tgt <= 7; $tgt++)
+                                                                        @php $v = (float) ($s['matrix'][$src][$tgt] ?? 0); @endphp
+                                                                        <td class="px-2 py-1 text-right font-mono {{ $v > 0 ? 'text-gray-900' : 'text-gray-300' }}">{{ number_format($v, 0, ',', '.') }}</td>
+                                                                    @endfor
+                                                                    <td class="px-2 py-1 text-right font-mono font-semibold bg-gray-50">{{ number_format((float) ($s['total_from'][$src] ?? 0), 0, ',', '.') }}</td>
+                                                                </tr>
+                                                            @endfor
+                                                            <tr class="border-t-2 border-gray-300 bg-gray-100">
+                                                                <td class="px-2 py-1 font-bold text-gray-900">Total →</td>
+                                                                @for ($tgt = 1; $tgt <= 7; $tgt++)
+                                                                    <td class="px-2 py-1 text-right font-mono font-bold">{{ number_format((float) ($s['total_to'][$tgt] ?? 0), 0, ',', '.') }}</td>
+                                                                @endfor
+                                                                <td class="px-2 py-1 text-right font-mono font-bold bg-gray-200">{{ number_format((float) ($s['grand_total'] ?? 0), 0, ',', '.') }}</td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                            {{-- Tabel 2: rate / PD per cell (acuan rumus Excel) --}}
+                                            <div>
+                                                <p class="text-xs font-semibold text-gray-600 mb-1">Rate / PD (proporsi terhadap saldo awal baris)</p>
+                                                <div class="overflow-x-auto">
+                                                    <table class="min-w-full text-xs border border-gray-200">
+                                                        <thead class="bg-gray-100 text-gray-700">
+                                                            <tr>
+                                                                <th class="px-2 py-1 text-left">Saldo Awal ↓</th>
+                                                                @foreach ($destLabels as $dl)
+                                                                    <th class="px-2 py-1 text-right">{{ $dl }}</th>
+                                                                @endforeach
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @for ($src = 1; $src <= 5; $src++)
+                                                                <tr class="border-t border-gray-100">
+                                                                    <td class="px-2 py-1 font-semibold text-gray-700">Rating {{ $src }}</td>
+                                                                    @for ($tgt = 1; $tgt <= 7; $tgt++)
+                                                                        @php $rv = (float) ($s['rate'][$src][$tgt] ?? 0); @endphp
+                                                                        <td class="px-2 py-1 text-right font-mono {{ $rv > 0 ? 'text-gray-900' : 'text-gray-300' }}">{{ number_format($rv * 100, 2, ',', '.') }}%</td>
+                                                                    @endfor
+                                                                </tr>
+                                                            @endfor
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                <p class="text-[11px] text-gray-500 mt-1">PD per rating dihitung cascade mundur (R5→R1) mengikuti rumus kertas kerja.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <p class="text-xs text-gray-500">Detail matriks tidak tersedia.</p>
+                                @endforelse
+
                                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                                     <div class="lg:col-span-2">
-                                        <p class="text-xs font-bold text-gray-700 uppercase mb-2">Matriks Migrasi (rate rata-rata per sel, horizon 12 bln)</p>
+                                        <p class="text-xs font-bold text-gray-700 uppercase mb-2">Matriks Migrasi (rate rata-rata berbobot, horizon 12 bln)</p>
                                         <table class="min-w-full text-xs border border-gray-200">
                                             <thead class="bg-gray-100 text-gray-700">
                                                 <tr>

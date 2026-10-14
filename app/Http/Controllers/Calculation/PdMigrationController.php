@@ -266,6 +266,16 @@ class PdMigrationController extends BaseCalculationController
                 $pdByMatrix[$idx][$r] = min(1.0, max(0.0, $v));
                 $saldoAwalByRating[$idx][$r] = $rowTotals[$r];
             }
+            // Total kolom tujuan (t1..t7) lintas rating sumber.
+            $colTotals = [];
+            for ($t = 1; $t <= self::DEST_PAID; $t++) {
+                $colTotals[$t] = 0.0;
+                for ($r = 1; $r <= 5; $r++) {
+                    $colTotals[$t] += $matrix[$r][$t] ?? 0;
+                }
+            }
+
+            // Pembayaran = kolom tujuan 7 (loan lenyap tanpa jejak / tidak aktif).
             $matrixSnapshots[$idx] = [
                 'quarter' => $m['quarter'],
                 't_start' => $m['t_start'],
@@ -275,6 +285,9 @@ class PdMigrationController extends BaseCalculationController
                 'matrix' => $matrix,
                 'rate' => $rate,
                 'saldo_awal' => $rowTotals,
+                'total_from' => $rowTotals,
+                'total_to' => $colTotals,
+                'grand_total' => $rowSum,
                 'pd' => $pd,
             ];
             $matrixTotal += $rowSum;
@@ -410,6 +423,8 @@ class PdMigrationController extends BaseCalculationController
             $r->rating_pd = $d['rating_pd'] ?? [];
             $r->matrix = $d['matrix'] ?? [];
             $r->matrices = $d['matrices'] ?? [];
+            // Alias untuk blade: daftar 4 matriks (outstanding + rate) per triwulan.
+            $r->matrixSnapshots = $r->matrices;
             $r->rating_exposure = $d['rating_exposure'] ?? [];
 
             return $r;

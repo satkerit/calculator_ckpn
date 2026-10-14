@@ -304,11 +304,23 @@ class PdMigrationController extends BaseCalculationController
                 }
             }
 
+            // Total baris = SUM(C..I) kertas kerja (kolom J). Harus = Saldo Awal baris.
+            $rowCellTotals = [];
+            for ($r = 1; $r <= 5; $r++) {
+                $sum = 0.0;
+                for ($t = 1; $t <= self::DEST_PAID; $t++) {
+                    $sum += $matrix[$r][$t] ?? 0;
+                }
+                $rowCellTotals[$r] = $sum;
+            }
+
             // Pembayaran = residual per baris (saldo awal - tujuan 1..5 - hapus buku).
             $matrixSnapshots[$idx] = [
                 'quarter' => $m['quarter'],
                 't_start' => $m['t_start'],
                 't_end' => $m['t_end'],
+                't_start_label' => Carbon::parse($m['t_start'])->format('Y-m-d'),
+                't_end_label' => Carbon::parse($m['t_end'])->format('Y-m-d'),
                 't_start_ym' => $startYm,
                 't_end_ym' => $endYm,
                 'matrix' => $matrix,
@@ -316,6 +328,7 @@ class PdMigrationController extends BaseCalculationController
                 'saldo_awal' => $rowTotals,
                 'total_from' => $rowTotals,
                 'total_to' => $colTotals,
+                'row_total' => $rowCellTotals,
                 'grand_total' => $rowSum,
                 'pd' => $pd,
             ];

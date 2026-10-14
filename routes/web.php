@@ -144,6 +144,7 @@ Route::middleware(['auth'])->group(function () {
     // Literal segments first agar tidak match oleh `{module}/{assessmentPeriod}`
     Route::prefix('calculation/export')->name('calculation.export.')->group(function () {
         Route::get('/pd-netflow-backtest/{assessmentPeriod}', [CalculationExportController::class, 'pdNetflowBacktest'])->name('pd_netflow_backtest.period');
+        Route::get('/pd-migration-matrix/{assessmentPeriod}', [CalculationExportController::class, 'pdMigrationMatrixDetail'])->name('pd_migration_matrix.period');
         Route::get('/{module}/{assessmentPeriod}', [CalculationExportController::class, 'module'])->name('module.period');
         Route::get('/module/{module}', [CalculationExportController::class, 'moduleByName'])->name('module');
         Route::get('/backtest/{assessmentPeriod}', [CalculationExportController::class, 'backtestBundle'])->name('backtest.period');

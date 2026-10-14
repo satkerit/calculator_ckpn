@@ -55,9 +55,15 @@
 </div>
 
 <div class="mt-6 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-100">
-        <h3 class="text-sm font-bold text-gray-900">Hasil PD per Group</h3>
-        <p class="text-xs text-gray-500 mt-1">Bobot saldo (outstanding). Klik baris untuk melihat matriks 5×7 &amp; PD per rating.</p>
+    <div class="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-4">
+        <div>
+            <h3 class="text-sm font-bold text-gray-900">Hasil PD per Group</h3>
+            <p class="text-xs text-gray-500 mt-1">Bobot saldo (outstanding). Klik baris untuk melihat matriks 5×7 &amp; PD per rating.</p>
+        </div>
+        <div class="flex gap-2 shrink-0">
+            <button type="button" id="pmig-toggle-all" onclick="pmigToggleAll()" class="inline-flex items-center px-3 py-2 border border-gray-300 text-xs font-semibold rounded-lg text-gray-700 hover:bg-gray-50">Tampilkan Semua Matriks</button>
+            <a href="{{ route('calculation.export.pd_migration_matrix.period', $period->id) }}" class="inline-flex items-center px-3 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700">⬇ Export Detail Matriks</a>
+        </div>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full text-xs">
@@ -96,13 +102,15 @@
                         </td>
                     </tr>
                     @if ($hasMatrix)
-                        <tr id="{{ $rowId }}" class="hidden bg-gray-50">
+                        <tr id="{{ $rowId }}" class="pmig-detail hidden bg-gray-50">
                             <td colspan="9" class="px-4 py-4 space-y-6">
                                 {{-- Per triwulan: 1 tabel pergerakan outstanding + 1 tabel rate/PD --}}
                                 @php $snaps = $r->matrixSnapshots ?? []; @endphp
                                 @forelse ($snaps as $s)
                                     @php
-                                        $mTitik  = ($s['t_start_ym'] ?? '') . ' → ' . ($s['t_end_ym'] ?? '');
+                                        $startLabel = $s['t_start_label'] ?? ($s['t_start_ym'] ?? '');
+                                        $endLabel   = $s['t_end_label'] ?? ($s['t_end_ym'] ?? '');
+                                        $mTitik  = $startLabel . ' → ' . $endLabel;
                                         $totalFr = $s['total_from'] ?? [];
                                         $totalTo = $s['total_to'] ?? [];
                                     @endphp
@@ -110,71 +118,98 @@
                                         <p class="text-xs font-bold text-gray-800 uppercase mb-2">
                                             {{ $s['quarter'] ?? '' }} · {{ $mTitik }}
                                         </p>
-                                        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                                            {{-- Tabel 1: pergerakan outstanding (rupiah) --}}
-                                            <div>
-                                                <p class="text-xs font-semibold text-gray-600 mb-1">Pergerakan Outstanding (rupiah) — posisi {{ $s['t_start_ym'] ?? '' }}</p>
-                                                <div class="overflow-x-auto">
-                                                    <table class="min-w-full text-xs border border-gray-200">
-                                                        <thead class="bg-gray-100 text-gray-700">
-                                                            <tr>
-                                                                <th class="px-2 py-1 text-left">Saldo Awal ↓</th>
-                                                                @foreach ($destLabels as $dl)
-                                                                    <th class="px-2 py-1 text-right">{{ $dl }}</th>
-                                                                @endforeach
-                                                                <th class="px-2 py-1 text-right bg-gray-200">Total</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            @for ($src = 1; $src <= 5; $src++)
-                                                                <tr class="border-t border-gray-100">
-                                                                    <td class="px-2 py-1 font-semibold text-gray-700">Rating {{ $src }}</td>
-                                                                    @for ($tgt = 1; $tgt <= 7; $tgt++)
-                                                                        @php $v = (float) ($s['matrix'][$src][$tgt] ?? 0); @endphp
-                                                                        <td class="px-2 py-1 text-right font-mono {{ $v > 0 ? 'text-gray-900' : 'text-gray-300' }}">{{ number_format($v, 0, ',', '.') }}</td>
-                                                                    @endfor
-                                                                    <td class="px-2 py-1 text-right font-mono font-semibold bg-gray-50">{{ number_format((float) ($s['total_from'][$src] ?? 0), 0, ',', '.') }}</td>
-                                                                </tr>
+
+                                        {{-- Tabel 1: posisi outstanding (rupiah) --}}
+                                        <div class="overflow-x-auto mb-6">
+                                            <table class="min-w-full text-xs border-collapse border border-gray-400">
+                                                <thead>
+                                                    <tr class="bg-[#4F81BD] text-white">
+                                                        <th rowspan="2" class="px-2 py-1 text-center border border-gray-400 w-20">Kualitas</th>
+                                                        <th rowspan="2" class="px-2 py-1 text-center border border-gray-400 w-32">Saldo awal<br>{{ $startLabel }}</th>
+                                                        <th colspan="7" class="px-2 py-1 text-center border border-gray-400">POSISI {{ $endLabel }}</th>
+                                                        <th rowspan="2" class="px-2 py-1 text-center border border-gray-400 w-32">TOTAL</th>
+                                                    </tr>
+                                                    <tr class="bg-[#4F81BD] text-white">
+                                                        @foreach ($destLabels as $dl)
+                                                            <th class="px-2 py-1 text-center border border-gray-400">{{ $dl }}</th>
+                                                        @endforeach
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @for ($src = 1; $src <= 5; $src++)
+                                                        <tr>
+                                                            <td class="px-2 py-1 text-center font-bold border border-gray-300 bg-white">{{ $src }}</td>
+                                                            <td class="px-2 py-1 text-right font-mono border border-gray-300 bg-white">{{ number_format((float) ($s['saldo_awal'][$src] ?? 0), 0, ',', '.') }}</td>
+                                                            @for ($tgt = 1; $tgt <= 7; $tgt++)
+                                                                @php $v = (float) ($s['matrix'][$src][$tgt] ?? 0); @endphp
+                                                                <td class="px-2 py-1 text-right font-mono border border-gray-300 {{ $v > 0 ? 'bg-white text-gray-900' : 'bg-white text-gray-400' }}">{{ number_format($v, 0, ',', '.') }}</td>
                                                             @endfor
-                                                            <tr class="border-t-2 border-gray-300 bg-gray-100">
-                                                                <td class="px-2 py-1 font-bold text-gray-900">Total →</td>
-                                                                @for ($tgt = 1; $tgt <= 7; $tgt++)
-                                                                    <td class="px-2 py-1 text-right font-mono font-bold">{{ number_format((float) ($s['total_to'][$tgt] ?? 0), 0, ',', '.') }}</td>
-                                                                @endfor
-                                                                <td class="px-2 py-1 text-right font-mono font-bold bg-gray-200">{{ number_format((float) ($s['grand_total'] ?? 0), 0, ',', '.') }}</td>
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                            {{-- Tabel 2: rate / PD per cell (acuan rumus Excel) --}}
-                                            <div>
-                                                <p class="text-xs font-semibold text-gray-600 mb-1">Rate / PD (proporsi terhadap saldo awal baris)</p>
-                                                <div class="overflow-x-auto">
-                                                    <table class="min-w-full text-xs border border-gray-200">
-                                                        <thead class="bg-gray-100 text-gray-700">
-                                                            <tr>
-                                                                <th class="px-2 py-1 text-left">Saldo Awal ↓</th>
-                                                                @foreach ($destLabels as $dl)
-                                                                    <th class="px-2 py-1 text-right">{{ $dl }}</th>
-                                                                @endforeach
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            @for ($src = 1; $src <= 5; $src++)
-                                                                <tr class="border-t border-gray-100">
-                                                                    <td class="px-2 py-1 font-semibold text-gray-700">Rating {{ $src }}</td>
-                                                                    @for ($tgt = 1; $tgt <= 7; $tgt++)
-                                                                        @php $rv = (float) ($s['rate'][$src][$tgt] ?? 0); @endphp
-                                                                        <td class="px-2 py-1 text-right font-mono {{ $rv > 0 ? 'text-gray-900' : 'text-gray-300' }}">{{ number_format($rv * 100, 2, ',', '.') }}%</td>
-                                                                    @endfor
-                                                                </tr>
+                                                            <td class="px-2 py-1 text-right font-mono font-semibold border border-gray-300 bg-white">{{ number_format((float) ($s['row_total'][$src] ?? 0), 0, ',', '.') }}</td>
+                                                        </tr>
+                                                    @endfor
+                                                    <tr class="bg-[#DCE6F1] font-bold">
+                                                        <td class="px-2 py-1 border border-gray-300"></td>
+                                                        <td class="px-2 py-1 text-right font-mono border border-gray-300">{{ number_format((float) array_sum($s['saldo_awal'] ?? []), 0, ',', '.') }}</td>
+                                                        @for ($tgt = 1; $tgt <= 7; $tgt++)
+                                                            <td class="px-2 py-1 border border-gray-300"></td>
+                                                        @endfor
+                                                        <td class="px-2 py-1 text-right font-mono border border-gray-300">{{ number_format((float) ($s['grand_total'] ?? 0), 0, ',', '.') }}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {{-- Tabel 2: rate / PD per sel (proporsi terhadap saldo awal baris) --}}
+                                        <div class="overflow-x-auto">
+                                            <table class="min-w-full text-xs border-collapse border border-gray-400">
+                                                <thead>
+                                                    <tr class="bg-[#4F81BD] text-white">
+                                                        <th rowspan="2" class="px-2 py-1 text-center border border-gray-400 w-20">Kualitas</th>
+                                                        <th rowspan="2" class="px-2 py-1 text-center border border-gray-400 w-32">Saldo awal<br>{{ $startLabel }}</th>
+                                                        <th colspan="7" class="px-2 py-1 text-center border border-gray-400">POSISI {{ $endLabel }}</th>
+                                                        <th rowspan="2" class="px-2 py-1 text-center border border-gray-400 w-32">TOTAL</th>
+                                                    </tr>
+                                                    <tr class="bg-[#4F81BD] text-white">
+                                                        @foreach ($destLabels as $dl)
+                                                            <th class="px-2 py-1 text-center border border-gray-400">{{ $dl }}</th>
+                                                        @endforeach
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @for ($src = 1; $src <= 5; $src++)
+                                                        @php
+                                                            $baseRow = (float) ($s['saldo_awal'][$src] ?? 0);
+                                                            $pdRow   = (float) ($s['pd'][$src] ?? 0);
+                                                        @endphp
+                                                        <tr>
+                                                            <td class="px-2 py-1 text-center font-bold border border-gray-300 bg-white">{{ $src }}</td>
+                                                            <td class="px-2 py-1 text-right font-mono border border-gray-300 bg-white">{{ number_format($baseRow, 0, ',', '.') }}</td>
+                                                            @for ($tgt = 1; $tgt <= 7; $tgt++)
+                                                                @php $rv = (float) ($s['rate'][$src][$tgt] ?? 0); @endphp
+                                                                <td class="px-2 py-1 text-right font-mono border border-gray-300 {{ $rv > 0 ? 'bg-white text-gray-900' : 'bg-white text-gray-400' }}">{{ number_format($rv * 100, 1, ',', '.') }}%</td>
                                                             @endfor
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                                <p class="text-[11px] text-gray-500 mt-1">PD per rating dihitung cascade mundur (R5→R1) mengikuti rumus kertas kerja.</p>
-                                            </div>
+                                                            <td class="px-2 py-1 text-right font-mono font-bold border border-gray-300 bg-white">{{ number_format($pdRow * 100, 1, ',', '.') }}%</td>
+                                                        </tr>
+                                                    @endfor
+                                                    @php
+                                                        $colTotals = $s['total_to'] ?? [];
+                                                        $grandRate = array_sum($colTotals) ?: 0.0;
+                                                        $grandBase = array_sum($s['saldo_awal'] ?? []);
+                                                        $weightedPd = $grandBase > 0
+                                                            ? array_sum(array_map(fn ($x) => (float) ($s['pd'][$x] ?? 0) * (float) ($s['saldo_awal'][$x] ?? 0), [1, 2, 3, 4, 5])) / $grandBase
+                                                            : 0.0;
+                                                    @endphp
+                                                    <tr class="bg-[#DCE6F1] font-bold">
+                                                        <td class="px-2 py-1 border border-gray-300"></td>
+                                                        <td class="px-2 py-1 text-right font-mono border border-gray-300">{{ number_format((float) $grandBase, 0, ',', '.') }}</td>
+                                                        @for ($tgt = 1; $tgt <= 7; $tgt++)
+                                                            <td class="px-2 py-1 text-right font-mono border border-gray-300">{{ $grandRate > 0 ? number_format(((float) ($colTotals[$tgt] ?? 0) / $grandRate) * 100, 1, ',', '.') . '%' : '0,0%' }}</td>
+                                                        @endfor
+                                                        <td class="px-2 py-1 text-right font-mono border border-gray-300">{{ number_format($weightedPd * 100, 1, ',', '.') }}%</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                            <p class="text-[11px] text-gray-500 mt-1">Kolom TOTAL per baris = PD per rating, dihitung cascade mundur (R5→R1) mengikuti rumus kertas kerja: <span class="font-mono">H + (G×PD5) + (F×PD4) + (E×PD3) + (D×PD2)</span>.</p>
                                         </div>
                                     </div>
                                 @empty
@@ -235,4 +270,24 @@
         </table>
     </div>
 </div>
+
+<script>
+    // Buka/tutup seluruh detail matriks semua grup sekaligus.
+    function pmigToggleAll() {
+        var rows = document.querySelectorAll('.pmig-detail');
+        if (rows.length === 0) return;
+
+        var anyHidden = false;
+        rows.forEach(function (el) {
+            if (el.classList.contains('hidden')) anyHidden = true;
+        });
+
+        rows.forEach(function (el) {
+            el.classList.toggle('hidden', !anyHidden);
+        });
+
+        var btn = document.getElementById('pmig-toggle-all');
+        if (btn) btn.textContent = anyHidden ? 'Sembunyikan Semua Matriks' : 'Tampilkan Semua Matriks';
+    }
+</script>
 @endsection

@@ -42,6 +42,126 @@ class CalculationExportController extends Controller
             return $this->pdMigrationMultiSheet($assessmentPeriod);
         }
 
+        return $this->moduleGeneric($module, $assessmentPeriod);
+    }
+
+    /**
+     * Export seluruh detail matriks PD Migration dalam 1 file XLSX, dengan
+     * layout tabel yang mengikuti kertas kerja B2.PD-Migration: untuk setiap
+     * grup ditampilkan ringkasan, lalu per triwulan 2 tabel (Pergerakan
+     * Outstanding dalam rupiah & Rate/PD dalam %).
+     */
+    public function pdMigrationMatrixDetail(AssessmentPeriod $assessmentPeriod): Response
+    {
+        $rows = DB::table('stage_pd_results')
+            ->where('assessment_period_id', $assessmentPeriod->id)
+            ->where('method', 'MIGRATION')
+            ->orderBy('pd_calculated', 'desc')
+            ->get();
+
+        abort_if($rows->isEmpty(), 422, 'Belum ada hasil PD Migration pada periode ini. Jalankan perhitungan PD Migration terlebih dahulu.');
+
+        $headerStyle = (new Style())->setFontBold()->setFontColor('FFFFFF')->setBackgroundColor('4F81BD');
+        $titleStyle  = (new Style())->setFontBold()->setBackgroundColor('DCE6F1');
+        $subStyle    = (new Style())->setFontBold()->setBackgroundColor('D9E1F2');
+        $bold        = (new Style())->setFontBold();
+
+        $writer = $this->makeWriter();
+        $writer->getCurrentSheet()->setName('PD_Migration_Matrix');
+
+        // --- Header meta ---
+        $writer->addRow(Row::fromValues(['Detail Matriks PD Migration — Layout Kertas Kerja B2.PD-Migration'])->setStyle($titleStyle));
+        $writer->addRow(Row::fromValues(['Assessment Period', $assessmentPeriod->id]));
+        $writer->addRow(Row::fromValues(['Assessment Date', $assessmentPeriod->assessment_date?->format('Y-m-d') ?? '-']));
+        $writer->addRow(Row::fromValues(['Jumlah Grup', $rows->count()]));
+        $writer->addRow(Row::fromValues(['Tanggal Export', now()->format('Y-m-d H:i:s')]));
+        $writer->addRow(Row::fromValues(['']));
+
+        $destLabels = [1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => 'WO(Hapus Buku)', 7 => 'Pembayaran'];
+
+        foreach ($rows as $r) {
+            $d = json_decode($r->detail ?? '{}', true) ?: [];
+            $matrices = $d['matrices'] ?? [];
+
+            $writer->addRow(Row::fromValues(['GROUP: '.$r->group_key])->setStyle($titleStyle));
+            $writer->addRow(Row::fromValues(['PD Grup (%)', round((float) $r->pd_calculated * 100, 4)]));
+            $writer->addRow(Row::fromValues(['Jumlah Matriks Triwulan', count($matrices)]));
+            $writer->addRow(Row::fromValues(['']));
+
+            foreach ($matrices as $mi => $s) {
+                $startLabel = $s['t_start_label'] ?? ($s['t_start_ym'] ?? '');
+                $endLabel   = $s['t_end_label'] ?? ($s['t_end_ym'] ?? '');
+                $writer->addRow(Row::fromValues(['Matriks '.($mi + 1).' · '.($s['quarter'] ?? 'Q').' ('.$startLabel.' → '.$endLabel.')'])->setStyle($subStyle));
+
+                // Tabel 1: Pergerakan outstanding (rupiah), layout kertas kerja.
+                $writer->addRow(Row::fromValues(['Pergerakan Outstanding (Rp) — Saldo awal '.$startLabel.' → posisi '.$endLabel])->setStyle($subStyle));
+                $writer->addRow(Row::fromValues(array_merge(
+                    ['Kualitas', 'Saldo awal'."\n".$startLabel],
+                    array_values($destLabels),
+                    ['TOTAL']
+                ))->setStyle($headerStyle));
+                for ($src = 1; $src <= 5; $src++) {
+                    $row = [$src, (float) ($s['saldo_awal'][$src] ?? 0)];
+                    for ($t = 1; $t <= 7; $t++) {
+                        $row[] = (float) ($s['matrix'][$src][$t] ?? 0);
+                    }
+                    $row[] = (float) ($s['row_total'][$src] ?? 0);
+                    $writer->addRow(Row::fromValues($row));
+                }
+                $totRow = ['', (float) array_sum($s['saldo_awal'] ?? [])];
+                for ($t = 1; $t <= 7; $t++) {
+                    $totRow[] = null;
+                }
+                $totRow[] = (float) ($s['grand_total'] ?? 0);
+                $writer->addRow(Row::fromValues($totRow)->setStyle($bold));
+
+                // Tabel 2: Rate / PD (%) — proporsi terhadap saldo awal baris.
+                $writer->addRow(Row::fromValues(['Rate / PD (%) — proporsi terhadap saldo awal baris '.$startLabel.' → '.$endLabel])->setStyle($subStyle));
+                $writer->addRow(Row::fromValues(array_merge(
+                    ['Kualitas', 'Saldo awal'."\n".$startLabel],
+                    array_values($destLabels),
+                    ['TOTAL (PD)']
+                ))->setStyle($headerStyle));
+                $colTotals = $s['total_to'] ?? [];
+                $grandRate = array_sum($colTotals) ?: 0.0;
+                $grandBase = (float) array_sum($s['saldo_awal'] ?? []);
+                $weightedPd = $grandBase > 0
+                    ? array_sum(array_map(fn ($x) => (float) ($s['pd'][$x] ?? 0) * (float) ($s['saldo_awal'][$x] ?? 0), [1, 2, 3, 4, 5])) / $grandBase
+                    : 0.0;
+                for ($src = 1; $src <= 5; $src++) {
+                    // Kolom "Saldo awal" pada tabel rate = rupiah (sama spt kertas kerja).
+                    $row = [$src, (float) ($s['saldo_awal'][$src] ?? 0)];
+                    for ($t = 1; $t <= 7; $t++) {
+                        $row[] = round((float) ($s['rate'][$src][$t] ?? 0) * 100, 2);
+                    }
+                    $row[] = round((float) ($s['pd'][$src] ?? 0) * 100, 2);
+                    $writer->addRow(Row::fromValues($row));
+                }
+                $rateTotRow = ['', $grandBase];
+                for ($t = 1; $t <= 7; $t++) {
+                    $rateTotRow[] = $grandRate > 0 ? round(((float) ($colTotals[$t] ?? 0) / $grandRate) * 100, 2) : 0.0;
+                }
+                $rateTotRow[] = round($weightedPd * 100, 2);
+                $writer->addRow(Row::fromValues($rateTotRow)->setStyle($bold));
+                $writer->addRow(Row::fromValues(['']));
+            }
+
+            $writer->addRow(Row::fromValues(['']));
+        }
+
+        return $this->respond($writer, sprintf(
+            'pd_migration_matrix_detail_%s_%s.xlsx',
+            $assessmentPeriod->assessment_date?->format('Ym') ?? 'unknown',
+            now()->format('Ymd_His'),
+        ));
+    }
+
+    /**
+     * Jalur export generik (single sheet) untuk modul selain PD Migration.
+     */
+    private function moduleGeneric(string $module, AssessmentPeriod $assessmentPeriod): Response
+    {
+
         $writer = $this->makeWriter();
         $writer->getCurrentSheet()->setName(self::MODULES[$module]['sheet']);
 
@@ -455,38 +575,62 @@ class CalculationExportController extends Controller
         $writer->addRow(Row::fromValues(['']));
 
         foreach ($matrices as $mi => $s) {
-            $mLabel = ($s['quarter'] ?? 'Q').' ('.($s['t_start_ym'] ?? '').'→'.($s['t_end_ym'] ?? '').')';
+            $startLabel = $s['t_start_label'] ?? ($s['t_start_ym'] ?? '');
+            $endLabel   = $s['t_end_label'] ?? ($s['t_end_ym'] ?? '');
+            $mLabel = ($s['quarter'] ?? 'Q').' ('.$startLabel.'→'.$endLabel.')';
             $writer->addRow(Row::fromValues(['=== Matriks '.($mi + 1).' · '.$mLabel.' ==='])->setStyle($titleStyle));
 
             // Tabel 1: pergerakan outstanding (rupiah) — baris sumber 1..5.
-            $writer->addRow(Row::fromValues(['Pergerakan Outstanding (Rp)']));
-            $writer->addRow(Row::fromValues(array_merge(['Saldo Awal'], array_values($destLabels), ['Total']))->setStyle($headerStyle));
+            // Struktur kolom: Kualitas | Saldo Awal | tujuan 1..5 | Hapus Buku | Pembayaran | Total.
+            $writer->addRow(Row::fromValues(['Kualitas', 'Saldo awal '.$startLabel, '', 'POSISI '.$endLabel, '', '', '', '', '', '', 'TOTAL'])->setStyle($headerStyle));
+            $writer->addRow(Row::fromValues(array_merge(
+                ['', ''],
+                array_values($destLabels),
+                ['']
+            ))->setStyle($headerStyle));
             for ($src = 1; $src <= 5; $src++) {
-                $row = ["Rating {$src}"];
+                $row = [$src, (float) ($s['saldo_awal'][$src] ?? 0)];
                 for ($t = 1; $t <= 7; $t++) {
                     $row[] = (float) ($s['matrix'][$src][$t] ?? 0);
                 }
-                $row[] = (float) ($s['total_from'][$src] ?? 0);
+                $row[] = (float) ($s['row_total'][$src] ?? 0);
                 $writer->addRow(Row::fromValues($row));
             }
-            $totRow = ['Total'];
+            $totRow = ['', (float) array_sum($s['saldo_awal'] ?? [])];
             for ($t = 1; $t <= 7; $t++) {
-                $totRow[] = (float) ($s['total_to'][$t] ?? 0);
+                $totRow[] = null;
             }
             $totRow[] = (float) ($s['grand_total'] ?? 0);
             $writer->addRow(Row::fromValues($totRow)->setStyle($titleStyle));
 
             // Tabel 2: rate / PD (proporsi terhadap saldo awal baris).
-            $writer->addRow(Row::fromValues(['Rate / PD (fraksi terhadap saldo awal baris)']));
-            $writer->addRow(Row::fromValues(array_merge(['Saldo Awal'], array_values($destLabels)))->setStyle($headerStyle));
+            // Struktur kolom: Kualitas | Saldo Awal | rate 1..5 | Hapus Buku | Pembayaran | TOTAL (PD).
+            $writer->addRow(Row::fromValues(['Kualitas', 'Saldo awal '.$startLabel, '', 'POSISI '.$endLabel, '', '', '', '', '', '', 'TOTAL'])->setStyle($headerStyle));
+            $writer->addRow(Row::fromValues(array_merge(
+                ['', ''],
+                array_values($destLabels),
+                ['']
+            ))->setStyle($headerStyle));
+            $colTotals = $s['total_to'] ?? [];
+            $grandRate = array_sum($colTotals) ?: 0.0;
+            $grandBase = (float) array_sum($s['saldo_awal'] ?? []);
+            $weightedPd = $grandBase > 0
+                ? array_sum(array_map(fn ($x) => (float) ($s['pd'][$x] ?? 0) * (float) ($s['saldo_awal'][$x] ?? 0), [1, 2, 3, 4, 5])) / $grandBase
+                : 0.0;
             for ($src = 1; $src <= 5; $src++) {
-                $row = ["Rating {$src}"];
+                $row = [$src, (float) ($s['saldo_awal'][$src] ?? 0)];
                 for ($t = 1; $t <= 7; $t++) {
                     $row[] = round((float) ($s['rate'][$src][$t] ?? 0), 6);
                 }
+                $row[] = round((float) ($s['pd'][$src] ?? 0), 6);
                 $writer->addRow(Row::fromValues($row));
             }
-            $writer->addRow(Row::fromValues(['PD rating matriks (%)', round((float) ($s['pd'][5] ?? 0) * 100, 4), round((float) ($s['pd'][4] ?? 0) * 100, 4), round((float) ($s['pd'][3] ?? 0) * 100, 4), round((float) ($s['pd'][2] ?? 0) * 100, 4), round((float) ($s['pd'][1] ?? 0) * 100, 4)]));
+            $rateTotRow = ['', $grandBase];
+            for ($t = 1; $t <= 7; $t++) {
+                $rateTotRow[] = $grandRate > 0 ? round((float) ($colTotals[$t] ?? 0) / $grandRate, 6) : 0.0;
+            }
+            $rateTotRow[] = round($weightedPd, 6);
+            $writer->addRow(Row::fromValues($rateTotRow)->setStyle($titleStyle));
             $writer->addRow(Row::fromValues(['']));
         }
 

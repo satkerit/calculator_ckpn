@@ -64,6 +64,24 @@ class DetailCkpnController extends BaseCalculationController
         if ($pdCount === 0) {
             return $this->backTo($request, 'calculation.module.detail_ckpn', [], "Nilai PD dengan metode {$config['pd_method']} belum tersedia. Jalankan modul PD Net Flow / Migration sesuai metode konfigurasi terlebih dahulu.");
         }
+
+        // PD harus mencakup SETIAP grup segmentasi kolektif, bukan hanya sebagian.
+        // Grup tanpa baris PD akan dihitung dengan PD=0 (CKPN understated) — bukan
+        // memakai rate sesuai segmentasinya. Cegah sebelum menyimpan hasil.
+        $eadGroupKeys = $this->eadGroups($period->id)->pluck('group_key')->unique();
+        $pdGroupKeys = DB::table('stage_pd_results')
+            ->where('assessment_period_id', $period->id)
+            ->where('method', $config['pd_method'])
+            ->pluck('group_key')
+            ->unique();
+        $missingPd = $eadGroupKeys->diff($pdGroupKeys);
+
+        if ($missingPd->isNotEmpty()) {
+            $sample = implode(', ', $missingPd->take(5)->all());
+            $more = $missingPd->count() > 5 ? ' (+'.($missingPd->count() - 5).' lainnya)' : '';
+
+            return $this->backTo($request, 'calculation.module.detail_ckpn', [], "Rate PD metode {$config['pd_method']} belum lengkap untuk {$missingPd->count()} grup segmentasi: {$sample}{$more}. Hitung ulang modul PD agar setiap segmen memiliki rate PD sendiri sebelum Finalize CKPN.");
+        }
         if ($lgdCount === 0) {
             return $this->backTo($request, 'calculation.module.detail_ckpn', [], 'Nilai LGD belum tersedia. Jalankan modul LGD (ER dan/atau CS) terlebih dahulu.');
         }
@@ -222,21 +240,6 @@ class DetailCkpnController extends BaseCalculationController
         $totalGroups = max(1, $eadGroups->count());
         $groupIdx = 0;
 
-        // Portfolio-level LGD (PSAK 414): aggregate WO & recovery ER serta
-        // exposure & shortfall CS dari SELURUH grup. Dipakai sebagai fallback
-        // terakhir untuk grup yang tidak punya data historis sama sekali
-        // (weightedLgd mengembalikan null karena total exposure = 0).
-        $portWoEr = (float) $lgdEr->sum('total_write_off');
-        $portRecEr = (float) $lgdEr->sum('total_recovery');
-        $portExpCs = (float) $lgdCs->sum('total_exposure_wo');
-        $portShortCs = (float) $lgdCs->sum('total_shortfall');
-        $portfolioLossEr = max(0.0, $portWoEr - $portRecEr);
-        $portfolioLossCs = max(0.0, $portShortCs);
-        $portfolioExp = $portWoEr + $portExpCs;
-        $portfolioLgd = $portfolioExp > 0
-            ? min(1.0, max(0.0, ($portfolioLossEr + $portfolioLossCs) / $portfolioExp))
-            : 1.0;
-
         foreach ($eadGroups as $eg) {
             $groupIdx++;
             if ($token !== null) {
@@ -245,7 +248,13 @@ class DetailCkpnController extends BaseCalculationController
                 ]);
             }
             $key = $eg->group_key;
-            $pd = isset($pdMap[$key]) ? (float) $pdMap[$key]->pd_calculated : 0.0;
+
+            // Tanpa fallback: PD wajib tersedia per grup (dijaga guard missingPd
+            // di finalize — grup tanpa PD tidak boleh diloloskan dengan PD=0).
+            if (! isset($pdMap[$key])) {
+                throw new \RuntimeException("PD untuk grup {$key} tidak ditemukan. Hitung ulang modul PD sesuai metode {$config['pd_method']}.");
+            }
+            $pd = (float) $pdMap[$key]->pd_calculated;
             $erObj = $lgdEr[$key] ?? null;
             $csObj = $lgdCs[$key] ?? null;
 
@@ -262,11 +271,13 @@ class DetailCkpnController extends BaseCalculationController
             $expCs  = $csObj ? (float) $csObj->total_exposure_wo : 0.0;
             $lossCs = $csObj ? (float) $csObj->total_shortfall : 0.0;
 
+            // Tanpa fallback: LGD murni dari historical data segmen. Bila hasil
+            // metode aktif tidak tersedia (null = exposure nol), LGD = 0
+            // (tidak ada loss history) — bukan memakai portfolio/rata-rata metode lain.
             $lgd = match ($lgdMethod) {
-                'EXPECTED_RECOVERY' => $erVal ?? $this->weightedLgd($woEr, $lossEr, $expCs, $lossCs) ?? $portfolioLgd,
-                'COLLATERAL_SHORTFALL' => $csVal ?? $this->weightedLgd($woEr, $lossEr, $expCs, $lossCs) ?? $portfolioLgd,
-                default => $this->weightedLgd($woEr, $lossEr, $expCs, $lossCs)
-                    ?? ($erVal !== null && $csVal !== null ? ($erVal + $csVal) / 2 : ($erVal ?? $csVal ?? $portfolioLgd)),
+                'EXPECTED_RECOVERY' => $erVal ?? $this->weightedLgd($woEr, $lossEr, $expCs, $lossCs) ?? 0.0,
+                'COLLATERAL_SHORTFALL' => $csVal ?? $this->weightedLgd($woEr, $lossEr, $expCs, $lossCs) ?? 0.0,
+                default => $this->weightedLgd($woEr, $lossEr, $expCs, $lossCs) ?? 0.0,
             };
             $lgd = min(1.0, max(0.0, $lgd));
             $totalEad = (float) $eg->total_ead;
@@ -297,7 +308,7 @@ class DetailCkpnController extends BaseCalculationController
 
     /**
      * Weighted LGD sesuai kertas kerja: Total Loss / Total Exposure.
-     * Null bila total exposure nol (caller menentukan fallback).
+     * Null bila total exposure nol (caller memutuskan: LGD = 0, tanpa fallback).
      */
     private function weightedLgd(float $woEr, float $lossEr, float $expCs, float $lossCs): ?float
     {

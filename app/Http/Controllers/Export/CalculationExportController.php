@@ -36,6 +36,12 @@ class CalculationExportController extends Controller
         abort_unless(array_key_exists($module, self::MODULES), 404, 'Modul tidak dikenal.');
         abort_unless($assessmentPeriod, 404, 'Assessment period tidak ditemukan.');
 
+        // PD Migration: multi-sheet (00_Index + 1 sheet per grup). Layout sheet
+        // per grup meniru drill-down view: ringkasan + matriks 5×7 + exposure.
+        if ($module === 'pd-migration') {
+            return $this->pdMigrationMultiSheet($assessmentPeriod);
+        }
+
         $writer = $this->makeWriter();
         $writer->getCurrentSheet()->setName(self::MODULES[$module]['sheet']);
 
@@ -284,7 +290,7 @@ class CalculationExportController extends Controller
             'config'         => $this->writeConfig($writer, $period),
             'classification' => $this->writeClassifications($writer, $period),
             'pd-netflow'     => $this->writePdResults($writer, $period, 'NET_FLOW'),
-            'pd-migration'   => $this->writePdResults($writer, $period, 'MIGRATION'),
+            'pd-migration'   => $this->writePdMigration($writer, $period),
             'lgd-er'         => $this->writeLgd($writer, $period, 'ER'),
             'lgd-cs'         => $this->writeLgd($writer, $period, 'CS'),
             'detail-pd-ead'  => $this->writeDetailPdEad($writer, $period),
@@ -356,6 +362,240 @@ class CalculationExportController extends Controller
                     ]));
                 }
             });
+    }
+
+    /**
+     * Export PD Migration multi-sheet: sheet pertama = 00_Index (info + ringkasan
+     * seluruh grup), sheet berikutnya = 1 per grup berisi ringkasan grup,
+     * matriks migrasi 5×7, exposure posisi assessment per rating, dan
+     * formula cascade backward (salin-tempel ke Excel).
+     */
+    private function pdMigrationMultiSheet(AssessmentPeriod $assessmentPeriod): Response
+    {
+        $headerStyle = (new Style())->setFontBold()->setFontColor('FFFFFF')->setBackgroundColor('1F4E78');
+        $titleStyle  = (new Style())->setFontBold()->setBackgroundColor('D9E1F2');
+        $destLabels  = [1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => 'Hapus Buku', 7 => 'Pembayaran'];
+
+        $rows = DB::table('stage_pd_results')
+            ->where('assessment_period_id', $assessmentPeriod->id)
+            ->where('method', 'MIGRATION')
+            ->orderBy('pd_calculated', 'desc')
+            ->get();
+
+        abort_if($rows->isEmpty(), 422, 'Belum ada hasil PD Migration pada periode ini. Jalankan perhitungan PD Migration terlebih dahulu.');
+
+        $writer = $this->makeWriter();
+
+        // --- Sheet 00_Index: meta + ringkasan seluruh grup ---
+        $writer->getCurrentSheet()->setName('00_Index');
+        foreach ([
+            ['Modul', 'PD Migration Detail (multi-sheet)'],
+            ['Assessment Period', $assessmentPeriod->id],
+            ['Assessment Date', $assessmentPeriod->assessment_date?->format('Y-m-d') ?? '-'],
+            ['Jumlah Grup', $rows->count()],
+            ['Tanggal Export', now()->format('Y-m-d H:i:s')],
+        ] as $r) {
+            $writer->addRow(Row::fromValues($r));
+        }
+        $writer->addRow(Row::fromValues(['']));
+        $writer->addRow(Row::fromValues(['Ringkasan PD per Group'])->setStyle($titleStyle));
+        $writer->addRow(Row::fromValues(array_merge(
+            ['#', 'Group Key', 'Sheet', 'PD Grup (%)', 'Transisi'],
+            ['PD R1 (%)', 'PD R2 (%)', 'PD R3 (%)', 'PD R4 (%)', 'PD R5 (%)'],
+        ))->setStyle($headerStyle));
+
+        $decoded = [];
+        // Nama sheet unik per grup (Excel maks 31 char, case-insensitive).
+        $sheetNames = $this->uniqueSheetLabels($rows->pluck('group_key')->all(), ['00_Index']);
+        $i = 0;
+        foreach ($rows as $r) {
+            $i++;
+            $d = json_decode($r->detail ?? '{}', true) ?: [];
+            $decoded[$r->group_key] = $d;
+            $rp = $d['rating_pd'] ?? [];
+            $row = [$i, $r->group_key, $sheetNames[$r->group_key], round((float) $r->pd_calculated * 100, 4), (int) $r->periods_analyzed];
+            for ($k = 1; $k <= 5; $k++) {
+                $row[] = isset($rp[$k]) ? round((float) $rp[$k] * 100, 4) : '';
+            }
+            $writer->addRow(Row::fromValues($row));
+        }
+
+        // --- 1 sheet per grup ---
+        foreach ($rows as $r) {
+            $d = $decoded[$r->group_key];
+            $matrix = $d['matrix'] ?? [];
+            $exp = $d['rating_exposure'] ?? [];
+            $rp = $d['rating_pd'] ?? [];
+            $transitions = (int) ($d['transitions'] ?? $r->periods_analyzed);
+
+            $writer->addNewSheetAndMakeItCurrent()->setName($sheetNames[$r->group_key]);
+
+            $writer->addRow(Row::fromValues(["Group: {$r->group_key}"])->setStyle($titleStyle));
+            $writer->addRow(Row::fromValues(['PD Grup (%)', round((float) $r->pd_calculated * 100, 4)]));
+            $writer->addRow(Row::fromValues(['Transisi tahunan (horizon 12 bln)', $transitions]));
+            $writer->addRow(Row::fromValues(['']));
+            $writer->addRow(Row::fromValues(['Matriks Migrasi (rate rata-rata per sel, %)']));
+            $writer->addRow(Row::fromValues(array_merge(['Rating Awal'], array_values($destLabels)))->setStyle($headerStyle));
+            for ($src = 1; $src <= 5; $src++) {
+                $row = ["Rating {$src}"];
+                for ($t = 1; $t <= 7; $t++) {
+                    $row[] = round((float) ($matrix[$src][$t] ?? 0) * 100, 4);
+                }
+                $writer->addRow(Row::fromValues($row));
+            }
+            $writer->addRow(Row::fromValues(['']));
+
+            $writer->addRow(Row::fromValues(['Exposure posisi assessment (rupiah)']));
+            $writer->addRow(Row::fromValues(['Rating', 'Exposure (Rp)'])->setStyle($headerStyle));
+            $total = 0.0;
+            for ($rr = 1; $rr <= 5; $rr++) {
+                $e = (float) ($exp[$rr] ?? 0);
+                $total += $e;
+                $writer->addRow(Row::fromValues(["Rating {$rr}", $e]));
+            }
+            $writer->addRow(Row::fromValues(['Total', $total])->setStyle($titleStyle));
+            $writer->addRow(Row::fromValues(['']));
+
+            // PD per rating + formula cascade kertas kerja (PG1..HH referensi sel matriks di atas).
+            $writer->addRow(Row::fromValues(['PD per rating + formula cascade (salin ke Excel untuk verifikasi)']));
+            $writer->addRow(Row::fromValues(['Rating', 'PD (%)', 'Formula cascade kertas kerja'])->setStyle($headerStyle));
+            $writer->addRow(Row::fromValues(['5', $this->pct4($rp[5] ?? null), '=G11+F11']));
+            $writer->addRow(Row::fromValues(['4', $this->pct4($rp[4] ?? null), '=G10+F10/100*B24']));
+            $writer->addRow(Row::fromValues(['3', $this->pct4($rp[3] ?? null), '=G9+F9/100*B24+E9/100*B25']));
+            $writer->addRow(Row::fromValues(['2', $this->pct4($rp[2] ?? null), '=G8+F8/100*B24+E8/100*B25+D8/100*B26']));
+            $writer->addRow(Row::fromValues(['1', $this->pct4($rp[1] ?? null), '=G7+F7/100*B24+E7/100*B25+D7/100*B26+C7/100*B27']));
+            $writer->addRow(Row::fromValues(['']));
+            $writer->addRow(Row::fromValues(['Catatan: matriks baris 7-11 (R1-R5), kolom B-F = tujuan 1-5, G = Hapus Buku. PD5 di B24, PD4 di B25, dst. Matriks & PD (%) sehingga rate dikali /100.']));
+        }
+
+        return $this->respond($writer, sprintf(
+            'pd_migration_detail_%s_%s.xlsx',
+            $assessmentPeriod->assessment_date?->format('Ym') ?? 'unknown',
+            now()->format('Ymd_His'),
+        ));
+    }
+
+    /**
+     * Buat nama sheet unik per group_key. Excel membatasi 31 karakter dan
+     * menganggap nama tidak case-sensitive, sehingga grup yang terpotong sama
+     * atau beda hanya di kapitalisasi harus di-disambiguasi (suffix _2, _3, ...).
+     *
+     * @param  array<int,string>  $groupKeys
+     * @param  array<int,string>  $reserved  nama sheet yang sudah dipakai (mis. '00_Index')
+     * @return array<string,string>  map group_key => nama sheet unik
+     */
+    private function uniqueSheetLabels(array $groupKeys, array $reserved = []): array
+    {
+        $used = [];
+        foreach ($reserved as $name) {
+            $used[strtolower($name)] = true;
+        }
+
+        $labels = [];
+        foreach ($groupKeys as $key) {
+            $base = $this->sheetLabel($key);
+            $candidate = $base;
+            $n = 1;
+            while (isset($used[strtolower($candidate)])) {
+                $n++;
+                $suffix = '_'.$n;
+                // Sisakan ruang untuk suffix agar total <= 31 karakter.
+                $candidate = substr($base, 0, 31 - strlen($suffix)).$suffix;
+            }
+            $used[strtolower($candidate)] = true;
+            $labels[$key] = $candidate;
+        }
+
+        return $labels;
+    }
+
+    private function sheetLabel(string $groupKey): string
+    {
+        $label = str_replace(['|', '/'], '-', $groupKey);
+        $label = preg_replace('/[\\\\?*:\[\]]/', '-', $label) ?? $label;
+        $label = trim($label);
+
+        return strlen($label) > 31 ? substr($label, 0, 31) : ($label !== '' ? $label : 'grup');
+    }
+
+    private function pct4($v): string|float
+    {
+        return $v === null || $v === '' ? '' : round((float) $v * 100, 4);
+    }
+
+    /**
+     * Export PD Migration sesuai tampilan view: ringkasan PD per grup
+     * (PD Grup + PD R1..R5), lalu blok matriks migrasi 5×7 (kolom 1..5 +
+     * Hapus Buku + Pembayaran) dan exposure posisi assessment per rating.
+     */
+    private function writePdMigration(Writer $writer, AssessmentPeriod $period): void
+    {
+        $headerStyle = (new Style())->setFontBold()->setFontColor('FFFFFF')->setBackgroundColor('1F4E78');
+        $titleStyle  = (new Style())->setFontBold()->setBackgroundColor('D9E1F2');
+        $destLabels  = [1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => 'Hapus Buku', 7 => 'Pembayaran'];
+
+        $rows = DB::table('stage_pd_results')
+            ->where('assessment_period_id', $period->id)
+            ->where('method', 'MIGRATION')
+            ->orderBy('pd_calculated', 'desc')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            $writer->addRow(Row::fromValues(['Belum ada hasil PD Migration untuk periode ini.']));
+
+            return;
+        }
+
+        // --- Ringkasan per grup (sesuai tabel utama view) ---
+        $writer->addRow(Row::fromValues(['Ringkasan PD per Group'])->setStyle($titleStyle));
+        $writer->addRow(Row::fromValues(array_merge(
+            ['Group Key', 'PD Grup (%)', 'Transisi'],
+            ['PD R1 (%)', 'PD R2 (%)', 'PD R3 (%)', 'PD R4 (%)', 'PD R5 (%)'],
+        ))->setStyle($headerStyle));
+
+        $decoded = [];
+        foreach ($rows as $r) {
+            $d = json_decode($r->detail ?? '{}', true) ?: [];
+            $decoded[$r->group_key] = $d;
+            $rp = $d['rating_pd'] ?? [];
+            $row = [$r->group_key, round((float) $r->pd_calculated * 100, 4), (int) $r->periods_analyzed];
+            for ($i = 1; $i <= 5; $i++) {
+                $row[] = isset($rp[$i]) ? round((float) $rp[$i] * 100, 4) : '';
+            }
+            $writer->addRow(Row::fromValues($row));
+        }
+        $writer->addRow(Row::fromValues(['']));
+
+        // --- Blok matriks + exposure per grup (sesuai drill-down view) ---
+        foreach ($rows as $r) {
+            $d = $decoded[$r->group_key];
+            $matrix = $d['matrix'] ?? [];
+            $exp = $d['rating_exposure'] ?? [];
+
+            $writer->addRow(Row::fromValues(["Group: {$r->group_key}"])->setStyle($titleStyle));
+
+            $writer->addRow(Row::fromValues(['Matriks Migrasi (rate rata-rata per sel, %, horizon 12 bln)']));
+            $writer->addRow(Row::fromValues(array_merge(['Rating Awal'], array_values($destLabels)))->setStyle($headerStyle));
+            for ($src = 1; $src <= 5; $src++) {
+                $row = ["Rating {$src}"];
+                for ($t = 1; $t <= 7; $t++) {
+                    $row[] = round((float) ($matrix[$src][$t] ?? 0) * 100, 4);
+                }
+                $writer->addRow(Row::fromValues($row));
+            }
+            $writer->addRow(Row::fromValues(['']));
+
+            $writer->addRow(Row::fromValues(['Exposure posisi assessment (rupiah)']));
+            $writer->addRow(Row::fromValues(['Rating', 'Exposure (Rp)'])->setStyle($headerStyle));
+            $total = 0.0;
+            for ($rr = 1; $rr <= 5; $rr++) {
+                $e = (float) ($exp[$rr] ?? 0);
+                $total += $e;
+                $writer->addRow(Row::fromValues(["Rating {$rr}", $e]));
+            }
+            $writer->addRow(Row::fromValues(['Total', $total])->setStyle($titleStyle));
+            $writer->addRow(Row::fromValues(['']));
+        }
     }
 
     private function writeLgd(Writer $writer, AssessmentPeriod $period, string $method): void

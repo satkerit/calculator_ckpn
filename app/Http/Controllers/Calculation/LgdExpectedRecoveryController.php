@@ -89,7 +89,6 @@ class LgdExpectedRecoveryController extends BaseCalculationController
             $this->pushProgress($token, 'Memuat data write-off historis…', 20);
 
             $byGroup = [];
-            $fallbackCount = 0; // jumlah grup yang memakai LGD fallback (tanpa data write-off)
 
             if ($windowLoans->isNotEmpty()) {
                 // OS awal write-off = snapshot pada periode tglwo
@@ -190,19 +189,7 @@ class LgdExpectedRecoveryController extends BaseCalculationController
             $batch = [];
             $totalGroups = max(1, $groups->count());
             $gIdx = 0;
-
-            // Portfolio-level LGD ER (PSAK 414): aggregate semua WO & recovery
-            // dari seluruh populasi ER. Dipakai sebagai fallback untuk grup yang
-            // tidak punya data historis write-off (sparsity akibat segmentasi).
-            $portfolioWo = 0.0;
-            $portfolioRec = 0.0;
-            foreach ($byGroup as $agg) {
-                $portfolioWo += $agg['wo'];
-                $portfolioRec += $agg['recovery'];
-            }
-            $portfolioLgdEr = $portfolioWo > 0
-                ? min(1.0, max(0.0, 1.0 - ($portfolioRec / $portfolioWo)))
-                : 0.5;
+            $noWoCount = 0;
 
             foreach ($groups as $g) {
                 $gIdx++;
@@ -216,14 +203,11 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                 $recoveryRate = $agg['wo'] > 0
                     ? min(1.0, max(0.0, $agg['recovery'] / $agg['wo']))
                     : 0.0;
+                // Tanpa fallback: LGD murni dari historical data grup.
+                // Grup tanpa write-off historis → LGD = 0 (tidak ada loss history).
                 $lgd = min(1.0, max(0.0, 1.0 - $recoveryRate));
-
-                // Fallback PSAK 414: bila grup tidak punya data WO historis,
-                // pakai LGD portfolio-level (bukan nilai tetap 50%).
-                $fallbackUsed = $agg['wo'] == 0.0;
-                if ($fallbackUsed) {
-                    $lgd = $portfolioLgdEr;
-                    $fallbackCount++;
+                if ($agg['wo'] == 0.0) {
+                    $noWoCount++;
                 }
 
                 $batch[] = [
@@ -246,10 +230,7 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                         'window_end' => $assessYm,
                         'population' => 'write-off 5 tahun tanpa jaminan bernilai (cash recovery)',
                         'wo_accounts' => $agg['count'],
-                        'fallback_used' => $fallbackUsed,
-                        'fallback_lgd' => $fallbackUsed ? round($portfolioLgdEr, 6) : null,
-                        'portfolio_wo' => round($portfolioWo, 2),
-                        'portfolio_recovery' => round($portfolioRec, 2),
+                        'no_write_off_history' => $agg['wo'] == 0.0,
                     ]),
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -268,7 +249,7 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                 'groups' => $groups->count(),
                 'window' => $histM,
                 'inserted' => count($batch),
-                'fallback_groups' => $fallbackCount,
+                'no_wo_groups' => $noWoCount,
             ]);
 
             return $this->backTo($request, 'calculation.module.lgd_er', [

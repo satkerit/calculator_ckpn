@@ -95,7 +95,7 @@ class BucketConfigurationController extends Controller
             'kode_bucket' => 'required|string|max:20|unique:bucket_definitions,kode_bucket' . ($ignoreId ? ',' . $ignoreId : ''),
             'deskripsi_hari' => 'required|string|max:100',
             'hari_min' => 'required|integer|min:0',
-            'hari_max' => 'required|integer|min:0|gte:hari_min',
+            'hari_max' => 'nullable|integer|min:0|gte:hari_min',
             'urutan' => 'required|integer|min:1',
         ], [
             'kode_bucket.unique' => 'Kode bucket sudah digunakan',

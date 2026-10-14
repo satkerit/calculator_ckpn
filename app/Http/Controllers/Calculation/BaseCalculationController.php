@@ -237,18 +237,48 @@ abstract class BaseCalculationController extends Controller
     }
 
     /**
-     * Config yang membatalkan hasil kalkulasi saat nilainya berubah.
+     * Base keys yang membatalkan hasil kalkulasi saat nilainya berubah.
      *
-     * - PD & CKPN Kolektif: dimensi segmentasi (group_key), window historis PD,
-     *   metode PD, dan metode LGD — semuanya langsung memengaruhi nilai per grup.
-     * - LGD: dimensi segmentasi (group_key per grup) + metode LGD yang dipakai
-     *   saat konsolidasi CKPN.
+     * - PD: dimensi segmentasi (group_key) + metode PD + metode LGD (untuk
+     *   konsolidasi) — semuanya langsung memengaruhi nilai per grup.
+     *   `historical_months` adalah kondisional: hanya PD Netflow yang
+     *   memakai window ini (lihat {@see fingerprintKeys()}).
+     * - CKPN Kolektif: dimensi segmentasi + metode PD + metode LGD.
+     *   `historical_months` kondisional mengikuti metode PD aktif.
+     * - LGD: dimensi segmentasi + metode LGD yang dipakai saat konsolidasi.
      */
     protected const FINGERPRINT_KEYS = [
-        'PD' => ['segment_dimensions', 'historical_months', 'pd_method'],
-        'CKPN' => ['segment_dimensions', 'historical_months', 'pd_method', 'lgd_method'],
+        'PD' => ['segment_dimensions', 'pd_method'],
+        'CKPN' => ['segment_dimensions', 'pd_method', 'lgd_method'],
         'LGD' => ['segment_dimensions', 'lgd_method'],
     ];
+
+    /**
+     * Fingerprint keys untuk result type, dengan logika kondisional per metode.
+     *
+     * `historical_months` hanya disertakan untuk PD Netflow — PD Migration
+     * (per AGENTS.md #6) rentang historisnya diturunkan dari snapshot
+     * aktual yang tersedia untuk loan grup, sehingga perubahan window
+     * konfigurasi tidak relevan dan tidak boleh membatalkan hasilnya.
+     * Berlaku juga untuk CKPN Kolektif yang PD-nya bersumber dari metode
+     * yang sedang aktif.
+     *
+     * @param  array<string, mixed>  $config
+     * @return array<int, string>
+     */
+    protected function fingerprintKeys(string $resultType, array $config): array
+    {
+        $keys = self::FINGERPRINT_KEYS[$resultType] ?? self::FINGERPRINT_KEYS['PD'];
+
+        $usesWindow = in_array($resultType, ['PD', 'CKPN'], true)
+            && strtoupper((string) ($config['pd_method'] ?? 'NET_FLOW')) === 'NET_FLOW';
+
+        if ($usesWindow && ! in_array('historical_months', $keys, true)) {
+            $keys[] = 'historical_months';
+        }
+
+        return $keys;
+    }
 
     /**
      * Fingerprint konfigurasi untuk deteksi hasil basi (stale).
@@ -300,8 +330,8 @@ abstract class BaseCalculationController extends Controller
             return;
         }
 
-        $keys = self::FINGERPRINT_KEYS[$resultType] ?? self::FINGERPRINT_KEYS['PD'];
         $config = array_merge($this->configFor($assessmentPeriodId), $overrides);
+        $keys = $this->fingerprintKeys($resultType, $config);
 
         DB::table('stage_calculation_marks')->updateOrInsert(
             ['assessment_period_id' => $assessmentPeriodId, 'result_type' => $resultType],
@@ -349,7 +379,7 @@ abstract class BaseCalculationController extends Controller
                     ->value('config_fingerprint');
             }
 
-            if ($mark !== $this->fingerprintFrom($config, self::FINGERPRINT_KEYS[$type])) {
+            if ($mark !== $this->fingerprintFrom($config, $this->fingerprintKeys($type, $config))) {
                 $stale[] = $type;
             }
         }

@@ -66,6 +66,9 @@ class CalculationConfigInvalidationTest extends TestCase
             'office_code' => '01',
             'method' => 'ER',
             'lgd_calculated' => 0.5,
+            // Kolom historis ER: LGD = 1 - recovery = Loss / WO = 0.5
+            'total_write_off' => 2_000_000,
+            'total_recovery' => 1_000_000,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -218,6 +221,48 @@ class CalculationConfigInvalidationTest extends TestCase
         // Ganti window historis PD saja: LGD tidak memakai window ini → tetap sah.
         $this->saveConfig(['historical_months' => 24]);
         $this->assertSame(['PD'], $ctrl->stale($this->periodId));
+    }
+
+    public function test_historical_window_change_keeps_migration_pd_valid(): void
+    {
+        // PD Migration (per AGENTS.md #6) rentang historis diturunkan dari
+        // snapshot aktual loan grup, bukan dari konfigurasi window. Perubahan
+        // historical_months TIDAK boleh membatalkan hasil PD Migration.
+        $this->saveConfig(['pd_method' => 'MIGRATION']);
+        $this->seedResults();
+
+        $ctrl = $this->ctrl();
+        $ctrl->mark($this->periodId, 'PD');
+        $ctrl->mark($this->periodId, 'LGD');
+
+        $this->saveConfig(['historical_months' => 24, 'pd_method' => 'MIGRATION']);
+        $this->assertSame([], $ctrl->stale($this->periodId), 'PD Migration tidak bergantung historical_months.');
+
+        // Segmentasi tetap membatalkan PD Migration (sama seperti Netflow).
+        $this->saveConfig(['segment_dimensions' => ['OFFICE', 'AKAD'], 'pd_method' => 'MIGRATION']);
+        $this->assertSame(['PD', 'LGD'], $ctrl->stale($this->periodId));
+    }
+
+    public function test_historical_window_change_keeps_migration_ckpn_valid(): void
+    {
+        // CKPN Kolektif yang sumbernya PD Migration: perubahan window
+        // historis TIDAK membatalkan CKPN (window tidak dipakai Migration).
+        $this->saveConfig(['pd_method' => 'MIGRATION']);
+        $this->seedResults();
+        DB::table('stage_collective_ckpn')->insert([
+            'assessment_period_id' => $this->periodId,
+            'group_key' => '01',
+            'ckpn_kolektif' => 25_000,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $ctrl = $this->ctrl();
+        $ctrl->mark($this->periodId, 'PD');
+        $ctrl->mark($this->periodId, 'LGD');
+        $ctrl->mark($this->periodId, 'CKPN');
+        $this->saveConfig(['historical_months' => 48, 'pd_method' => 'MIGRATION']);
+        $this->assertSame([], $ctrl->stale($this->periodId), 'CKPN dari PD Migration tidak bergantung historical_months.');
     }
 
     public function test_unrelated_config_change_keeps_results_valid(): void

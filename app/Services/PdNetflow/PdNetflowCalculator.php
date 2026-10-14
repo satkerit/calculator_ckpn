@@ -313,6 +313,17 @@ class PdNetflowCalculator
         $histStartYm = $assessmentDate->copy()->subMonths($historicalMonths)->format('Ym');
         $histEndYm = $this->tableOneEndYm($assessmentDate);
 
+        // Load bucket definitions dinamis (urutan menentukan transisi berikutnya)
+        $bucketIds = DB::table('bucket_definitions')
+            ->where('active', true)
+            ->orderBy('id', 'asc')
+            ->pluck('id')
+            ->all();
+
+        if (empty($bucketIds)) {
+            return;
+        }
+
         $rates = []; // [fromBucket][ym] = rate, urutan insert kronologis utk rolling average
         $batch = [];
         $now = now();
@@ -327,22 +338,11 @@ class PdNetflowCalculator
 
             $date = Carbon::createFromFormat('Ym', $ym)->endOfMonth()->toDateString();
 
-            $bucketIds = DB::table('bucket_definitions')
-            ->where('active', true)
-            ->orderBy('id', 'asc')
-            ->pluck('id')
-            ->all();
-
-        if (empty($bucketIds)) {
-            return;
-        }
-
-        $maxBucketId = max($bucketIds);
-
-        // Transisi dari setiap bucket ke bucket berikutnya hingga max bucket.
-            foreach ($bucketIds as $fromBucket) {
-                if ($fromBucket >= $maxBucketId) continue;
-                $toBucket = $fromBucket + 1;
+            // Transisi dari setiap bucket ke bucket BERIKUTNYA dalam urutan definisi
+            // (bukan fromBucket+1 — custom bucket bisa punya ID non-sekuensial)
+            for ($b = 0; $b < count($bucketIds) - 1; $b++) {
+                $fromBucket = $bucketIds[$b];
+                $toBucket = $bucketIds[$b + 1];
                 $rate = $this->computeTransitionRate($bucketOutstanding, $prevPeriode, $periode, $fromBucket, $toBucket);
                 $rates[$fromBucket][$ym] = $rate;
 
@@ -369,7 +369,10 @@ class PdNetflowCalculator
             $ym = $projDate->format('Ym');
             $date = $projDate->endOfMonth()->toDateString();
 
-            for ($fromBucket = 1; $fromBucket <= 13; $fromBucket++) {
+            // Proyeksi utk semua pasangan transisi (dinamis, bukan hardcode 1..13)
+            for ($b = 0; $b < count($bucketIds) - 1; $b++) {
+                $fromBucket = $bucketIds[$b];
+
                 $lastRates = array_slice(array_values($rates[$fromBucket] ?? []), -self::ROLLING_AVG_MONTHS);
                 // Rumus Excel: =ROUND(AVERAGEIF(AG25:AL25,">0"),2)
                 // Hanya rata-rata nilai yang > 0 dari 6 bulan terakhir
@@ -381,7 +384,7 @@ class PdNetflowCalculator
                     'assessment_period_id' => $periodId,
                     'group_key' => $groupKey,
                     'from_bucket' => $fromBucket,
-                    'to_bucket' => $fromBucket + 1,
+                    'to_bucket' => $bucketIds[$b + 1],
                     'periode' => $date,
                     'transition_rate' => round($rate, 6),
                     'flow_count' => 0,
@@ -472,17 +475,16 @@ class PdNetflowCalculator
             $startPeriode = $sortedPeriodes[$startIdx];
 
             // Untuk setiap source bucket (kecuali bucket loss/max)
-            foreach ($bucketIds as $sourceBucket) {
-                if ($sourceBucket >= $maxBucketId) {
-                    continue;
-                }
+            for ($b = 0; $b < count($bucketIds) - 1; $b++) {
+                $sourceBucket = $bucketIds[$b];
 
                 $compoundPd = 1.0;
-                $totalSteps = $maxBucketId - $sourceBucket;
+                $totalSteps = count($bucketIds) - 1 - $b;
 
                 // Diagonal: bucket i→i+1 di t, i+1→i+2 di t+1, ..., (max-1)→max di t+(max-i-1)
                 for ($step = 0; $step < $totalSteps; $step++) {
-                    $fromBucket = $sourceBucket + $step;
+                    $fromBucket = $bucketIds[$b + $step];
+                    $toBucket = $bucketIds[$b + $step + 1];
                     $stepPeriodeIdx = $startIdx + $step;
 
                     // Jika periode tidak ada dalam data, gunakan 0.0
@@ -492,10 +494,10 @@ class PdNetflowCalculator
                         $stepPeriode = $sortedPeriodes[$stepPeriodeIdx];
                         $transitions = $normalized[$stepPeriode] ?? [];
 
-                        // Cari rate dari_bucket → (dari_bucket+1)
+                        // Cari rate dari_bucket → bucket berikutnya
                         $rate = 0.0;
                         foreach ($transitions as $t) {
-                            if ($t->from_bucket == $fromBucket && $t->to_bucket == $fromBucket + 1) {
+                            if ($t->from_bucket == $fromBucket && $t->to_bucket == $toBucket) {
                                 $rate = (float) $t->transition_rate;
                                 break;
                             }

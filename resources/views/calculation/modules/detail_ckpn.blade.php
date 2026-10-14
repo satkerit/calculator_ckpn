@@ -21,7 +21,7 @@
         <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold shrink-0">⚠</div>
         <div>
             <p class="text-sm font-semibold text-red-900">Sebagian hasil KURANG AKURAT / TIDAK VALID — konfigurasi berubah</p>
-            <p class="text-xs text-red-700 mt-1">Konfigurasi (segmentasi / historical window / metode PD) berubah setelah perhitungan terakhir. Hasil tidak valid: <strong>{{ $staleLabels }}</strong>. Finalize CKPN akan <strong>diblokir</strong> sampai modul tersebut dihitung ulang.</p>
+            <p class="text-xs text-red-700 mt-1">Konfigurasi (segmentasi / metode PD) berubah setelah perhitungan terakhir; <em>historical window</em> hanya membatalkan hasil PD Net Flow. Hasil tidak valid: <strong>{{ $staleLabels }}</strong>. Finalize CKPN akan <strong>diblokir</strong> sampai modul tersebut dihitung ulang.</p>
         </div>
     </div>
 @endif

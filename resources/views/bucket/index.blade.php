@@ -118,6 +118,8 @@
                         <td class="px-6 py-4">
                             @if ($bucket->hari_min == 0 && $bucket->hari_max == 0)
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Lancar (0 hari)</span>
+                            @elseif ($bucket->hari_max === null)
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">&ge; {{ $bucket->hari_min }} hari (tanpa batas)</span>
                             @elseif ($bucket->hari_max >= 360)
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">&gt; {{ $bucket->hari_min }} hari / Write-off</span>
                             @else
@@ -204,7 +206,7 @@
                         <td class="px-6 py-4 text-gray-500">{{ $bucket->deskripsi_hari }}</td>
                         <td class="px-6 py-4">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
-                                {{ $bucket->hari_min == 0 && $bucket->hari_max == 0 ? 'Lancar (0 hari)' : ($bucket->hari_max >= 360 ? '> '.$bucket->hari_min.' hari / WO' : $bucket->hari_min.' - '.$bucket->hari_max.' hari') }}
+                                {{ $bucket->hari_min == 0 && $bucket->hari_max == 0 ? 'Lancar (0 hari)' : ($bucket->hari_max === null ? '≥ '.$bucket->hari_min.' hari (tanpa batas)' : ($bucket->hari_max >= 360 ? '> '.$bucket->hari_min.' hari / WO' : $bucket->hari_min.' - '.$bucket->hari_max.' hari')) }}
                             </span>
                         </td>
                         <td class="px-6 py-4 text-right whitespace-nowrap">

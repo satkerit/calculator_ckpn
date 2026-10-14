@@ -80,10 +80,21 @@ class PdNetFlowController extends BaseCalculationController
 
                 $batch = [];
                 $now = now();
+                // Bucket Lancar = bucket pertama pada urutan definisi aktif (bukan hardcode 1).
+                $activeBucketIds = $service->getActiveBucketIds();
+                $startBucket = (int) ($activeBucketIds[0] ?? 0);
+                if ($startBucket === 0) {
+                    throw new \RuntimeException('Konfigurasi PD Netflow Bucket aktif tidak ditemukan. Atur bucket terlebih dahulu.');
+                }
+
                 foreach ($groups as $g) {
                     $compoundData = $service->loadCompoundFlows($period->id, $this->paddedGroupKey($g->group_key));
-                    // Ambil PD Rate dari Bucket 1 (Lancar / 0 hari) — titik awal peminjam.
-                    $pdRate = (float) ($compoundData[1]['pd_rate'] ?? 0.0);
+                    // Ambil PD Rate dari bucket Lancar (titik awal peminjam).
+                    // Tanpa fallback: bila data historical tidak tersedia, perhitungan diblokir.
+                    if (! isset($compoundData[$startBucket])) {
+                        throw new \RuntimeException("PD Netflow grup {$g->group_key} tidak memiliki data compound flow. Jalankan ulang perhitungan PD.");
+                    }
+                    $pdRate = (float) $compoundData[$startBucket]['pd_rate'];
                     $pdRate = min(1.0, max(0.0, $pdRate));
 
                     $batch[] = [
@@ -94,7 +105,7 @@ class PdNetFlowController extends BaseCalculationController
                         'periods_analyzed' => $histM,
                         'detail' => json_encode([
                             'method' => 'NET_FLOW_ENGINE',
-                            'source_bucket' => 1,
+                            'source_bucket' => $startBucket,
                             'pd_rate' => round($pdRate, 6),
                             'total_ead' => round((float) $g->total_ead, 2),
                             'member_count' => (int) $g->member_count,

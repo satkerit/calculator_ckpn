@@ -33,9 +33,9 @@
                 <p class="text-xs text-gray-500 mt-1">Weighted = penjumlahan Loss &amp; Exposure ER + CS sesuai kertas kerja; ER/CS = pakai satu metode saja.</p>
             </div>
             <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Historical Window (bulan)</label>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Historical Window — PD Net Flow (bulan)</label>
                 <input type="number" min="12" max="120" name="historical_months" value="{{ $config['historical_months'] ?? 24 }}" class="w-full border-gray-300 rounded-lg text-sm">
-                <p class="text-xs text-gray-500 mt-1">Dipakai untuk kalkulasi PD (Net Flow / Migration).</p>
+                <p class="text-xs text-gray-500 mt-1">Hanya dipakai PD <strong>Net Flow</strong>. PD <strong>Migration</strong> memakai rentang snapshot aktual loan grup (tidak mengacu nilai ini).</p>
             </div>
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Historical Window LGD (bulan)</label>
@@ -90,6 +90,6 @@
 <div class="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-900">
     <p class="font-semibold mb-1">Periode aktif: {{ $period->assessment_date?->format('Y-m-d') ?? '-' }} (ID: {{ $period->id }})</p>
     <p>Konfigurasi ini akan dipakai oleh Modul 2–8. Segmentasi menentukan group_key kolektif.</p>
-    <p class="mt-2"><strong>Perhatian:</strong> perubahan segmentasi membatalkan hasil PD, LGD &amp; CKPN Kolektif; perubahan historical window / metode PD membatalkan hasil PD &amp; CKPN Kolektif. Hasil yang dibatalkan otomatis ditandai <em>tidak valid</em> dan wajib dihitung ulang sebelum Finalize CKPN.</p>
+    <p class="mt-2"><strong>Perhatian:</strong> perubahan segmentasi membatalkan hasil PD, LGD &amp; CKPN Kolektif; perubahan metode PD membatalkan hasil PD &amp; CKPN Kolektif. Historical window hanya memengaruhi PD <em>Net Flow</em> — mengubahnya tidak membatalkan hasil PD <em>Migration</em>. Hasil yang dibatalkan otomatis ditandai <em>tidak valid</em> dan wajib dihitung ulang sebelum Finalize CKPN.</p>
 </div>
 @endsection

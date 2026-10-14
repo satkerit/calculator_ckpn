@@ -51,6 +51,13 @@ class BucketAssignmentService
             if ($bucket->hari_min == 0 && $bucket->hari_max == 0) {
                 continue; // Lancar, sudah ditangani
             }
+            if ($bucket->hari_max === null) {
+                // Tanpa batas atas
+                if ($dpd >= $bucket->hari_min) {
+                    return $bucket->id;
+                }
+                continue;
+            }
             if ($dpd >= $bucket->hari_min && $dpd <= $bucket->hari_max) {
                 return $bucket->id;
             }
@@ -84,6 +91,9 @@ class BucketAssignmentService
             if ($bucket->hari_min == 0 && $bucket->hari_max == 0) {
                 // Bucket lancar (0 hari)
                 $caseWhen .= " WHEN days_past_due <= 0 THEN {$bucket->id}";
+            } elseif ($bucket->hari_max === null) {
+                // Bucket tanpa batas atas
+                $caseWhen .= " WHEN days_past_due >= {$bucket->hari_min} THEN {$bucket->id}";
             } else {
                 // Bucket dengan range hari
                 $caseWhen .= " WHEN days_past_due BETWEEN {$bucket->hari_min} AND {$bucket->hari_max} THEN {$bucket->id}";
@@ -115,6 +125,10 @@ class BucketAssignmentService
 
         if ($bucket->hari_min == 0 && $bucket->hari_max == 0) {
             return '0 hari (Lancar)';
+        }
+
+        if ($bucket->hari_max === null) {
+            return '≥ ' . $bucket->hari_min . ' hari (tanpa batas)';
         }
 
         if ($bucket->hari_max >= 360) {

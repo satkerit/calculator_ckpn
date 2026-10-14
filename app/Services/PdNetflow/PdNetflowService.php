@@ -11,6 +11,19 @@ use Illuminate\Support\Collection;
 class PdNetflowService
 {
     /**
+     * Daftar ID bucket aktif terurut (sumber tunggal skema bucket untuk display).
+     * Dinamis mengikuti konfigurasi PD Netflow Bucket Config — bukan hardcode 1..14.
+     */
+    public function getActiveBucketIds(): array
+    {
+        return \App\Models\BucketDefinition::query()
+            ->where('active', true)
+            ->orderBy('id', 'asc')
+            ->pluck('id')
+            ->all();
+    }
+
+    /**
      * Load 3 tabel per group: bucket snapshots, transitions, compound flows
      */
     public function loadGroupDetail(int $assessmentPeriodId, string $groupKey): array
@@ -45,7 +58,7 @@ class PdNetflowService
             ->groupBy('bucket_no');
 
         $result = [];
-        for ($bucketNo = 1; $bucketNo <= 14; $bucketNo++) {
+        foreach ($this->getActiveBucketIds() as $bucketNo) {
             $bucketRows = $rows->get($bucketNo, collect());
             $periods = [];
             foreach ($bucketRows as $row) {
@@ -80,9 +93,12 @@ class PdNetflowService
             ->get()
             ->groupBy(fn ($r) => "{$r->from_bucket}_{$r->to_bucket}");
 
+        $bucketIds = $this->getActiveBucketIds();
+
         $result = [];
-        for ($from = 1; $from <= 13; $from++) {
-            $to = $from + 1;
+        for ($b = 0; $b < count($bucketIds) - 1; $b++) {
+            $from = $bucketIds[$b];
+            $to = $bucketIds[$b + 1];
             $key = "{$from}_{$to}";
             $transRows = $rows->get($key, collect());
 
@@ -123,8 +139,11 @@ class PdNetflowService
             ->get()
             ->groupBy('source_bucket');
 
+        $bucketIds = $this->getActiveBucketIds();
         $result = [];
-        for ($sourceBucket = 1; $sourceBucket <= 13; $sourceBucket++) {
+        // Bucket terakhir = loss, tidak punya compound flow
+        for ($b = 0; $b < count($bucketIds) - 1; $b++) {
+            $sourceBucket = $bucketIds[$b];
             $compoundRows = $rows->get($sourceBucket, collect());
             
             $periods = [];

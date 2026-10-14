@@ -138,19 +138,6 @@ class LgdCollateralShortfallController extends BaseCalculationController
             $totalGroups = max(1, $groups->count());
             $gIdx = 0;
 
-            // Portfolio-level LGD CS (PSAK 414): aggregate semua exposure & shortfall
-            // dari seluruh populasi CS. Dipakai sebagai fallback untuk grup yang
-            // tidak punya data historis (sparsity akibat segmentasi).
-            $portfolioExp = 0.0;
-            $portfolioShort = 0.0;
-            foreach ($byGroup as $agg) {
-                $portfolioExp += $agg['exposure'];
-                $portfolioShort += $agg['shortfall'];
-            }
-            $portfolioLgdCs = $portfolioExp > 0
-                ? min(1.0, max(0.0, $portfolioShort / $portfolioExp))
-                : 1.0;
-
             foreach ($groups as $g) {
                 $gIdx++;
                 $key = $this->collectiveGroupKey($dims, $g->office_code, $g->akad_code, $g->usage_code);
@@ -160,10 +147,11 @@ class LgdCollateralShortfallController extends BaseCalculationController
                     ]);
                 }
                 $agg = $byGroup[$key] ?? ['exposure' => 0.0, 'shortfall' => 0.0, 'net' => 0.0, 'count' => 0];
-                $fallbackUsed = $agg['exposure'] == 0.0;
+                // Tanpa fallback: LGD murni dari historical data grup.
+                // Grup tanpa exposure historis → LGD = 0 (tidak ada loss history).
                 $lgd = $agg['exposure'] > 0
                     ? min(1.0, max(0.0, $agg['shortfall'] / $agg['exposure']))
-                    : $portfolioLgdCs;
+                    : 0.0;
 
                 $batch[] = [
                     'assessment_period_id' => $period->id,
@@ -184,10 +172,7 @@ class LgdCollateralShortfallController extends BaseCalculationController
                         'eligible_collateral_codes' => $eligibleCollateralCodes,
                         'assessment_ym' => $assessYm,
                         'sale_cost' => $saleCost,
-                        'fallback_used' => $fallbackUsed,
-                        'fallback_lgd' => $fallbackUsed ? round($portfolioLgdCs, 6) : null,
-                        'portfolio_exposure' => round($portfolioExp, 2),
-                        'portfolio_shortfall' => round($portfolioShort, 2),
+                        'no_exposure_history' => $agg['exposure'] == 0.0,
                     ]),
                     'created_at' => $now,
                     'updated_at' => $now,

@@ -3,7 +3,7 @@
     $oldKode = old('kode_bucket', $bucket->kode_bucket ?? '');
     $oldDeskripsi = old('deskripsi_hari', $bucket->deskripsi_hari ?? '');
     $oldHariMin = old('hari_min', $bucket->hari_min ?? 0);
-    $oldHariMax = old('hari_max', $bucket->hari_max ?? 0);
+    $oldHariMax = old('hari_max', $bucket->hari_max ?? null);
     $oldUrutan = old('urutan', $bucket->urutan ?? $nextUrutan ?? 1);
 @endphp
 
@@ -57,11 +57,18 @@
     <!-- Hari Max -->
     <div>
         <label for="hari_max" class="block text-sm font-medium text-gray-700 mb-1.5">
-            Hari Maksimum (DPD Max) <span class="text-red-500">*</span>
+            Hari Maksimum (DPD Max)
         </label>
-        <input type="number" id="hari_max" name="hari_max" value="{{ $oldHariMax }}" required min="0"
-            class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-colors text-sm">
-        <p class="mt-1.5 text-xs text-gray-500">Batas atas hari tunggakan (inklusif)</p>
+        <div class="flex items-center gap-3">
+            <input type="number" id="hari_max" name="hari_max" value="{{ $oldHariMax }}" min="0"
+                placeholder="Kosongkan jika tanpa batas"
+                class="flex-1 w-full px-3.5 py-2.5 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-colors text-sm">
+            <label class="inline-flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap cursor-pointer">
+                <input type="checkbox" id="no_max" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500/20" {{ $oldHariMax === null ? 'checked' : '' }}>
+                Tanpa batas
+            </label>
+        </div>
+        <p class="mt-1.5 text-xs text-gray-500">Centang "Tanpa batas" untuk bucket terakhir (misal: <strong>&ge; 360 hari</strong>) — tidak ada batas atas hari tunggakan</p>
         @error('hari_max') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
     </div>
 </div>
@@ -74,12 +81,32 @@
             <p class="font-semibold mb-1">Catatan Konfigurasi</p>
             <ul class="list-disc list-inside space-y-0.5">
                 <li><strong>Lancar:</strong> isi <code class="bg-amber-100 px-1 rounded">hari_min = 0</code> dan <code class="bg-amber-100 px-1 rounded">hari_max = 0</code></li>
-                <li><strong>Write-off:</strong> isi <code class="bg-amber-100 px-1 rounded">hari_max &ge; 360</code>, biasanya urutan terakhir</li>
+                <li><strong>Bucket terakhir / WO:</strong> centang <code class="bg-amber-100 px-1 rounded">Tanpa batas</code> (misal: <code class="bg-amber-100 px-1 rounded">&ge; 360 hari</code>)</li>
                 <li>Rentang hari antar bucket harus berurutan dan tidak tumpang tindih</li>
+                <li>Hanya satu bucket yang boleh "Tanpa batas" (biasanya urutan terakhir)</li>
             </ul>
         </div>
     </div>
 </div>
+
+<script>
+    const hariMaxInput = document.getElementById('hari_max');
+    const noMaxCheckbox = document.getElementById('no_max');
+
+    function toggleHariMax() {
+        if (noMaxCheckbox.checked) {
+            hariMaxInput.value = '';
+            hariMaxInput.disabled = true;
+            hariMaxInput.classList.add('bg-gray-100', 'text-gray-400');
+        } else {
+            hariMaxInput.disabled = false;
+            hariMaxInput.classList.remove('bg-gray-100', 'text-gray-400');
+        }
+    }
+
+    noMaxCheckbox.addEventListener('change', toggleHariMax);
+    toggleHariMax();
+</script>
 
 <!-- Buttons -->
 <div class="mt-6 flex items-center gap-3">

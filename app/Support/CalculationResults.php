@@ -54,6 +54,8 @@ final class CalculationResults
 
         $collectiveRows = $collective->map(fn ($g) => [
             'group_key' => $g->group_key,
+            // Bucket debitur dalam grup (CKPN kolektif dipecah per segmen × bucket).
+            'bucket_no' => (int) ($g->bucket_no ?? 1),
             'office_code' => $g->office_code,
             'akad_code' => $g->akad_code,
             'usage_code' => $g->usage_code,

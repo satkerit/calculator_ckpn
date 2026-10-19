@@ -104,12 +104,13 @@
         <div class="overflow-x-auto max-h-[500px]">
             <table class="min-w-full text-xs">
                 <thead class="bg-gray-50 text-gray-600 uppercase sticky top-0">
-                    <tr><th class="px-3 py-2 text-left">Group</th><th class="px-3 py-2 text-right">EAD</th><th class="px-3 py-2 text-right">PD</th><th class="px-3 py-2 text-right">LGD</th><th class="px-3 py-2 text-right">CKPN</th><th class="px-3 py-2 text-right">Members</th></tr>
+                    <tr><th class="px-3 py-2 text-left">Group</th><th class="px-3 py-2 text-right">Bucket / Rating</th><th class="px-3 py-2 text-right">EAD</th><th class="px-3 py-2 text-right">PD</th><th class="px-3 py-2 text-right">LGD</th><th class="px-3 py-2 text-right">CKPN</th><th class="px-3 py-2 text-right">Members</th></tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse ($collectives as $r)
                         <tr>
                             <td class="px-3 py-2 font-mono">{{ $r->group_key }}</td>
+                            <td class="px-3 py-2 text-right">{{ (int) $r->bucket_no }}</td>
                             <td class="px-3 py-2 text-right">{{ number_format((float) $r->total_ead, 0, ',', '.') }}</td>
                             <td class="px-3 py-2 text-right">{{ number_format((float) $r->pd * 100, 2, ',', '.') }}%</td>
                             <td class="px-3 py-2 text-right">{{ number_format((float) $r->lgd * 100, 2, ',', '.') }}%</td>
@@ -117,7 +118,7 @@
                             <td class="px-3 py-2 text-right">{{ (int) $r->member_count }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-3 py-6 text-center text-gray-500">Belum ada CKPN kolektif.</td></tr>
+                        <tr><td colspan="7" class="px-3 py-6 text-center text-gray-500">Belum ada CKPN kolektif.</td></tr>
                     @endforelse
                 </tbody>
             </table>

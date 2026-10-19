@@ -124,7 +124,7 @@
 
     <div x-show="showData" x-cloak x-transition class="mt-6 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 class="text-sm font-bold text-gray-900">Hasil PD per Group</h3>
+            <h3 class="text-sm font-bold text-gray-900">Hasil PD per Segmentasi &times; Bucket</h3>
             <a href="{{ $detailUrl }}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
                 Lihat Semua Matriks Segmentasi &rarr;
             </a>
@@ -134,6 +134,7 @@
                 <thead class="bg-gray-50 text-gray-600 uppercase">
                     <tr>
                         <th class="px-3 py-2 text-left">Group Key</th>
+                        <th class="px-3 py-2 text-right">Bucket</th>
                         <th class="px-3 py-2 text-right">PD</th>
                         <th class="px-3 py-2 text-right">Periods</th>
                         <th class="px-3 py-2 text-left">Detail</th>
@@ -142,8 +143,19 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse ($results['rows'] ?? [] as $r)
+                        @php
+                            $detail = json_decode((string) $r->detail, true) ?: [];
+                            $bucketNo = (int) ($r->bucket_no ?? ($detail['bucket_no'] ?? 1));
+                            $bucketLabel = $detail['bucket_label'] ?? null;
+                        @endphp
                         <tr>
                             <td class="px-3 py-2 font-mono">{{ $r->group_key }}</td>
+                            <td class="px-3 py-2 text-right">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 font-semibold">{{ $bucketNo }}</span>
+                                @if ($bucketLabel)
+                                    <span class="block text-[10px] text-gray-500 mt-0.5">{{ $bucketLabel }}</span>
+                                @endif
+                            </td>
                             <td class="px-3 py-2 text-right font-semibold text-blue-700">{{ number_format((float) $r->pd_calculated * 100, 2, ',', '.') }}%</td>
                             <td class="px-3 py-2 text-right">{{ (int) $r->periods_analyzed }} bln</td>
                             <td class="px-3 py-2 text-gray-600 font-mono">{{ Str::limit((string) $r->detail, 80) }}</td>
@@ -159,7 +171,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="px-3 py-6 text-center text-gray-500">Belum ada hasil PD.</td></tr>
+                        <tr><td colspan="6" class="px-3 py-6 text-center text-gray-500">Belum ada hasil PD.</td></tr>
                     @endforelse
                 </tbody>
             </table>

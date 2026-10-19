@@ -59,28 +59,40 @@ class LgdCollateralShortfallController extends BaseCalculationController
             $assessYm = $assessmentDate->format('Ym');
             $startYm = $assessmentDate->copy()->subMonths($histM)->format('Ym');
 
-            // Populasi CS sesuai klarifikasi:
-            //   (a) pembiayaan kualitas 5 (macet) YANG MASIH AKTIF pada periode assessment, ATAU
-            //   (b) pembiayaan write-off AKTIF dengan tglwo dalam 5 tahun terakhir.
-            // Keduanya WAJIB memiliki jaminan aktif bernilai (liquidity_value > 0).
-            // Saling eksklusif dengan ER: WO tanpa jaminan bernilai masuk ER.
-            // Baki debet = outstanding terakhir periode assessment (bukan saat WO).
+            // Populasi CS: debitur dengan kondisi Kol 5 Aktif pada periode assessment
+            // ATAU write-off (5 tahun terakhir), yang memiliki jaminan aktif bernilai.
+            // Eksposur: WO = saldo saat WO; Kol 5 = baki debet periode assessment.
             $csRows = DB::table('snapshot')
                 ->where('periode_snapshot', $assessYm)
                 ->where('active_flag', 1)
                 ->where(function ($q) use ($startYm, $assessYm) {
-                    // (a) Kualitas 5 aktif
+                    // Kol 5 Aktif ATAU WO aktif 5 tahun
                     $q->whereRaw('CAST(quality_rating AS UNSIGNED) = 5')
                         ->orWhere(function ($q2) use ($startYm, $assessYm) {
-                            // (b) WO aktif dengan tglwo dalam 5 tahun terakhir
                             $q2->where('write_off_flag', 1)
                                 ->whereNotNull('tglwo')->where('tglwo', '<>', '')
                                 ->whereRaw('SUBSTRING(tglwo, 1, 6) >= ?', [$startYm])
                                 ->whereRaw('SUBSTRING(tglwo, 1, 6) <= ?', [$assessYm]);
                         });
                 })
-                ->get(['loan_number', 'outstanding_balance', 'office_code', 'product_code', 'usage_type', 'financing_contract_code'])
+                ->get(['loan_number', 'outstanding_balance', 'office_code', 'product_code', 'usage_type', 'financing_contract_code', 'write_off_flag', 'tglwo'])
                 ->keyBy('loan_number');
+
+            // Saldo saat WO per loan (snapshot pada periode tglwo; fallback snapshot pertama setelahnya).
+            $woLoans = $csRows->filter(fn ($r) => (int) $r->write_off_flag === 1 && (string) $r->tglwo !== '')->keys()->all();
+            $woBalances = $woLoans === [] ? collect() : DB::table('snapshot')
+                ->whereIn('loan_number', $woLoans)
+                ->where('write_off_flag', 1)
+                ->orderBy('periode_snapshot')
+                ->get(['loan_number', 'periode_snapshot', 'outstanding_balance', 'tglwo'])
+                ->groupBy('loan_number')
+                ->map(function ($rows) {
+                    $woYm = substr((string) $rows->last()->tglwo, 0, 6);
+
+                    return $rows->first(fn ($r) => substr((string) $r->periode_snapshot, 0, 6) === $woYm)
+                        ?? $rows->first(fn ($r) => (string) $r->periode_snapshot >= $woYm)
+                        ?? $rows->last();
+                });
 
             $this->pushProgress($token, 'Memuat baki debet & agunan periode assessment…', 20);
 
@@ -115,8 +127,11 @@ class LgdCollateralShortfallController extends BaseCalculationController
                             'current' => $woIdx, 'total' => $totalWo, 'label' => 'Proses Debitur CS',
                         ]);
                     }
-                    // Baki debet = outstanding periode assessment terakhir.
-                    $exposure = (float) $row->outstanding_balance;
+                    // Eksposur: WO → saldo saat WO; Kol 5 → baki debet periode assessment.
+                    $isWo = (int) $row->write_off_flag === 1;
+                    $exposure = $isWo && isset($woBalances[$loanNumber])
+                        ? (float) $woBalances[$loanNumber]->outstanding_balance
+                        : (float) $row->outstanding_balance;
                     $liqValue = (float) ($collateralByLoan[$loanNumber] ?? 0.0);
                     // Net recovery = nilai agunan − (nilai agunan × haircut/biaya penjualan).
                     $netRecov = max(0.0, $liqValue * (1 - $saleCost));
@@ -168,7 +183,7 @@ class LgdCollateralShortfallController extends BaseCalculationController
                     'lgd_calculated' => round($lgd, 6),
                     'detail' => json_encode([
                         'method' => 'CS',
-                        'population' => 'quality_rating=5 aktif OR WO aktif (5thn) dengan jaminan aktif bernilai & kode agunan eligible',
+                        'population' => 'quality_rating=5 aktif (baki debet) OR WO aktif 5thn (saldo saat WO) dengan jaminan aktif bernilai & eligible',
                         'eligible_collateral_codes' => $eligibleCollateralCodes,
                         'assessment_ym' => $assessYm,
                         'sale_cost' => $saleCost,

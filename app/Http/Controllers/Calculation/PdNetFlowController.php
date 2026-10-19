@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Calculation;
 
 use App\Services\PdNetflow\PdNetflowCalculator;
 use App\Services\PdNetflow\PdNetflowService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -60,17 +61,21 @@ class PdNetFlowController extends BaseCalculationController
             // Fase tulis atomik: kalkulasi service (menulis ke DB) + penulisan stage_pd_results
             // dalam satu transaksi — bila gagal di tengah tidak ada stage parsial.
             DB::transaction(function () use ($period, $groups, $calculator, $service, $histM, $token) {
-                $totalGroups = max(1, $groups->count());
-            $i = 0;
-            foreach ($groups as $g) {
-                $i++;
-                $this->pushProgress($token, "Menghitung matriks 3 tabel grup {$i}/{$totalGroups} ({$g->group_key})…", 4 + ($i / $totalGroups) * 88, [
-                    'current' => $i, 'total' => $totalGroups, 'label' => 'Hitung Matriks Bucket',
-                ]);
-                $calculator->calculate($period->id, $this->paddedGroupKey($g->group_key));
-            }
+                // Matriks dihitung per SEGMEN saja (bucket adalah atribut debitur,
+                // bukan dimensi matriks) — dedupe group_key.
+                $uniqueKeys = $groups->pluck('group_key')->unique()->values();
+                $totalGroups = max(1, $uniqueKeys->count());
+                $i = 0;
+                foreach ($uniqueKeys as $groupKey) {
+                    $i++;
+                    $this->pushProgress($token, "Menghitung matriks 3 tabel grup {$i}/{$totalGroups} ({$groupKey})…", 4 + ($i / $totalGroups) * 88, [
+                        'current' => $i, 'total' => $totalGroups, 'label' => 'Hitung Matriks Bucket',
+                    ]);
+                    $calculator->calculate($period->id, $this->paddedGroupKey($groupKey));
+                }
 
-                // 2) Simpan PD final (PD Rate dari Bucket 1 Tabel 3 Compound Flow) ke stage_pd_results
+                // 2) Simpan PD final per SEGMEN × BUCKET (PD Rate Tabel 3 Compound Flow
+                // pada source_bucket sesuai bucket debitur) ke stage_pd_results
                 $this->pushProgress($token, 'Menyimpan hasil PD per grup…', 95, 'Menyimpan Hasil');
 
                 DB::table('stage_pd_results')
@@ -80,38 +85,49 @@ class PdNetFlowController extends BaseCalculationController
 
                 $batch = [];
                 $now = now();
-                // Bucket Lancar = bucket pertama pada urutan definisi aktif (bukan hardcode 1).
+                // Bucket aktif berurutan; bucket terakhir = bucket loss (tidak punya compound flow).
                 $activeBucketIds = $service->getActiveBucketIds();
-                $startBucket = (int) ($activeBucketIds[0] ?? 0);
-                if ($startBucket === 0) {
+                if (empty($activeBucketIds)) {
                     throw new \RuntimeException('Konfigurasi PD Netflow Bucket aktif tidak ditemukan. Atur bucket terlebih dahulu.');
                 }
+                $lossBucket = (int) end($activeBucketIds);
 
+                // PD mengikuti SEGMENTASI + BUCKET: debitur dengan segmentasi sama dan
+                // bucket sama memakai rate PD compound flow pada source_bucket tersebut.
                 foreach ($groups as $g) {
+                    $bucketNo = (int) $g->bucket_no;
                     $compoundData = $service->loadCompoundFlows($period->id, $this->paddedGroupKey($g->group_key));
-                    // Ambil PD Rate dari bucket Lancar (titik awal peminjam).
-                    // Tanpa fallback: bila data historical tidak tersedia, perhitungan diblokir.
-                    if (! isset($compoundData[$startBucket])) {
-                        throw new \RuntimeException("PD Netflow grup {$g->group_key} tidak memiliki data compound flow. Jalankan ulang perhitungan PD.");
+
+                    // Debitur di bucket loss sudah default: rate dianggap 100%.
+                    if ($bucketNo === $lossBucket) {
+                        $sourceBucketId = $bucketNo;
+                        $pdRate = 1.0;
+                    } else {
+                        // Tanpa fallback: bila data historical tidak tersedia, perhitungan diblokir.
+                        if (! isset($compoundData[$bucketNo])) {
+                            throw new \RuntimeException("PD Netflow grup {$g->group_key} bucket {$bucketNo} tidak memiliki data compound flow. Jalankan ulang perhitungan PD.");
+                        }
+                        $sourceBucketId = (int) $compoundData[$bucketNo]['source_bucket'];
+                        $pdRate = min(1.0, max(0.0, (float) $compoundData[$bucketNo]['pd_rate']));
                     }
-                    $pdRate = (float) $compoundData[$startBucket]['pd_rate'];
-                    $pdRate = min(1.0, max(0.0, $pdRate));
 
                     $batch[] = [
                         'assessment_period_id' => $period->id,
                         'group_key' => $g->group_key,
+                        'bucket_no' => $bucketNo,
                         'pd_calculated' => round($pdRate, 6),
                         'method' => 'NET_FLOW',
                         'periods_analyzed' => $histM,
                         'detail' => json_encode([
                             'method' => 'NET_FLOW_ENGINE',
-                            'source_bucket' => $startBucket,
+                            'source_bucket' => $sourceBucketId,
+                            'bucket_no' => $bucketNo,
+                            'bucket_label' => $service->bucketLabel($bucketNo),
                             'pd_rate' => round($pdRate, 6),
                             'total_ead' => round((float) $g->total_ead, 2),
                             'member_count' => (int) $g->member_count,
                         ]),
-                        'created_at' => $now,
-                        'updated_at' => $now,
+                        'created_at' => $now, 'updated_at' => $now,
                     ];
                 }
 
@@ -156,30 +172,49 @@ class PdNetFlowController extends BaseCalculationController
 
     private function loadGroups(int $periodId, array $dims): Collection
     {
-        $query = DB::table('stage_classifications')
-            ->where('assessment_period_id', $periodId)
-            ->where('classification', 'COLLECTIVE');
+        // Bucket per debitur diambil dari snapshot periode assessment (bucket_no
+        // di-assign Modul 2 / di-refresh PdNetflowCalculator), bukan dari stage.
+        $periodeYm = $this->assessmentYm($periodId);
 
-        $rows = $query
-            ->selectRaw('office_code, akad_code, usage_code, COUNT(*) as member_count, SUM(ead_amount) as total_ead')
-            ->groupBy('office_code', 'akad_code', 'usage_code')
+        $rows = DB::table('stage_classifications as sc')
+            ->leftJoin('snapshot as s', function ($j) use ($periodeYm) {
+                $j->on('sc.loan_number', '=', 's.loan_number')
+                    ->where('s.periode_snapshot', '=', $periodeYm)
+                    ->where('s.active_flag', '=', true);
+            })
+            ->where('sc.assessment_period_id', $periodId)
+            ->where('sc.classification', 'COLLECTIVE')
+            ->selectRaw('sc.office_code, sc.akad_code, sc.usage_code, COALESCE(s.bucket_no, 1) as bucket_no, COUNT(*) as member_count, SUM(sc.ead_amount) as total_ead')
+            ->groupBy('sc.office_code', 'sc.akad_code', 'sc.usage_code', DB::raw('COALESCE(s.bucket_no, 1)'))
             ->get();
 
         $groups = $rows->map(function ($g) use ($dims) {
             $seg = $this->buildSegment($dims, $g->office_code, $g->akad_code, $g->usage_code);
             $g->group_key = $seg['group_key'];
+            $g->bucket_no = (int) $g->bucket_no;
 
             return $g;
         });
 
-        // Group by group_key agar count & iterasi sesuai dimensi yang dipilih
-        return $groups->groupBy('group_key')->map(function ($subGroups) {
+        // Group by group_key + bucket_no: satu baris PD per kombinasi segmentasi × bucket.
+        return $groups->groupBy(fn ($g) => $g->group_key.'|'.$g->bucket_no)->map(function ($subGroups) {
             $first = $subGroups->first();
             $first->member_count = $subGroups->sum('member_count');
             $first->total_ead = $subGroups->sum('total_ead');
 
             return $first;
-        })->values();
+        })->sortBy([['group_key', 'asc'], ['bucket_no', 'asc']])->values();
+    }
+
+    /**
+     * Periode snapshot (Ym) dari assessment_date periode — konsisten dengan
+     * parsing yang dipakai ClassificationController & BucketAssignmentService.
+     */
+    private function assessmentYm(int $periodId): string
+    {
+        $assessmentDate = DB::table('assessment_periods')->where('id', $periodId)->value('assessment_date');
+
+        return $assessmentDate ? Carbon::parse($assessmentDate)->format('Ym') : '999912';
     }
 
     /**
@@ -202,7 +237,8 @@ class PdNetFlowController extends BaseCalculationController
         $rows = DB::table('stage_pd_results')
             ->where('assessment_period_id', $periodId)
             ->where('method', 'NET_FLOW')
-            ->orderBy('pd_calculated', 'desc')
+            ->orderBy('group_key')
+            ->orderBy('bucket_no')
             ->get();
 
         $avg = $rows->isEmpty() ? 0.0 : (float) $rows->avg('pd_calculated');

@@ -100,7 +100,7 @@ class LgdDetailController extends BaseCalculationController
         $yearlyRows = collect();
 
         if ($windowLoans->isNotEmpty()) {
-            $attrs = ['loan_number', 'periode_snapshot', 'outstanding_balance', 'office_code', 'product_code', 'usage_type', 'financing_contract_code', 'tglwo'];
+            $attrs = ['loan_number', 'periode_snapshot', 'outstanding_balance', 'office_code', 'product_code', 'usage_type', 'financing_contract_code', 'tglwo', 'write_off_flag', 'quality_rating'];
 
             if ($method === 'CS') {
                 // Baki debet & atribut = snapshot periode assessment.
@@ -219,6 +219,10 @@ class LgdDetailController extends BaseCalculationController
                     'tglwo' => (string) $row->tglwo,
                     'wo_year' => $woYear,
                     'wo_nominal' => $woNominal,
+                    // Status populasi: WO = write-off; K5 = Kol 5 (kualitas 5) belum WO.
+                    'is_write_off' => (int) ($row->write_off_flag ?? 0) === 1,
+                    'quality_rating' => (string) ($row->quality_rating ?? ''),
+                    'population_status' => (int) ($row->write_off_flag ?? 0) === 1 ? 'WO' : 'K5',
                     'current_os' => $method === 'CS' ? $woNominal : $currentOs,
                     'recovery' => $method === 'CS' ? $netRecovery : $recovery,
                     'recovery_pct' => $woNominal > 0

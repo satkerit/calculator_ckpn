@@ -5,36 +5,32 @@ namespace App\Services\PdMigration;
 use Carbon\Carbon;
 
 /**
- * Penentu 4 matriks triwulan PD Migration berdasarkan tanggal asesmen.
+ * Penentu matriks triwulan PD Migration berdasarkan tanggal asesmen dan window historis.
  *
  * Aturan (PSAK 414 / kertas kerja B2.PD-Migration):
  * - Q_latest = triwulan penuh terakhir sebelum tanggal asesmen.
- *   Jan-Mar  → TW-IV tahun sebelumnya, T_end = 31 Des (Y-1)
- *   Apr-Jun  → TW-I tahun Y,         T_end = 31 Mar (Y)
- *   Jul-Sep  → TW-II tahun Y,        T_end = 30 Jun (Y)
- *   Okt-Des  → TW-III tahun Y,       T_end = 30 Sep (Y)
- * - T_end_M4 = endOfMonth(Q_latest)
- * - T_end_M(i) = T_end_M4 - (4 - i) * 3 bulan, untuk i = 1..4
- * - T_start_M(i) = T_end_M(i) - 1 tahun (tepat 12 bulan)
+ * - Jumlah matriks = floor(historical_months / 3), minimum 1, default 4.
+ * - T_end_M(N)   = endOfMonth(Q_latest)
+ * - T_end_M(i)   = T_end_M(N) - (N - i) * 3 bulan, untuk i = 1..N
+ * - T_start_M(i) = T_end_M(i) - 12 bulan (horizon transisi tetap 12 bulan per matriks)
  *
- * Contoh: asesmen 2027-01-15
- *   M1: 2025-03-01 → 2026-03-31
- *   M2: 2025-06-01 → 2026-06-30
- *   M3: 2025-09-01 → 2026-09-30
- *   M4: 2025-12-01 → 2026-12-31
+ * Contoh historical_months=36 (3 tahun, 12 matriks): asesmen 2027-01-15
+ *   M1: 2023-12-01 → 2024-12-31  …  M12: 2025-12-01 → 2026-12-31
  */
 class PeriodResolver
 {
     /**
+     * @param  int  $numMatrices  Jumlah matriks triwulan; 0 = default 4.
      * @return list<array{quarter:string, t_start:string, t_end:string}>
-     *         Daftar 4 matriks terurut M1..M4 (kronologis naik).
+     *         Daftar matriks terurut M1..MN (kronologis naik).
      */
-    public static function getMigrationPeriods(Carbon $assessmentDate): array
+    public static function getMigrationPeriods(Carbon $assessmentDate, int $numMatrices = 4): array
     {
+        $n = max(1, $numMatrices);
         $latest = self::resolveLatestQuarterEnd($assessmentDate);
         $periods = [];
 
-        for ($i = 0; $i < 4; $i++) {
+        for ($i = 0; $i < $n; $i++) {
             $endDate = $latest->copy()->subMonths($i * 3);
             $startDate = $endDate->copy()->subYear()->startOfMonth();
 
@@ -45,7 +41,7 @@ class PeriodResolver
             ];
         }
 
-        // Loop di atas menghasilkan M4..M1 → balik ke kronologis M1..M4.
+        // Loop di atas menghasilkan MN..M1 → balik ke kronologis M1..MN.
         return array_reverse($periods);
     }
 

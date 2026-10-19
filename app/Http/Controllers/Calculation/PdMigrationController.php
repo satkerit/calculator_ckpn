@@ -71,6 +71,11 @@ class PdMigrationController extends BaseCalculationController
             $token = $this->progressToken($request);
             $this->pushProgress($token, 'Memuat snapshot historis…', 5);
 
+            // Historical window untuk PD Migration: jumlah matriks = floor(historical_months / 3).
+            // Minimum 1 matriks (default 4 untuk 36+ bulan).
+            $histM = (int) ($config['historical_months'] ?? 36);
+            $numMatrices = max(1, floor($histM / 3));
+
             // N+1 fix: muat member per grup sekali (in-memory) alih-alih query per grup.
             $classRows = DB::table('stage_classifications')
                 ->where('assessment_period_id', $period->id)
@@ -83,12 +88,10 @@ class PdMigrationController extends BaseCalculationController
             }
             $loanNumbers = $classRows->pluck('loan_number')->unique()->values();
 
-            $this->pushProgress($token, 'Menyusun 4 matriks triwulan…', 15);
+            $this->pushProgress($token, 'Menyusun matriks triwulan…', 15);
 
-            // 4 matriks triwulan per spec PSAK 414 / kertas kerja B2.PD-Migration.
-            // Setiap matriks = T-12 → T (tepat 12 bulan); rentang ini tidak
-            // mengikuti konfigurasi historical_months (itu hanya untuk Netflow).
-            $rawMatrices = PeriodResolver::getMigrationPeriods(Carbon::parse($assessmentDate));
+            // Matriks triwulan per historical window; masing-masing tetap 12 bulan transisi.
+            $rawMatrices = PeriodResolver::getMigrationPeriods(Carbon::parse($assessmentDate), $numMatrices);
             $matrices = array_map(static function (array $m): array {
                 $m['t_start_ym'] = Carbon::parse($m['t_start'])->format('Ym');
                 $m['t_end_ym'] = Carbon::parse($m['t_end'])->format('Ym');
@@ -121,30 +124,34 @@ class PdMigrationController extends BaseCalculationController
                 ]);
                 $loans = $loansByGroup[$g->group_key] ?? [];
                 $detail = $this->computeMigrationPd($snaps, $matrices, $loans, $assessmentYm);
-                $pdRate = $detail['pd_group'];
 
-                $batch[] = [
-                    'assessment_period_id' => $period->id,
-                    'group_key' => $g->group_key,
-                    'pd_calculated' => round($pdRate, 6),
-                    'method' => 'MIGRATION',
-                    'periods_analyzed' => $detail['matrices_used'],
-                    'detail' => json_encode([
+                // PD Migration per rating (1..5): simpan sebagai baris terpisah bucket_no = rating_no.
+                // Agar CKPN Kolektif dapat lookup PD sesuai quality_rating nasabah (1..5).
+                foreach ($detail['rating_pd'] as $ratingNo => $ratingPdVal) {
+                    $batch[] = [
+                        'assessment_period_id' => $period->id,
+                        'group_key' => $g->group_key,
+                        'bucket_no' => (int) $ratingNo,
+                        'pd_calculated' => round($ratingPdVal, 6),
                         'method' => 'MIGRATION',
-                        'spec' => 'KERTAS_KERJA',
-                        'dims' => implode('|', $dims),
-                        'transition_horizon_months' => 12,
-                        'matrices' => $detail['matrices'],
-                        'matrices_used' => $detail['matrices_used'],
-                        // Aggregate hanya untuk tampilan cepat; PD diambil dari weighted average.
-                        'matrix' => $detail['matrix'],
-                        'rating_pd' => $detail['rating_pd'],
-                        'rating_exposure' => $detail['rating_exposure'],
-                        'matrix_total_exposure' => $detail['matrix_total'],
-                    ]),
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
+                        'periods_analyzed' => $detail['matrices_used'],
+                        'detail' => json_encode([
+                            'method' => 'MIGRATION',
+                            'spec' => 'KERTAS_KERJA',
+                            'dims' => implode('|', $dims),
+                            'rating_no' => $ratingNo,
+                            'transition_horizon_months' => 12,
+                            'matrices' => $detail['matrices'],
+                            'matrices_used' => $detail['matrices_used'],
+                            'matrix' => $detail['matrix'],
+                            'rating_pd' => $detail['rating_pd'],
+                            'rating_exposure' => $detail['rating_exposure'],
+                            'matrix_total_exposure' => $detail['matrix_total'],
+                        ]),
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
             }
 
             // Replace existing MIGRATION rows for this period.

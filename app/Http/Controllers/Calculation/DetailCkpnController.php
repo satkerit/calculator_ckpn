@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Calculation;
 
 use App\Models\Collateral;
 use App\Services\Ckpn\CkpnCalculator;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -65,22 +66,28 @@ class DetailCkpnController extends BaseCalculationController
             return $this->backTo($request, 'calculation.module.detail_ckpn', [], "Nilai PD dengan metode {$config['pd_method']} belum tersedia. Jalankan modul PD Net Flow / Migration sesuai metode konfigurasi terlebih dahulu.");
         }
 
-        // PD harus mencakup SETIAP grup segmentasi kolektif, bukan hanya sebagian.
-        // Grup tanpa baris PD akan dihitung dengan PD=0 (CKPN understated) — bukan
-        // memakai rate sesuai segmentasinya. Cegah sebelum menyimpan hasil.
-        $eadGroupKeys = $this->eadGroups($period->id)->pluck('group_key')->unique();
-        $pdGroupKeys = DB::table('stage_pd_results')
+        // PD harus mencakup SETIAP kombinasi segmen × bucket kolektif, bukan hanya
+        // sebagian. Kombinasi tanpa baris PD akan dihitung dengan PD=0 (CKPN
+        // understated) — bukan memakai rate sesuai segmentasi + bucket-nya.
+        // Cegah sebelum menyimpan hasil.
+        // NET_FLOW: bucket_no (1..14). MIGRATION: bucket_no = quality_rating (1..5).
+        // Keduanya wajib punya PD untuk setiap kombinasi segmen × dimensi risiko.
+        $eadBucketKeys = $this->eadGroups($period->id)
+            ->map(fn ($eg) => $eg->bucket_key)
+            ->unique();
+        $pdBucketKeys = DB::table('stage_pd_results')
             ->where('assessment_period_id', $period->id)
             ->where('method', $config['pd_method'])
-            ->pluck('group_key')
+            ->get()
+            ->map(fn ($r) => $r->group_key.'|'.(int) ($r->bucket_no ?? 1))
             ->unique();
-        $missingPd = $eadGroupKeys->diff($pdGroupKeys);
+        $missingPd = $eadBucketKeys->diff($pdBucketKeys);
 
         if ($missingPd->isNotEmpty()) {
             $sample = implode(', ', $missingPd->take(5)->all());
             $more = $missingPd->count() > 5 ? ' (+'.($missingPd->count() - 5).' lainnya)' : '';
 
-            return $this->backTo($request, 'calculation.module.detail_ckpn', [], "Rate PD metode {$config['pd_method']} belum lengkap untuk {$missingPd->count()} grup segmentasi: {$sample}{$more}. Hitung ulang modul PD agar setiap segmen memiliki rate PD sendiri sebelum Finalize CKPN.");
+            return $this->backTo($request, 'calculation.module.detail_ckpn', [], "Rate PD metode {$config['pd_method']} belum lengkap untuk {$missingPd->count()} kombinasi segmentasi × bucket: {$sample}{$more}. Hitung ulang modul PD agar setiap segmentasi memiliki rate PD per bucket sebelum Finalize CKPN.");
         }
         if ($lgdCount === 0) {
             return $this->backTo($request, 'calculation.module.detail_ckpn', [], 'Nilai LGD belum tersedia. Jalankan modul LGD (ER dan/atau CS) terlebih dahulu.');
@@ -214,12 +221,12 @@ class DetailCkpnController extends BaseCalculationController
             return;
         }
 
-        // PD per grup — filter sesuai metode aktif (NET_FLOW/MIGRATION), cegah PD tertukar.
+        // PD per grup × dimensi risiko (bucket 1..14 untuk NET_FLOW, rating 1..5 untuk MIGRATION).
         $pdMap = DB::table('stage_pd_results')
             ->where('assessment_period_id', $periodId)
             ->where('method', $config['pd_method'])
             ->get()
-            ->keyBy('group_key');
+            ->keyBy(fn ($r) => $r->group_key.'|'.(int) ($r->bucket_no ?? 1));
 
         // LGD per grup, mengikuti metode aktif di konfigurasi (lgd_method).
         $lgdEr = DB::table('stage_lgd_results')
@@ -248,36 +255,37 @@ class DetailCkpnController extends BaseCalculationController
                 ]);
             }
             $key = $eg->group_key;
+            // NET_FLOW: bucket_no (1..14). MIGRATION: quality_rating (1..5) sebagai bucket_no.
+            // Keduanya lookup via bucket_key ($group_key|$bucket_no).
+            $bucketKey = $eg->bucket_key;
 
-            // Tanpa fallback: PD wajib tersedia per grup (dijaga guard missingPd
-            // di finalize — grup tanpa PD tidak boleh diloloskan dengan PD=0).
-            if (! isset($pdMap[$key])) {
-                throw new \RuntimeException("PD untuk grup {$key} tidak ditemukan. Hitung ulang modul PD sesuai metode {$config['pd_method']}.");
+            // Tanpa fallback: PD wajib tersedia per segmen × bucket (dijaga guard
+            // missingPd di finalize — kombinasi tanpa PD tidak boleh diloloskan PD=0).
+            if (! isset($pdMap[$bucketKey])) {
+                throw new \RuntimeException("PD untuk grup {$key} bucket {$eg->bucket_no} tidak ditemukan. Hitung ulang modul PD sesuai metode {$config['pd_method']}.");
             }
-            $pd = (float) $pdMap[$key]->pd_calculated;
+            $pd = (float) $pdMap[$bucketKey]->pd_calculated;
             $erObj = $lgdEr[$key] ?? null;
             $csObj = $lgdCs[$key] ?? null;
 
             $erVal = $erObj ? (float) $erObj->lgd_calculated : null;
             $csVal = $csObj ? (float) $csObj->lgd_calculated : null;
 
-            // Kertas kerja LGD (B4.LGD) — nilai per metode sesuai konfigurasi:
-            // - EXPECTED_RECOVERY   : LGD = 1 - recovery_rate = Loss_ER / Wo_ER
-            // - COLLATERAL_SHORTFALL: LGD = Shortfall_CS / Exposure_CS
-            // - WEIGHTED (default)  : Total Loss / Total Exposure
-            //                         = (Loss_ER + Loss_CS) / (Wo_ER + Exposure_CS)
+            // LGD per metode:
+            // - EXPECTED_RECOVERY   : LGD dari WO 5 tahun historis (recovery tunai)
+            // - COLLATERAL_SHORTFALL: LGD dari Kol 5 Aktif & WO beragunan (shortfall agunan)
+            // - WEIGHTED (default)  : Pembobotan Total Loss / Total Exposure gabungan ER & CS
             $woEr   = $erObj ? (float) $erObj->total_write_off : 0.0;
-            $lossEr = $erObj ? ($woEr - (float) $erObj->total_recovery) : 0.0;
+            $lossEr = $erObj ? max(0.0, $woEr - (float) $erObj->total_recovery) : 0.0;
             $expCs  = $csObj ? (float) $csObj->total_exposure_wo : 0.0;
             $lossCs = $csObj ? (float) $csObj->total_shortfall : 0.0;
 
-            // Tanpa fallback: LGD murni dari historical data segmen. Bila hasil
-            // metode aktif tidak tersedia (null = exposure nol), LGD = 0
-            // (tidak ada loss history) — bukan memakai portfolio/rata-rata metode lain.
+            $weighted = ($woEr + $expCs) > 0 ? ($lossEr + $lossCs) / ($woEr + $expCs) : null;
+
             $lgd = match ($lgdMethod) {
-                'EXPECTED_RECOVERY' => $erVal ?? $this->weightedLgd($woEr, $lossEr, $expCs, $lossCs) ?? 0.0,
-                'COLLATERAL_SHORTFALL' => $csVal ?? $this->weightedLgd($woEr, $lossEr, $expCs, $lossCs) ?? 0.0,
-                default => $this->weightedLgd($woEr, $lossEr, $expCs, $lossCs) ?? 0.0,
+                'EXPECTED_RECOVERY' => $erVal ?? $weighted ?? 0.0,
+                'COLLATERAL_SHORTFALL' => $csVal ?? $weighted ?? 0.0,
+                default => $weighted ?? $erVal ?? $csVal ?? 0.0,
             };
             $lgd = min(1.0, max(0.0, $lgd));
             $totalEad = (float) $eg->total_ead;
@@ -287,6 +295,7 @@ class DetailCkpnController extends BaseCalculationController
             $batch[] = [
                 'assessment_period_id' => $periodId,
                 'group_key' => $key,
+                'bucket_no' => (int) $eg->bucket_no,
                 'office_code' => $eg->office_code,
                 'akad_code' => $eg->akad_code,
                 'usage_code' => $eg->usage_code,
@@ -307,54 +316,73 @@ class DetailCkpnController extends BaseCalculationController
     }
 
     /**
-     * Weighted LGD sesuai kertas kerja: Total Loss / Total Exposure.
-     * Null bila total exposure nol (caller memutuskan: LGD = 0, tanpa fallback).
-     */
-    private function weightedLgd(float $woEr, float $lossEr, float $expCs, float $lossCs): ?float
-    {
-        $totalExp = $woEr + $expCs;
-        if ($totalExp <= 0) {
-            return null;
-        }
-
-        return (max(0.0, $lossEr) + max(0.0, $lossCs)) / $totalExp;
-    }
-
-    /**
-     * EAD totals per grup segmentasi khusus untuk rekening COLLECTIVE.
-     * Mengambil langsung dari stage_classifications agar sinkron dengan dimensi
-     * segmentasi aktif dan group_key pada PD dan LGD.
+     * EAD totals per grup segmentasi × dimensi risiko (bucket untuk NET_FLOW, rating untuk MIGRATION).
+     * 
+     * NET_FLOW: Segmentasi × Bucket (B0..B13 = urutan 1..14)
+     * MIGRATION: Segmentasi × Quality Rating (1..5) — aggregate per rating
      */
     private function eadGroups(int $periodId): Collection
     {
+        $config = $this->configFor($periodId);
+        $pdMethod = strtoupper((string) ($config['pd_method'] ?? 'NET_FLOW'));
         $dims = $this->segmentDimensions(request(), $periodId);
+        $periodeYm = $this->assessmentYm($periodId);
 
-        // Group langsung sesuai dimensi segmentasi aktif (bukan selalu 3 dimensi),
-        // agar group_key identik dengan yang dipakai PD & LGD (buildSegment).
-        $columns = ['OFFICE' => 'office_code', 'AKAD' => 'akad_code', 'USAGE' => 'usage_code'];
+        // Dimensi segmentasi (OFFICE, AKAD, USAGE).
+        $columns = ['OFFICE' => 'sc.office_code', 'AKAD' => 'sc.akad_code', 'USAGE' => 'sc.usage_code'];
         $select = [];
         $group = [];
 
         foreach ($columns as $dim => $column) {
             if (in_array($dim, $dims, true)) {
-                $select[] = "COALESCE({$column}, 'NA') as {$column}";
+                $select[] = "COALESCE({$column}, 'NA') as ".substr($column, 3);
                 $group[] = "COALESCE({$column}, 'NA')";
             } else {
-                $select[] = "'NA' as {$column}";
+                $select[] = "'NA' as ".substr($column, 3);
             }
         }
 
-        return DB::table('stage_classifications')
-            ->where('assessment_period_id', $periodId)
-            ->where('classification', 'COLLECTIVE')
-            ->selectRaw(implode(', ', $select).', SUM(ead_amount) as total_ead, COUNT(*) as member_count')
+        // Dimensi risiko sesuai metode PD.
+        if ($pdMethod === 'MIGRATION') {
+            // Quality rating 1..5 dari snapshot.
+            $select[] = 'CAST(COALESCE(s.quality_rating, 1) AS UNSIGNED) as bucket_no';
+            $group[] = 'CAST(COALESCE(s.quality_rating, 1) AS UNSIGNED)';
+        } else {
+            // Bucket 1..14 (B0..B13) dari snapshot.
+            $select[] = 'COALESCE(s.bucket_no, 1) as bucket_no';
+            $group[] = 'COALESCE(s.bucket_no, 1)';
+        }
+
+        return DB::table('stage_classifications as sc')
+            ->leftJoin('snapshot as s', function ($j) use ($periodeYm) {
+                $j->on('sc.loan_number', '=', 's.loan_number')
+                    ->where('s.periode_snapshot', '=', $periodeYm)
+                    ->where('s.active_flag', '=', true);
+            })
+            ->where('sc.assessment_period_id', $periodId)
+            ->where('sc.classification', 'COLLECTIVE')
+            ->selectRaw(implode(', ', $select).', SUM(sc.ead_amount) as total_ead, COUNT(*) as member_count')
             ->groupByRaw(implode(', ', $group))
             ->get()
-            ->map(function ($g) use ($dims) {
+            ->map(function ($g) use ($dims, $pdMethod) {
+                $g->bucket_no = (int) $g->bucket_no;
                 $g->group_key = $this->collectiveGroupKey($dims, $g->office_code, $g->akad_code, $g->usage_code);
+                // Kunci unik segmen × dimensi risiko (bucket untuk NET_FLOW, rating untuk MIGRATION).
+                $g->bucket_key = $g->group_key.'|'.$g->bucket_no;
 
                 return $g;
             });
+    }
+
+    /**
+     * Periode snapshot (Ym) dari assessment_date periode — konsisten dengan
+     * parsing yang dipakai ClassificationController & PdNetFlowController.
+     */
+    private function assessmentYm(int $periodId): string
+    {
+        $assessmentDate = DB::table('assessment_periods')->where('id', $periodId)->value('assessment_date');
+
+        return $assessmentDate ? Carbon::parse($assessmentDate)->format('Ym') : '999912';
     }
 
     private function individualRows(int $periodId): Collection
@@ -367,9 +395,12 @@ class DetailCkpnController extends BaseCalculationController
 
     private function collectiveRows(int $periodId): Collection
     {
+        // NET_FLOW: per bucket_no (1..14). MIGRATION: per bucket_no = quality_rating (1..5).
+        // Keduanya sudah tersimpan sebagai baris terpisah di stage_collective_ckpn.
         return DB::table('stage_collective_ckpn')
             ->where('assessment_period_id', $periodId)
-            ->orderBy('ckpn_kolektif', 'desc')
+            ->orderBy('group_key')
+            ->orderBy('bucket_no')
             ->get();
     }
 

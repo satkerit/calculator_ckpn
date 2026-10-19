@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Export;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\Calculation\BaseCalculationController;
 use App\Models\AssessmentPeriod;
+use App\Services\Bucket\BucketAssignmentService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +20,7 @@ use OpenSpout\Writer\XLSX\Writer;
  * Backtest bundle = 1 file XLSX multi-sheet berisi snapshot seluruh modul
  * untuk validasi kesesuaian sistem vs export (offline backtesting).
  */
-class CalculationExportController extends Controller
+class CalculationExportController extends BaseCalculationController
 {
     public const MODULES = [
         'config'           => ['sheet' => '01_Konfigurasi_CKPN',      'table' => 'stage_configs'],
@@ -231,11 +233,14 @@ class CalculationExportController extends Controller
         $groupKeyFilter = trim((string) $request->query('group_key', ''));
 
         // Ambil semua grup yang sudah dihitung pada periode ini.
+        // Matriks PD dihitung per SEGMEN (bukan per bucket) → dedupe group_key.
         $pdRows = DB::table('stage_pd_results')
             ->where('assessment_period_id', $assessmentPeriod->id)
             ->where('method', 'NET_FLOW')
             ->orderBy('group_key')
+            ->orderBy('bucket_no')
             ->get()
+            ->unique('group_key')
             ->keyBy('group_key');
 
         abort_if($pdRows->isEmpty(), 422, 'Belum ada hasil PD Net Flow pada periode ini. Jalankan perhitungan PD terlebih dahulu.');
@@ -467,17 +472,19 @@ class CalculationExportController extends Controller
     private function writePdResults(Writer $writer, AssessmentPeriod $period, string $method): void
     {
         $writer->addRow(Row::fromValues([
-            'group_key', 'office_code', 'akad_code', 'usage_code',
+            'group_key', 'bucket_no', 'office_code', 'akad_code', 'usage_code',
             'pd_calculated', 'method', 'periods_analyzed', 'detail',
         ]));
         DB::table('stage_pd_results')
             ->where('assessment_period_id', $period->id)
             ->where('method', $method)
             ->orderBy('group_key')
+            ->orderBy('bucket_no')
             ->chunk(200, function ($chunk) use ($writer) {
                 foreach ($chunk as $r) {
                     $writer->addRow(Row::fromValues([
-                        $r->group_key, $r->office_code ?? '', $r->akad_code ?? '', $r->usage_code ?? '',
+                        $r->group_key, (int) ($r->bucket_no ?? 1),
+                        $r->office_code ?? '', $r->akad_code ?? '', $r->usage_code ?? '',
                         (float) $r->pd_calculated, $r->method, $r->periods_analyzed, $r->detail,
                     ]));
                 }
@@ -766,29 +773,66 @@ class CalculationExportController extends Controller
 
     private function writeLgd(Writer $writer, AssessmentPeriod $period, string $method): void
     {
-        $writer->addRow(Row::fromValues([
-            'group_key', 'office_code', 'akad_code', 'usage_code', 'method',
-            'recovery_rate', 'total_write_off', 'total_recovery',
-            'total_exposure_wo', 'total_shortfall', 'collateral_coverage',
-            'lgd_calculated', 'detail',
-        ]));
+        $headerStyle = (new Style())->setFontBold()->setFontColor('FFFFFF')->setBackgroundColor('1F4E78');
+        $isEr = strtoupper($method) === 'ER';
+
+        // Layout per-method: kolom hanya yang relevan agar tidak ada 0 palsu
+        // (mis. ER tidak punya total_exposure_wo, CS tidak punya recovery_rate).
+        $header = $isEr
+            ? [
+                'group_key', 'office_code', 'akad_code', 'usage_code', 'method',
+                'recovery_rate (%)', 'total_write_off', 'total_recovery', 'years_analyzed',
+                'jumlah_rekening_wo', 'lgd_calculated (%)', 'detail',
+            ]
+            : [
+                'group_key', 'office_code', 'akad_code', 'usage_code', 'method',
+                'total_exposure_wo', 'net_recovery', 'total_shortfall', 'collateral_coverage (%)',
+                'jumlah_rekening', 'lgd_calculated (%)', 'detail',
+            ];
+        $writer->addRow(Row::fromValues($header)->setStyle($headerStyle));
+
         DB::table('stage_lgd_results')
             ->where('assessment_period_id', $period->id)
             ->where('method', $method)
             ->orderBy('group_key')
-            ->chunk(200, function ($chunk) use ($writer) {
+            ->chunk(200, function ($chunk) use ($writer, $isEr) {
                 foreach ($chunk as $r) {
-                    $writer->addRow(Row::fromValues([
-                        $r->group_key, $r->office_code ?? '', $r->akad_code ?? '', $r->usage_code ?? '', $r->method,
-                        (float) ($r->recovery_rate ?? 0),
-                        (float) ($r->total_write_off ?? 0),
-                        (float) ($r->total_recovery ?? 0),
-                        (float) ($r->total_exposure_wo ?? 0),
-                        (float) ($r->total_shortfall ?? 0),
-                        (float) ($r->collateral_coverage ?? 0),
-                        (float) $r->lgd_calculated,
-                        $r->detail,
-                    ]));
+                    $detail = $r->detail ? (json_decode($r->detail, true) ?: []) : [];
+                    $lgdPct = round((float) $r->lgd_calculated * 100, 2);
+
+                    if ($isEr) {
+                        $writer->addRow(Row::fromValues([
+                            $r->group_key,
+                            $r->office_code ?? '', $r->akad_code ?? '', $r->usage_code ?? '', $r->method,
+                            $r->recovery_rate !== null ? round((float) $r->recovery_rate * 100, 2) : '',
+                            $r->total_write_off !== null ? (float) $r->total_write_off : '',
+                            $r->total_recovery !== null ? (float) $r->total_recovery : '',
+                            $r->years_analyzed !== null ? (int) $r->years_analyzed : '',
+                            $detail['wo_accounts'] ?? '',
+                            $lgdPct,
+                            $r->detail,
+                        ]));
+                    } else {
+                        // net_recovery = exposure - shortfall; kolom turunan agar auditable
+                        // tanpa harus membaca JSON detail.
+                        $exposure = $r->total_exposure_wo !== null ? (float) $r->total_exposure_wo : null;
+                        $shortfall = $r->total_shortfall !== null ? (float) $r->total_shortfall : null;
+                        $netRecov = ($exposure !== null && $shortfall !== null)
+                            ? round($exposure - $shortfall, 2)
+                            : null;
+
+                        $writer->addRow(Row::fromValues([
+                            $r->group_key,
+                            $r->office_code ?? '', $r->akad_code ?? '', $r->usage_code ?? '', $r->method,
+                            $exposure ?? '',
+                            $netRecov,
+                            $shortfall ?? '',
+                            $r->collateral_coverage !== null ? round((float) $r->collateral_coverage * 100, 2) : '',
+                            $r->account_count !== null ? (int) $r->account_count : '',
+                            $lgdPct,
+                            $r->detail,
+                        ]));
+                    }
                 }
             });
     }
@@ -813,27 +857,36 @@ class CalculationExportController extends Controller
 
         $writer->addRow(Row::fromValues(['']));
 
-        // Per loan classification + pd.
+        // Per loan classification + pd (bucket dari snapshot periode assessment).
         $writer->addRow(Row::fromValues(['== Per-Loan Detail ==']));
         $writer->addRow(Row::fromValues([
             'loan_number', 'classification', 'office_code', 'akad_code', 'usage_code',
-            'ead_amount', 'pd_calculated', 'pd_method',
+            'bucket_no', 'ead_amount', 'pd_calculated', 'pd_method',
         ]));
+        $periodeYm = Carbon::parse($period->assessment_date)->format('Ym');
         DB::table('stage_classifications as sc')
+            ->leftJoin('snapshot as s', function ($j) use ($periodeYm) {
+                $j->on('sc.loan_number', '=', 's.loan_number')
+                    ->where('s.periode_snapshot', '=', $periodeYm)
+                    ->where('s.active_flag', '=', true);
+            })
             ->leftJoin('stage_pd_results as pd', function ($j) use ($period) {
                 $j->on(DB::raw("CONCAT_WS('|', sc.office_code, sc.akad_code, sc.usage_code)"), '=', 'pd.group_key')
-                  ->where('pd.assessment_period_id', '=', $period->id);
+                    ->on(DB::raw('COALESCE(s.bucket_no, 1)'), '=', 'pd.bucket_no')
+                    ->where('pd.assessment_period_id', '=', $period->id);
             })
             ->where('sc.assessment_period_id', $period->id)
             ->orderBy('sc.classification')
             ->orderBy('sc.ead_amount', 'desc')
             ->select('sc.loan_number', 'sc.classification', 'sc.office_code', 'sc.akad_code', 'sc.usage_code',
-                'sc.ead_amount', 'pd.pd_calculated', 'pd.method as pd_method')
+                'sc.ead_amount', DB::raw('COALESCE(s.bucket_no, 1) as bucket_no'),
+                'pd.pd_calculated', 'pd.method as pd_method')
             ->chunk(200, function ($chunk) use ($writer) {
                 foreach ($chunk as $r) {
                     $writer->addRow(Row::fromValues([
                         $r->loan_number, $r->classification,
                         $r->office_code, $r->akad_code, $r->usage_code,
+                        (int) ($r->bucket_no ?? 1),
                         (float) $r->ead_amount,
                         $r->pd_calculated !== null ? (float) $r->pd_calculated : '',
                         $r->pd_method ?? '',
@@ -844,53 +897,143 @@ class CalculationExportController extends Controller
 
     private function writeDetailCkpn(Writer $writer, AssessmentPeriod $period): void
     {
-        // Individual
-        $writer->addRow(Row::fromValues(['== CKPN Individual ==']));
-        $writer->addRow(Row::fromValues([
-            'loan_number', 'nilai_tercatat', 'estimated_recovery', 'ckpn_individual', 'recovery_method',
-        ]));
-        DB::table('stage_individual_ckpn')
+        $headerStyle = (new Style())->setFontBold()->setFontColor('FFFFFF')->setBackgroundColor('1F4E78');
+        $titleStyle  = (new Style())->setFontBold()->setBackgroundColor('D9E1F2');
+        $totalStyle  = (new Style())->setFontBold();
+        $periodeYm   = Carbon::parse($period->assessment_date)->format('Ym');
+        // Dimensi segmentasi aktif — group_key harus identik dengan yang dipakai
+        // saat perhitungan (DetailCkpnController::eadGroups → collectiveGroupKey).
+        $dims = $this->segmentDimensions(request(), $period->id);
+
+        // ---------- CKPN Individual: daftar debitur per rekening ----------
+        $individuals = DB::table('stage_individual_ckpn')
             ->where('assessment_period_id', $period->id)
             ->orderBy('ckpn_individual', 'desc')
-            ->chunk(200, function ($chunk) use ($writer) {
-                foreach ($chunk as $r) {
-                    $writer->addRow(Row::fromValues([
-                        $r->loan_number, (float) $r->nilai_tercatat,
-                        (float) $r->estimated_recovery, (float) $r->ckpn_individual,
-                        $r->recovery_method,
-                    ]));
-                }
-            });
+            ->get();
 
+        $writer->addRow(Row::fromValues(['CKPN INDIVIDUAL — Daftar Debitur'])->setStyle($titleStyle));
+        $writer->addRow(Row::fromValues([
+            'No. Akad', 'EAD (Rp)', 'Nilai Agunan (Rp)', 'Pengurangan (Rp)',
+            'Estimasi Recovery (Rp)', 'CKPN Individual (Rp)', 'Metode Recovery',
+        ])->setStyle($headerStyle));
+        foreach ($individuals as $r) {
+            $writer->addRow(Row::fromValues([
+                $r->loan_number,
+                (float) $r->nilai_tercatat,
+                (float) ($r->liquidity_value ?? 0),
+                (float) ($r->sale_cost ?? 0),
+                (float) $r->estimated_recovery,
+                (float) $r->ckpn_individual,
+                $r->recovery_method ?? '',
+            ]));
+        }
+        $writer->addRow(Row::fromValues([
+            'TOTAL', (float) $individuals->sum('nilai_tercatat'),
+            (float) $individuals->sum('liquidity_value'), (float) $individuals->sum('sale_cost'),
+            (float) $individuals->sum('estimated_recovery'), (float) $individuals->sum('ckpn_individual'),
+            '',
+        ])->setStyle($totalStyle));
         $writer->addRow(Row::fromValues(['']));
 
-        // Collective
-        $writer->addRow(Row::fromValues(['== CKPN Kolektif ==']));
+        // ---------- CKPN Kolektif: daftar debitur per rekening ----------
+        // PD/LGD per debitur diambil dari hasil CKPN kolektif:
+        // - NET_FLOW: lookup via group_key|bucket_no (1..14)
+        // - MIGRATION: lookup via group_key|quality_rating (1..5)
+        $cfgRow = DB::table('stage_configs')->where('assessment_period_id', $period->id)->first();
+        $isMigration = strtoupper((string) ($cfgRow->pd_method ?? 'NET_FLOW')) === 'MIGRATION';
+
+        $ckpnMap = DB::table('stage_collective_ckpn')
+            ->where('assessment_period_id', $period->id)
+            ->get()
+            ->keyBy(fn ($r) => $r->group_key.'|'.(int) $r->bucket_no);
+
+        $collectives = DB::table('stage_classifications as sc')
+            ->leftJoin('snapshot as s', function ($j) use ($periodeYm) {
+                $j->on('sc.loan_number', '=', 's.loan_number')
+                    ->where('s.periode_snapshot', '=', $periodeYm)
+                    ->where('s.active_flag', '=', true);
+            })
+            ->where('sc.assessment_period_id', $period->id)
+            ->where('sc.classification', 'COLLECTIVE')
+            ->select(
+                'sc.loan_number', 'sc.ead_amount', 'sc.office_code', 'sc.akad_code', 'sc.usage_code',
+                DB::raw('COALESCE(s.bucket_no, 1) as bucket_no'),
+                DB::raw('CAST(COALESCE(s.quality_rating, 1) AS UNSIGNED) as quality_rating'),
+            )
+            ->get()
+            ->map(function ($r) use ($ckpnMap, $dims, $isMigration) {
+                $r->group_key = $this->buildSegment($dims, $r->office_code, $r->akad_code, $r->usage_code)['group_key'];
+                // MIGRATION mencocokkan ke quality_rating, NET_FLOW mencocokkan ke bucket_no
+                $dimKey = $isMigration ? (int) $r->quality_rating : (int) $r->bucket_no;
+                $g = $ckpnMap[$r->group_key.'|'.$dimKey] ?? null;
+                $r->pd  = $g ? (float) $g->pd : null;
+                $r->lgd = $g ? (float) $g->lgd : null;
+                $r->ckpn_debitur = $g ? round((float) $r->ead_amount * (float) $g->pd * (float) $g->lgd, 2) : 0.0;
+                $r->dim_label = $isMigration
+                    ? 'Rating ' . $r->quality_rating
+                    : BucketAssignmentService::getBucketLabel((int) $r->bucket_no);
+
+                return $r;
+            })
+            ->sortByDesc('ckpn_debitur')
+            ->values();
+
+        $writer->addRow(Row::fromValues(['CKPN KOLEKTIF — Daftar Debitur'])->setStyle($titleStyle));
         $writer->addRow(Row::fromValues([
-            'group_key', 'office_code', 'akad_code', 'usage_code',
-            'total_ead', 'pd', 'lgd', 'lgd_method', 'ckpn_kolektif', 'member_count',
-        ]));
+            'No. Akad', 'Segmen', $isMigration ? 'Rating' : 'Bucket', $isMigration ? 'Kolektibilitas' : 'Hari Tunggakan',
+            'EAD (Rp)', 'PD (%)', 'LGD (%)', 'CKPN Kolektif (Rp)',
+        ])->setStyle($headerStyle));
+        foreach ($collectives as $r) {
+            $writer->addRow(Row::fromValues([
+                $r->loan_number, $r->group_key,
+                $isMigration ? (int) $r->quality_rating : (int) $r->bucket_no,
+                $r->dim_label,
+                (float) $r->ead_amount,
+                $r->pd !== null ? round($r->pd * 100, 2) : '',
+                $r->lgd !== null ? round($r->lgd * 100, 2) : '',
+                $r->ckpn_debitur,
+            ]));
+        }
+        $writer->addRow(Row::fromValues([
+            'TOTAL', '', '', '',
+            (float) $collectives->sum('ead_amount'), '', '',
+            (float) $collectives->sum('ckpn_debitur'),
+        ])->setStyle($totalStyle));
+        $writer->addRow(Row::fromValues(['']));
+
+        // ---------- Ringkasan agregat per grup segmentasi ----------
+        $writer->addRow(Row::fromValues(['RINGKASAN PER GRUP SEGMENTASI'])->setStyle($titleStyle));
+        $writer->addRow(Row::fromValues([
+            'group_key', 'bucket_no', 'office_code', 'akad_code', 'usage_code',
+            'total_ead', 'PD (%)', 'LGD (%)', 'lgd_method', 'ckpn_kolektif', 'member_count',
+        ])->setStyle($headerStyle));
         DB::table('stage_collective_ckpn')
             ->where('assessment_period_id', $period->id)
             ->orderBy('ckpn_kolektif', 'desc')
             ->chunk(200, function ($chunk) use ($writer) {
                 foreach ($chunk as $r) {
                     $writer->addRow(Row::fromValues([
-                        $r->group_key, $r->office_code, $r->akad_code, $r->usage_code,
-                        (float) $r->total_ead, (float) $r->pd, (float) $r->lgd,
+                        $r->group_key, (int) ($r->bucket_no ?? 1),
+                        $r->office_code, $r->akad_code, $r->usage_code,
+                        (float) $r->total_ead,
+                        round((float) $r->pd * 100, 2), round((float) $r->lgd * 100, 2),
                         $r->lgd_method, (float) $r->ckpn_kolektif, (int) $r->member_count,
                     ]));
                 }
             });
 
         $writer->addRow(Row::fromValues(['']));
-        $writer->addRow(Row::fromValues(['== Summary ==']));
+        $writer->addRow(Row::fromValues(['== Summary =='])->setStyle($titleStyle));
 
-        $ind = (float) DB::table('stage_individual_ckpn')->where('assessment_period_id', $period->id)->sum('ckpn_individual');
+        $ind = (float) $individuals->sum('ckpn_individual');
         $col = (float) DB::table('stage_collective_ckpn')->where('assessment_period_id', $period->id)->sum('ckpn_kolektif');
+        $writer->addRow(Row::fromValues(['Jumlah Debitur Individual', $individuals->count()]));
+        $writer->addRow(Row::fromValues(['Total EAD Individual', (float) $individuals->sum('nilai_tercatat')]));
         $writer->addRow(Row::fromValues(['Total CKPN Individual', $ind]));
+        $writer->addRow(Row::fromValues(['Jumlah Debitur Kolektif', $collectives->count()]));
+        $writer->addRow(Row::fromValues(['Total EAD Kolektif', (float) $collectives->sum('ead_amount')]));
         $writer->addRow(Row::fromValues(['Total CKPN Kolektif', $col]));
-        $writer->addRow(Row::fromValues(['Total CKPN', round($ind + $col, 2)]));
+        $writer->addRow(Row::fromValues(['Total CKPN', round($ind + $col, 2)])->setStyle($totalStyle));
     }
 
     private function writeBundleIndex(Writer $writer, AssessmentPeriod $period): void

@@ -59,11 +59,9 @@ class LgdExpectedRecoveryController extends BaseCalculationController
             $assessYm = $assessmentDate->format('Ym');
             $startYm = $assessmentDate->copy()->subMonths($histM)->format('Ym');
 
-            // Kertas kerja ER: write-off dengan tglwo di dalam rentang 5 tahun.
-            // Populasi ER = write-off yang PENYELESAIANNYA via cash payment, yaitu
-            // WO yang TIDAK memiliki jaminan aktif bernilai berkode eligible.
-            // WO dengan jaminan eligible bernilai masuk ke populasi LGD CS (saling eksklusif).
-            // Recovery = WO nominal - outstanding terakhir (pergerakan baki debet).
+            // LGD ER: populasi = debitur write-off dengan tglwo dalam 5 tahun terakhir.
+            // Pengurang = recovery tunai saja (pergerakan baki debet sejak WO).
+            // Komponen jaminan masuk LGD CS (populasi terpisah).
             $windowLoans = DB::table('snapshot')
                 ->where('write_off_flag', 1)
                 ->whereNotNull('tglwo')->where('tglwo', '<>', '')
@@ -71,20 +69,6 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                 ->whereRaw('SUBSTRING(tglwo, 1, 6) <= ?', [$assessYm])
                 ->distinct()
                 ->pluck('loan_number');
-
-            // Loan yang memiliki jaminan aktif bernilai (liquidity_value > 0) DAN
-            // berkode jenis agunan eligible → masuk populasi CS, dikecualikan dari ER.
-            // Agunan berkode non-eligible tidak dapat dieksekusi → tetap di ER.
-            $eligibleCollateralCodes = ['02','04','08','11','12','17','18','19','21','22','23','24','25','26','27','28','29'];
-            $collateralLoans = DB::table('collateral')
-                ->whereIn('loan_number', $windowLoans)
-                ->where('active_flag', 1)
-                ->where('liquidity_value', '>', 0)
-                ->whereIn('collateral_type', $eligibleCollateralCodes)
-                ->distinct()
-                ->pluck('loan_number');
-
-            $windowLoans = $windowLoans->diff($collateralLoans)->values();
 
             $this->pushProgress($token, 'Memuat data write-off historis…', 20);
 
@@ -200,11 +184,10 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                     ]);
                 }
                 $agg = $byGroup[$key] ?? ['wo' => 0.0, 'recovery' => 0.0, 'count' => 0];
+                // LGD ER = (WO - recovery tunai) / WO = 1 - recovery_rate.
                 $recoveryRate = $agg['wo'] > 0
                     ? min(1.0, max(0.0, $agg['recovery'] / $agg['wo']))
                     : 0.0;
-                // Tanpa fallback: LGD murni dari historical data grup.
-                // Grup tanpa write-off historis → LGD = 0 (tidak ada loss history).
                 $lgd = min(1.0, max(0.0, 1.0 - $recoveryRate));
                 if ($agg['wo'] == 0.0) {
                     $noWoCount++;
@@ -228,9 +211,11 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                         'window_months' => $histM,
                         'window_start' => $startYm,
                         'window_end' => $assessYm,
-                        'population' => 'write-off 5 tahun tanpa jaminan bernilai (cash recovery)',
+                        'population' => 'write-off 5 tahun (recovery tunai saja)',
                         'wo_accounts' => $agg['count'],
-                        'no_write_off_history' => $agg['wo'] == 0.0,
+                        'total_outstanding_wo' => round($agg['wo'], 2),
+                        'total_recovery' => round($agg['recovery'], 2),
+                        'note' => 'Komponen jaminan masuk LGD CS (populasi terpisah)',
                     ]),
                     'created_at' => $now,
                     'updated_at' => $now,

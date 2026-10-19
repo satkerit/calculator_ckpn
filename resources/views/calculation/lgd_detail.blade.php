@@ -75,8 +75,15 @@
 
         {{-- Tabel detail debitur + pergerakan OS per tahun per debitur --}}
         <div class="mt-6 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h3 class="text-sm font-bold text-gray-900">Detail per Debitur ({{ $debtorRows->count() }} rekening write-off)</h3>
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 class="text-sm font-bold text-gray-900">
+                    Detail per Debitur ({{ $debtorRows->count() }} rekening)
+                    @if ($method === 'CS')
+                        <span class="text-xs font-normal text-gray-500 ml-2">
+                            (Kol 5: {{ $debtorRows->where('population_status', 'K5')->count() }} · WO: {{ $debtorRows->where('population_status', 'WO')->count() }})
+                        </span>
+                    @endif
+                </h3>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full text-xs">
@@ -84,7 +91,7 @@
                         <tr>
                             <th class="px-3 py-2 text-left">Loan</th>
                             <th class="px-3 py-2 text-left">Grup</th>
-                            <th class="px-3 py-2 text-left">{{ $method === 'CS' ? 'Populasi' : 'Tgl WO' }}</th>
+                            <th class="px-3 py-2 text-left">{{ $method === 'CS' ? 'Status Populasi' : 'Tgl WO' }}</th>
                             <th class="px-3 py-2 text-right">{{ $method === 'CS' ? 'Baki Debet' : 'OS Awal WO' }}</th>
                             <th class="px-3 py-2 text-center">Pergerakan OS per Tahun ({{ $method === 'CS' ? 'posisi historis' : 'awal WO' }} → posisi {{ $period->assessment_date->format('Y') }})</th>
                             @if ($method === 'CS')
@@ -105,7 +112,20 @@
                             <tr class="align-top">
                                 <td class="px-3 py-2 font-mono whitespace-nowrap">{{ $r->loan_number }}</td>
                                 <td class="px-3 py-2 font-mono">{{ $r->group_key }}</td>
-                                <td class="px-3 py-2 whitespace-nowrap">{{ $method === 'CS' ? 'Kualitas 5 / WO aktif' : $r->tglwo }}</td>
+                                <td class="px-3 py-2 whitespace-nowrap">
+                                    @if ($method === 'CS')
+                                        @if ($r->is_write_off)
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-semibold">Write-Off</span>
+                                            @if ($r->tglwo !== '')
+                                                <span class="block text-[10px] text-gray-500 mt-0.5">{{ $r->tglwo }}</span>
+                                            @endif
+                                        @else
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">Kualitas {{ $r->quality_rating !== '' ? $r->quality_rating : '5' }}</span>
+                                        @endif
+                                    @else
+                                        {{ $r->tglwo }}
+                                    @endif
+                                </td>
                                 <td class="px-3 py-2 text-right">{{ number_format((float) $r->wo_nominal, 0, ',', '.') }}</td>
                                 <td class="px-3 py-2">
                                     {{-- Rantai pergerakan OS per tahun --}}
@@ -141,7 +161,7 @@
                                 @endif
                             </tr>
                         @empty
-                            <tr><td colspan="{{ $method === 'CS' ? 10 : 7 }}" class="px-3 py-6 text-center text-gray-500">Tidak ada rekening write-off pada window ini.</td></tr>
+                            <tr><td colspan="{{ $method === 'CS' ? 10 : 7 }}" class="px-3 py-6 text-center text-gray-500">Tidak ada rekening pada populasi ini.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

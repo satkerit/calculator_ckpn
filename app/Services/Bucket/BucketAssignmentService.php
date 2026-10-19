@@ -7,23 +7,24 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Service untuk assign bucket_no ke snapshot berdasarkan kriteria tunggakan.
- * Bucket 1 (Lancar/0 hari), 2-13 (tunggakan per 30 hari), 14 (DPD > 360
- * atau hapus buku yang dijalankan pada periode snapshot tersebut).
+ * bucket_no = urutan bucket (1 = Lancar/0 hari, 2-13 = tunggakan per 30 hari,
+ * 14 = DPD > 360 ATAU pembiayaan write-off/hapus buku pada periode snapshot).
+ * Aturan: bucket 331-360 hari TIDAK memuat pembiayaan write-off — semua WO
+ * masuk bucket terakhir (>360), bersama pembiayaan aktif ber-DPD > 360.
  */
 class BucketAssignmentService
 {
     /**
      * Hitung bucket number untuk single snapshot.
-     * Bucket 14 hanya untuk WO yang tanggal write-off-nya (tglwo) berada
-     * pada periode snapshot yang sama — flag WO yang menetap pada periode
-     * berikutnya TIDAK otomatis masuk bucket 14.
+     * Bucket terakhir untuk seluruh pembiayaan write-off (write_off_flag = 1),
+     * bukan hanya yang tglwo-nya di periode snapshot.
      */
     public function calculateBucket(Snapshot $snapshot): int
     {
-        // Load bucket definitions dinamis
+        // Load bucket definitions dinamis, urutkan berdasarkan urutan bucket
         $buckets = DB::table('bucket_definitions')
             ->where('active', true)
-            ->orderBy('id', 'asc')
+            ->orderBy('urutan', 'asc')
             ->get()
             ->toArray();
 
@@ -31,19 +32,18 @@ class BucketAssignmentService
             return 1;
         }
 
-        $maxBucket = end($buckets);
+        $lastBucket = end($buckets);
 
-        // Write-off di periode sama → bucket terakhir
-        $tglwoYm = $snapshot->tglwo ? substr((string) $snapshot->tglwo, 0, 6) : null;
-        if ($snapshot->write_off_flag && $tglwoYm === (string) $snapshot->periode_snapshot) {
-            return $maxBucket->id;
+        // Write-off/hapus buku → bucket terakhir (>360), apa pun DPD-nya
+        if ($snapshot->write_off_flag) {
+            return (int) $lastBucket->urutan;
         }
 
         $dpd = (int) ($snapshot->days_past_due ?? 0);
 
         if ($dpd <= 0) {
             // Bucket pertama (lancar)
-            return $buckets[0]->id;
+            return (int) $buckets[0]->urutan;
         }
 
         // Cocokkan range hari_min - hari_max
@@ -51,20 +51,20 @@ class BucketAssignmentService
             if ($bucket->hari_min == 0 && $bucket->hari_max == 0) {
                 continue; // Lancar, sudah ditangani
             }
-            if ($bucket->hari_max === null) {
+            if ($bucket->hari_max === null || (int) $bucket->hari_max >= 99999) {
                 // Tanpa batas atas
                 if ($dpd >= $bucket->hari_min) {
-                    return $bucket->id;
+                    return (int) $bucket->urutan;
                 }
                 continue;
             }
             if ($dpd >= $bucket->hari_min && $dpd <= $bucket->hari_max) {
-                return $bucket->id;
+                return (int) $bucket->urutan;
             }
         }
 
         // Melebihi semua range → bucket terakhir
-        return $maxBucket->id;
+        return (int) $lastBucket->urutan;
     }
 
     /**
@@ -73,10 +73,10 @@ class BucketAssignmentService
      */
     public function assignBucketsForPeriodFast(string $periodeYm): int
     {
-        // Load bucket config ordered by hari_min ascending
+        // Load bucket config ordered by urutan bucket ascending
         $buckets = DB::table('bucket_definitions')
             ->where('active', true)
-            ->orderBy('hari_min', 'asc')
+            ->orderBy('urutan', 'asc')
             ->get()
             ->toArray();
 
@@ -84,25 +84,28 @@ class BucketAssignmentService
             return 0; // Tidak ada bucket definition
         }
 
-        // Build CASE WHEN dinamis
-        $caseWhen = "CASE WHEN write_off_flag = 1 AND SUBSTRING(tglwo, 1, 6) = periode_snapshot THEN " . end($buckets)->id;
-        
+        $lastBucketNo = (int) end($buckets)->urutan;
+
+        // Write-off/hapus buku → bucket terakhir (>360), apa pun DPD-nya.
+        // Mencakup pembiayaan aktif ber-DPD > 360 maupun WO pada periode tsb.
+        $caseWhen = "CASE WHEN write_off_flag = 1 THEN {$lastBucketNo}";
+
         foreach ($buckets as $bucket) {
+            $bucketNo = (int) $bucket->urutan;
             if ($bucket->hari_min == 0 && $bucket->hari_max == 0) {
                 // Bucket lancar (0 hari)
-                $caseWhen .= " WHEN days_past_due <= 0 THEN {$bucket->id}";
-            } elseif ($bucket->hari_max === null) {
+                $caseWhen .= " WHEN days_past_due <= 0 THEN {$bucketNo}";
+            } elseif ($bucket->hari_max === null || (int) $bucket->hari_max >= 99999) {
                 // Bucket tanpa batas atas
-                $caseWhen .= " WHEN days_past_due >= {$bucket->hari_min} THEN {$bucket->id}";
+                $caseWhen .= " WHEN days_past_due >= {$bucket->hari_min} THEN {$bucketNo}";
             } else {
                 // Bucket dengan range hari
-                $caseWhen .= " WHEN days_past_due BETWEEN {$bucket->hari_min} AND {$bucket->hari_max} THEN {$bucket->id}";
+                $caseWhen .= " WHEN days_past_due BETWEEN {$bucket->hari_min} AND {$bucket->hari_max} THEN {$bucketNo}";
             }
         }
-        
+
         // Bucket terakhir untuk DPD > max
-        $maxBucket = end($buckets);
-        $caseWhen .= " ELSE {$maxBucket->id} END";
+        $caseWhen .= " ELSE {$lastBucketNo} END";
 
         return DB::table('snapshot')
             ->where('periode_snapshot', $periodeYm)
@@ -112,10 +115,11 @@ class BucketAssignmentService
             ]);
     }
 
-    public static function getBucketLabel(int $bucketId): string
+    public static function getBucketLabel(int $bucketNo): string
     {
+        // bucket_no di seluruh sistem = urutan bucket (1..14), bukan ID tabel
         $bucket = DB::table('bucket_definitions')
-            ->where('id', $bucketId)
+            ->where('urutan', $bucketNo)
             ->where('active', true)
             ->first();
 
@@ -127,12 +131,8 @@ class BucketAssignmentService
             return '0 hari (Lancar)';
         }
 
-        if ($bucket->hari_max === null) {
-            return '≥ ' . $bucket->hari_min . ' hari (tanpa batas)';
-        }
-
-        if ($bucket->hari_max >= 360) {
-            return '> ' . $bucket->hari_min . ' hari / Write-off';
+        if ($bucket->hari_max === null || (int) $bucket->hari_max >= 99999) {
+            return '> ' . $bucket->hari_min . ' hari / Write-Off';
         }
 
         return "{$bucket->hari_min} - {$bucket->hari_max} hari";

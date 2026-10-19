@@ -470,6 +470,19 @@ class PdNetflowCalculator
         $batch = [];
         $now = now();
 
+        // Outstanding per (periode, bucket) untuk mendeteksi rate 1.0 hasil default
+        // "prev blank" (rumus Excel IF(ISBLANK(prev),1,...)), bukan migrasi nyata
+        $outstandingMap = [];
+        foreach (DB::table('pd_netflow_bucket_snapshots')
+            ->where('assessment_period_id', $periodId)
+            ->where('group_key', $groupKey)
+            ->get() as $snap) {
+            $snapKey = $snap->periode_snapshot instanceof \Carbon\Carbon
+                ? $snap->periode_snapshot->format('Y-m-d')
+                : (string) $snap->periode_snapshot;
+            $outstandingMap[$snapKey][$snap->bucket_no] = (float) $snap->outstanding_balance;
+        }
+
         // Iterate hanya periode historis sebagai titik awal (indeks 0 s/d histEndIdx)
         for ($startIdx = 0; $startIdx <= $histEndIdx; $startIdx++) {
             $startPeriode = $sortedPeriodes[$startIdx];
@@ -500,6 +513,16 @@ class PdNetflowCalculator
                             if ($t->from_bucket == $fromBucket && $t->to_bucket == $toBucket) {
                                 $rate = (float) $t->transition_rate;
                                 break;
+                            }
+                        }
+
+                        // Rate 1.0 karena outstanding bucket asal kosong pada periode
+                        // sebelumnya = tidak ada data → compound = 0 (bukan 1)
+                        if ($rate == 1.0) {
+                            $prevDate = \Carbon\Carbon::parse($stepPeriode)->subMonth()->endOfMonth()->toDateString();
+                            $prevOutstanding = $outstandingMap[$prevDate][$fromBucket] ?? 0.0;
+                            if ($prevOutstanding <= 0) {
+                                $rate = 0.0;
                             }
                         }
                     }

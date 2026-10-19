@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Calculation;
 
 use App\Services\Bucket\BucketAssignmentService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -46,7 +47,8 @@ class DetailPdEadController extends BaseCalculationController
             // Auto-populate jika stage_ead_buckets belum terisi
             $period = DB::table('assessment_periods')->where('id', $periodId)->first();
             if ($period) {
-                $periodeYm = str_replace('-', '', substr($period->assessment_date, 0, 7));
+                // Parsing konsisten dengan ClassificationController: format('Ym').
+                $periodeYm = Carbon::parse($period->assessment_date)->format('Ym');
                 
                 // Ambil data dari stage_classifications join snapshot
                 $joined = DB::table('stage_classifications as sc')
@@ -114,6 +116,7 @@ class DetailPdEadController extends BaseCalculationController
         return DB::table('stage_pd_results')
             ->where('assessment_period_id', $periodId)
             ->orderBy('group_key')
+            ->orderBy('bucket_no')
             ->get();
     }
 
@@ -143,7 +146,8 @@ class DetailPdEadController extends BaseCalculationController
         // group_key PD dibangun dari dimensi segmentasi aktif (OFFICE/AKAD/USAGE) —
         // join harus memakai ekspresi yang sama, bukan selalu 3 dimensi.
         // Config tersimpan sebagai string "OFFICE|AKAD" → parse ke array.
-        $rawDims = $this->configFor($periodId)['segment_dimensions'];
+        $config = $this->configFor($periodId);
+        $rawDims = $config['segment_dimensions'];
         $dims = is_array($rawDims)
             ? $rawDims
             : array_values(array_filter(array_map('trim', explode('|', (string) $rawDims))));
@@ -156,13 +160,24 @@ class DetailPdEadController extends BaseCalculationController
         }
         $groupKeyExpr = $parts === [] ? "'NA'" : "CONCAT_WS('|', ".implode(', ', $parts).")";
 
-        $pdMethod = $this->configFor($periodId)['pd_method'];
+        $pdMethod = $config['pd_method'];
+        $periodeYm = Carbon::parse(
+            DB::table('assessment_periods')->where('id', $periodId)->value('assessment_date')
+        )->format('Ym');
 
+        // Join snapshot untuk bucket debitur agar PD per segmen × bucket terpetakan
+        // tepat (bukan menggandakan baris bila satu segmen punya beberapa bucket).
         return DB::table('stage_classifications as sc')
+            ->leftJoin('snapshot as s', function ($j) use ($periodeYm) {
+                $j->on('sc.loan_number', '=', 's.loan_number')
+                    ->where('s.periode_snapshot', '=', $periodeYm)
+                    ->where('s.active_flag', '=', true);
+            })
             ->leftJoin('stage_pd_results as pd', function ($j) use ($periodId, $groupKeyExpr, $pdMethod) {
                 $j->on(DB::raw($groupKeyExpr), '=', 'pd.group_key')
-                  ->where('pd.assessment_period_id', '=', $periodId)
-                  ->where('pd.method', '=', $pdMethod);
+                    ->on(DB::raw('COALESCE(s.bucket_no, 1)'), '=', 'pd.bucket_no')
+                    ->where('pd.assessment_period_id', '=', $periodId)
+                    ->where('pd.method', '=', $pdMethod);
             })
             ->where('sc.assessment_period_id', $periodId)
             ->orderBy('sc.classification')
@@ -175,6 +190,7 @@ class DetailPdEadController extends BaseCalculationController
                 'sc.usage_code',
                 'sc.ead_amount',
                 'sc.reason',
+                DB::raw('COALESCE(s.bucket_no, 1) as bucket_no'),
                 'pd.pd_calculated',
                 'pd.method as pd_method',
             )

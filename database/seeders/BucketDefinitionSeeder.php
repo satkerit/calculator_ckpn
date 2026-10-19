@@ -12,6 +12,10 @@ class BucketDefinitionSeeder extends Seeder
      */
     public function run(): void
     {
+        // Idempotent: bersihkan dulu agar ID selalu 1-14 (bucket_no di seluruh
+        // sistem = urutan 1..14, bukan auto-increment ID).
+        \DB::table('bucket_definitions')->truncate();
+
         \DB::table('bucket_definitions')->insert([
             [
                 'kode_bucket' => 'B0',

@@ -218,6 +218,14 @@ class PdNetflowService
     }
 
     /**
+     * Label bucket untuk dipakai controller (publik).
+     */
+    public function bucketLabel(int $bucketNo): string
+    {
+        return $this->getBucketLabel($bucketNo);
+    }
+
+    /**
      * Format nilai untuk display
      */
     public function formatValue(mixed $value, string $type = 'number'): string

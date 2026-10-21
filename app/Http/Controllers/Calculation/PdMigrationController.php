@@ -19,9 +19,10 @@ use Illuminate\View\View;
  *   - Matriks sumber 1..5, tujuan 1..5 + Hapus Buku + Pembayaran.
  *   - Bobot = saldo (outstanding_balance) bukan count kontrak.
  *   - State default: Hapus Buku (langsung) + cascade via rating 5/4/3/2.
- *   - Horizon transisi = 12 bulan (tahunan). Rentang historis diturunkan
- *     dari ketersediaan snapshot untuk loan grup (bukan dari konfigurasi
- *     historical_months; konfigurasi itu hanya dipakai oleh PD Netflow).
+ *   - Horizon transisi = 12 bulan (tahunan). Historical window memakai
+ *     `historical_months` yang sama dengan PD Net Flow, tetapi jumlah periode
+ *     dihitung berbeda: Net Flow = titik bulanan per bucket, Migration =
+ *     matriks triwulan = floor(historical_months / 3) (minimal 1).
  *   - PD per rating dihitung backward dari rating 5; PD grup = EAD-weighted
  *     atas PD rating anggota, diambil dari snapshot posisi assessment.
  */
@@ -39,7 +40,11 @@ class PdMigrationController extends BaseCalculationController
         // Hasil basi bila konfigurasi (segmentasi/window/metode PD) berubah setelah run terakhir.
         $pdStale = in_array('PD', $this->staleResultTypes($period->id), true);
 
-        return view('calculation.modules.pd_migration', compact('period', 'periods', 'config', 'results', 'pdStale'));
+        // Window historis PD Migration: matriks triwulan = floor(bulan / 3), minimum 1.
+        $histM = max(12, (int) ($config['historical_months'] ?? 36));
+        $numMatrices = max(1, (int) floor($histM / 3));
+
+        return view('calculation.modules.pd_migration', compact('period', 'periods', 'config', 'results', 'pdStale', 'histM', 'numMatrices'));
     }
 
     public function run(Request $request): RedirectResponse|JsonResponse
@@ -49,6 +54,7 @@ class PdMigrationController extends BaseCalculationController
         // Lock per-periode + transaksi agar penulisan hasil atomik & tidak bentrok antar user.
         return $this->withRunLock($period->id, fn () => DB::transaction(function () use ($request, $period) {
             $dims = $this->segmentDimensions($request, $period->id);
+            $config = $this->configFor($period->id);
             $assessmentDate = $period->assessment_date;
             $assessmentYm = $assessmentDate->format('Ym');
 
@@ -71,10 +77,12 @@ class PdMigrationController extends BaseCalculationController
             $token = $this->progressToken($request);
             $this->pushProgress($token, 'Memuat snapshot historis…', 5);
 
-            // Historical window untuk PD Migration: jumlah matriks = floor(historical_months / 3).
-            // Minimum 1 matriks (default 4 untuk 36+ bulan).
-            $histM = (int) ($config['historical_months'] ?? 36);
-            $numMatrices = max(1, floor($histM / 3));
+            // Historical window PD Migration memakai `historical_months` yang sama
+            // dengan PD Net Flow. Bedanya basis periode: Net Flow = bucket tunggakan
+            // per bulan, Migration = kualitas/Kol 1-5 per matriks triwulan.
+            // Jumlah matriks = floor(historical_months / 3), minimum 1.
+            $histM = max(12, (int) ($config['historical_months'] ?? 36));
+            $numMatrices = max(1, (int) floor($histM / 3));
 
             // N+1 fix: muat member per grup sekali (in-memory) alih-alih query per grup.
             $classRows = DB::table('stage_classifications')
@@ -140,12 +148,14 @@ class PdMigrationController extends BaseCalculationController
                             'spec' => 'KERTAS_KERJA',
                             'dims' => implode('|', $dims),
                             'rating_no' => $ratingNo,
+                            'historical_months' => $histM,
                             'transition_horizon_months' => 12,
                             'matrices' => $detail['matrices'],
                             'matrices_used' => $detail['matrices_used'],
                             'matrix' => $detail['matrix'],
                             'rating_pd' => $detail['rating_pd'],
                             'rating_exposure' => $detail['rating_exposure'],
+                            'pd_group' => $detail['pd_group'],
                             'matrix_total_exposure' => $detail['matrix_total'],
                         ]),
                         'created_at' => $now,
@@ -167,6 +177,7 @@ class PdMigrationController extends BaseCalculationController
 
             $this->audit('PD_MIGRATION', 'RUN', $period->id, [
                 'groups' => $groups->count(),
+                'window_months' => $histM,
                 'matrices' => $matrixLabels,
                 'inserted' => count($batch),
             ]);
@@ -461,28 +472,43 @@ class PdMigrationController extends BaseCalculationController
         $rows = DB::table('stage_pd_results')
             ->where('assessment_period_id', $periodId)
             ->where('method', 'MIGRATION')
-            ->orderBy('pd_calculated', 'desc')
+            ->orderBy('bucket_no')
             ->get();
 
-        $avg = $rows->isEmpty() ? 0.0 : (float) $rows->avg('pd_calculated');
-
-        // Decode JSON detail agar blade bisa render matriks per grup.
-        $rows->transform(function ($r) {
+        // Satu baris per grup: 5 record (bucket_no 1..5) per grup adalah PD per rating,
+        // PD grup dihitung EAD-weighted dari rating_exposure × rating_pd.
+        $grouped = $rows->groupBy('group_key')->map(function ($grp) {
+            $r = $grp->first();
             $d = json_decode($r->detail ?? '{}', true) ?: [];
             $r->rating_pd = $d['rating_pd'] ?? [];
             $r->matrix = $d['matrix'] ?? [];
             $r->matrices = $d['matrices'] ?? [];
-            // Alias untuk blade: daftar 4 matriks (outstanding + rate) per triwulan.
+            // Alias untuk blade: daftar matriks (outstanding + rate) per triwulan.
             $r->matrixSnapshots = $r->matrices;
             $r->rating_exposure = $d['rating_exposure'] ?? [];
 
+            // PD grup = EAD-weighted; fallback ke pd_group tersimpan / rata-rata rating.
+            $exp = collect($r->rating_exposure)->map(fn ($v) => (float) $v);
+            $expSum = $exp->sum();
+            if ($expSum > 0) {
+                $pd = 0.0;
+                foreach ([1, 2, 3, 4, 5] as $rr) {
+                    $pd += ($exp->get($rr, 0.0) / $expSum) * (float) ($r->rating_pd[$rr] ?? 0);
+                }
+                $r->pd_calculated = round($pd, 6);
+            } elseif (isset($d['pd_group'])) {
+                $r->pd_calculated = (float) $d['pd_group'];
+            }
+
             return $r;
-        });
+        })->values();
+
+        $avg = $grouped->isEmpty() ? 0.0 : $grouped->avg(fn ($r) => (float) $r->pd_calculated);
 
         return [
-            'rows' => $rows,
-            'count' => $rows->count(),
-            'avg_pd' => round($avg, 6),
+            'rows' => $grouped,
+            'count' => $grouped->count(),
+            'avg_pd' => round((float) $avg, 6),
             'method' => 'MIGRATION',
         ];
     }

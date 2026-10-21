@@ -12,7 +12,14 @@ use Illuminate\View\View;
 /**
  * Modul 5: LGD Expected Recovery.
  *
- * Hitung recovery rate historis write-off per grup segmentasi.
+ * Hitung recovery rate historis write-off per grup segmentasi, tracking per tahun.
+ *
+ * Recovery per tahun = outstanding[y-1] - outstanding[y]:
+ *   - Debitur WO 2023 dengan outstanding: 2023=100, 2024=80, 2025=50
+ *   - Recovery 2023=20, 2024=30, 2025=50 → total 100 (rate 100%)
+ *   - Setiap recovery dicatat recovery_date = akhir tahun tersebut
+ *
+ * Debitur hilang dari snapshot (outstanding=0) = lunas → recovery 100%.
  * LGD_ER = 1 - average_recovery_rate.
  */
 class LgdExpectedRecoveryController extends BaseCalculationController
@@ -59,9 +66,10 @@ class LgdExpectedRecoveryController extends BaseCalculationController
             $assessYm = $assessmentDate->format('Ym');
             $startYm = $assessmentDate->copy()->subMonths($histM)->format('Ym');
 
-            // LGD ER: populasi = debitur write-off dengan tglwo dalam 5 tahun terakhir.
+            // LGD ER: populasi = debitur write-off dengan tglwo dalam 5 tahun terakhir
+            // DAN tidak memiliki agunan bernilai (likuid <= 0).
+            // WO yang beragunan bernilai masuk populasi LGD CS.
             // Pengurang = recovery tunai saja (pergerakan baki debet sejak WO).
-            // Komponen jaminan masuk LGD CS (populasi terpisah).
             $windowLoans = DB::table('snapshot')
                 ->where('write_off_flag', 1)
                 ->whereNotNull('tglwo')->where('tglwo', '<>', '')
@@ -70,101 +78,117 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                 ->distinct()
                 ->pluck('loan_number');
 
+            // WO dengan agunan aktif bernilai → dipindah ke populasi LGD CS.
+            $woWithCollateral = $windowLoans->isEmpty() ? collect() : DB::table('collateral')
+                ->whereIn('loan_number', $windowLoans)
+                ->where('active_flag', 1)
+                ->where('liquidity_value', '>', 0)
+                ->distinct()
+                ->pluck('loan_number');
+            $windowLoans = $windowLoans->diff($woWithCollateral)->values();
+
             $this->pushProgress($token, 'Memuat data write-off historis…', 20);
 
             $byGroup = [];
 
             if ($windowLoans->isNotEmpty()) {
-                // OS awal write-off = snapshot pada periode tglwo
-                // (mis. tglwo 20230115 → periode 202301). Bila periode tsb tidak
-                // ada snapshot-nya, pakai snapshot pertama SETELAH periode WO.
-                $woBalances = DB::table('snapshot')
+                // Ambil semua snapshot WO dalam window, kelompokkan per loan
+                $allSnaps = DB::table('snapshot')
                     ->whereIn('loan_number', $windowLoans)
                     ->where('write_off_flag', 1)
-                    ->orderBy('periode_snapshot')
+                    ->orderBy('loan_number')->orderBy('periode_snapshot')
                     ->get(['loan_number', 'periode_snapshot', 'outstanding_balance', 'office_code', 'product_code', 'usage_type', 'financing_contract_code', 'tglwo'])
-                    ->groupBy('loan_number')
-                    ->map(function ($rows) {
-                        $woYm = substr((string) $rows->last()->tglwo, 0, 6);
+                    ->groupBy('loan_number');
 
-                        return $rows->first(fn ($r) => substr((string) $r->periode_snapshot, 0, 6) === $woYm)
-                            ?? $rows->first(fn ($r) => (string) $r->periode_snapshot >= $woYm)
-                            ?? $rows->last();
-                    });
-
-                // Posisi outstanding pada periode assessment terakhir.
-                $lastBalances = DB::table('snapshot')
-                    ->whereIn('loan_number', $windowLoans)
-                    ->where('periode_snapshot', $assessYm)
-                    ->pluck('outstanding_balance', 'loan_number');
-
-                $totalWo = max(1, $woBalances->count());
+                $totalWo = max(1, $allSnaps->count());
                 $woIdx = 0;
+                $nowTs = now();
 
-                foreach ($woBalances as $loanNumber => $row) {
+                foreach ($allSnaps as $loanNumber => $snaps) {
                     $woIdx++;
                     if ($token !== null && ($woIdx % 50 === 0 || $woIdx === $totalWo)) {
                         $this->pushProgress($token, "Memproses write-off rekening {$woIdx}/{$totalWo}…", 20 + ($woIdx / $totalWo) * 45, [
                             'current' => $woIdx, 'total' => $totalWo, 'label' => 'Proses Write-off',
                         ]);
                     }
-                    $woNominal = (float) $row->outstanding_balance;
-                    // Tidak ditemukan pada periode terakhir → debitur lunas dari write-off → recovery 100%.
-                    $lastPos = isset($lastBalances[$loanNumber]) ? (float) $lastBalances[$loanNumber] : 0.0;
-                    $recovery = max(0.0, $woNominal - $lastPos);
 
-                    // Sync ke tabel write_offs & recoveries
-                    $woDate = $row->tglwo ? date('Y-m-d', strtotime($row->tglwo)) : null;
-                    if ($woDate) {
-                        $writeOff = DB::table('write_offs')->where('financing_id', $loanNumber)->first();
-                        $rate = $woNominal > 0 ? min(1.0, $recovery / $woNominal) : 0;
-                        $nowTs = now();
-                        if (!$writeOff) {
-                            $writeOffId = DB::table('write_offs')->insertGetId([
-                                'financing_id'   => $loanNumber,
-                                'writeoff_date'  => $woDate,
-                                'amount'         => $woNominal,
-                                'recovery_rate'  => $rate,
-                                'reason'         => 'calculated_from_snapshot',
-                                'created_at'     => $nowTs,
-                                'updated_at'     => $nowTs,
-                            ]);
-                        } else {
-                            $writeOffId = $writeOff->id;
-                            DB::table('write_offs')->where('id', $writeOffId)->update([
-                                'recovery_rate' => $rate,
-                                'updated_at'    => $nowTs,
-                            ]);
-                        }
+                    $first = $snaps->first();
+                    $woYm = substr((string) $first->tglwo, 0, 6);
+                    $woDate = $first->tglwo ? date('Y-m-d', strtotime($first->tglwo)) : null;
+                    if (!$woDate) continue;
 
-                        if ($recovery > 0) {
-                            $recDate = $assessmentDate->format('Y-m-d');
-                            $existingRec = DB::table('recoveries')->where('write_off_id', $writeOffId)->first();
-                            if (!$existingRec) {
-                                DB::table('recoveries')->insert([
-                                    'write_off_id'    => $writeOffId,
-                                    'recovery_date'   => $recDate,
-                                    'amount'          => $recovery,
-                                    'recovery_source' => 'CASH_PAYMENT_SNAPSHOT',
-                                    'created_at'      => $nowTs,
-                                    'updated_at'      => $nowTs,
-                                ]);
-                            } else {
-                                DB::table('recoveries')->where('id', $existingRec->id)->update([
-                                    'amount'     => $recovery,
-                                    'recovery_date' => $recDate,
-                                    'updated_at' => $nowTs,
-                                ]);
-                            }
-                        }
+                    // Snapshot di periode WO atau pertama setelahnya = saldo WO awal
+                    $woSnap = $snaps->first(fn($s) => (string)$s->periode_snapshot === $woYm)
+                           ?? $snaps->first(fn($s) => (string)$s->periode_snapshot >= $woYm)
+                           ?? $first;
+                    $woNominal = (float) $woSnap->outstanding_balance;
+
+                    // Upsert write_offs
+                    $writeOff = DB::table('write_offs')->where('financing_id', $loanNumber)->first();
+                    if (!$writeOff) {
+                        $writeOffId = DB::table('write_offs')->insertGetId([
+                            'financing_id'   => $loanNumber,
+                            'writeoff_date'  => $woDate,
+                            'amount'         => $woNominal,
+                            'recovery_rate'  => 0,
+                            'reason'         => 'calculated_from_snapshot',
+                            'created_at'     => $nowTs,
+                            'updated_at'     => $nowTs,
+                        ]);
+                    } else {
+                        $writeOffId = $writeOff->id;
+                        DB::table('write_offs')->where('id', $writeOffId)->update([
+                            'amount' => $woNominal,
+                            'updated_at' => $nowTs,
+                        ]);
                     }
 
-                    $akadCode = ProductAkadMappingService::resolveAkadCode($row->product_code ?? '');
-                    $usageCode = $row->usage_type ?? $row->financing_contract_code ?? 'OTHER';
-                    $key = $this->collectiveGroupKey($dims, $row->office_code, $akadCode, $usageCode);
+                    // Hapus recoveries lama untuk recalc
+                    DB::table('recoveries')->where('write_off_id', $writeOffId)->delete();
+
+                    // Track recovery per tahun: outstanding[y-1] - outstanding[y]
+                    $woYear = (int) substr($woYm, 0, 4);
+                    $assessYear = (int) substr($assessYm, 0, 4);
+                    $totalRecovery = 0.0;
+                    $prevBal = $woNominal;
+
+                    for ($y = $woYear; $y <= $assessYear; $y++) {
+                        $endYm = $y.'12';
+                        $snapY = $snaps->first(fn($s) => substr((string)$s->periode_snapshot, 0, 4) === (string)$y && (string)$s->periode_snapshot >= $endYm);
+                        if (!$snapY && $y === $assessYear) {
+                            // Periode assessment bukan Desember, ambil snapshot assessment
+                            $snapY = $snaps->first(fn($s) => (string)$s->periode_snapshot === $assessYm);
+                        }
+
+                        $curBal = $snapY ? (float) $snapY->outstanding_balance : 0.0;
+                        $recoverThisYear = max(0.0, $prevBal - $curBal);
+
+                        if ($recoverThisYear > 0) {
+                            DB::table('recoveries')->insert([
+                                'write_off_id'    => $writeOffId,
+                                'recovery_date'   => $y.'-12-31',
+                                'amount'          => $recoverThisYear,
+                                'recovery_source' => 'CASH_PAYMENT_YEARLY',
+                                'created_at'      => $nowTs,
+                                'updated_at'      => $nowTs,
+                            ]);
+                            $totalRecovery += $recoverThisYear;
+                        }
+
+                        $prevBal = $curBal;
+                        if ($curBal <= 0) break; // Lunas
+                    }
+
+                    // Update recovery_rate di write_offs
+                    $rate = $woNominal > 0 ? min(1.0, $totalRecovery / $woNominal) : 0;
+                    DB::table('write_offs')->where('id', $writeOffId)->update(['recovery_rate' => $rate]);
+
+                    $akadCode = ProductAkadMappingService::resolveAkadCode($first->product_code ?? '');
+                    $usageCode = $first->usage_type ?? $first->financing_contract_code ?? 'OTHER';
+                    $key = $this->collectiveGroupKey($dims, $first->office_code, $akadCode, $usageCode);
 
                     $byGroup[$key]['wo'] = ($byGroup[$key]['wo'] ?? 0.0) + $woNominal;
-                    $byGroup[$key]['recovery'] = ($byGroup[$key]['recovery'] ?? 0.0) + $recovery;
+                    $byGroup[$key]['recovery'] = ($byGroup[$key]['recovery'] ?? 0.0) + $totalRecovery;
                     $byGroup[$key]['count'] = ($byGroup[$key]['count'] ?? 0) + 1;
                 }
             }

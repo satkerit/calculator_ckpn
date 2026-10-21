@@ -162,9 +162,9 @@ Daftar resmi juga dicek di `tests/Feature/ModularCalculationTest.php`
 |---|---|---|
 | EAD | Strategy per akad (`MURA`, `MJA`, `MUSY`, `IMBT`); fallback `MurabahahStrategy` | `Services/Ead/EadStrategyFactory.php` |
 | Klasifikasi | **INDIVIDUAL** = NPL (write_off **atau** `quality_rating ∈ npl_ratings[3,4,5]`) **DAN** masuk TOP-N (`individual_top_n`, default 30) berdasarkan `outstanding+principal_arrears` terbesar. Sisanya COLLECTIVE. `applied_rule = NPL_TOP_N_OUTSTANDING` | `ClassificationController::run()` |
-| PD | Net Flow (transition matrix antar bucket + compound multi-periode) **atau** Migration (rating 1–5 + WO). Bounded [0,1] | `Services/PdNetflow/*`, `PdMigrationController` |
-| LGD ER | `LGD = 1 − avg(recovery_ratio)` dari riwayat write-off (window `lgd_historical_months`, default 60) | `LgdExpectedRecoveryController` |
-| LGD CS | `LGD = shortfall / total_exposure_writeoff` | `LgdCollateralShortfallController` |
+| PD | Net Flow (transition matrix antar bucket + compound multi-periode) **atau** Migration (rating 1–5 + WO). Keduanya memakai `historical_months`: Net Flow = titik bucket bulanan (H+1), Migration = matriks triwulan `floor(H/3)`. Bounded [0,1] | `Services/PdNetflow/*`, `Services/PdMigration/PeriodResolver.php`, `PdMigrationController` |
+| LGD ER | Populasi = WO window `lgd_historical_months` (60 bln) **tanpa agunan bernilai** (likuid ≤ 0). `LGD = (Σ OS saat WO − Σ recovery tunai) / Σ OS saat WO` | `LgdExpectedRecoveryController` |
+| LGD CS | Populasi = **WO 5 thn beragunan bernilai** + **Kol 5 aktif**. WO: `LGD = (OS saat WO − (net likuidasi + recovery tunai sejak WO)) / OS saat WO`. Kol 5: `LGD = shortfall / baki debet 1 bulan sebelum periode assessment` | `LgdCollateralShortfallController` |
 | LGD final | `lgd_method` = ER / CS / WEIGHTED → kolom `lgd` di `stage_lgd_results` | `DetailCkpnController` |
 | CKPN Individual | `max(0, nilai_tercatat − net_recovery)`; `net_recovery = liquidity_value × (1 − sale_cost%)` | `Services/Ckpn/CkpnCalculator::calculateIndividual()` |
 | CKPN Kolektif | `EAD × PD × LGD` per grup segmentasi | `CkpnCalculator::calculateCollective()` |
@@ -209,6 +209,14 @@ dimensi yang tidak dipilih diisi `NA` (mis. `01|03|NA`).
 9. **`.env` ≠ `.env.testing` ≠ `phpunit.xml`** — test selalu pakai `phpunit.xml`.
 10. **Tailwind campur versi** (plugin v4 + config v3) — kalau `npm run build` gagal,
     samakan versinya (lihat README Troubleshooting).
+11. **`stage_pd_results` method `MIGRATION` = 5 baris per grup** (`bucket_no` 1..5 = PD per
+    rating; `detail` memuat `rating_pd`, `rating_exposure`, `matrices`, `pd_group`).
+    Selalu `groupBy('group_key')` dulu — kalau tidak, tampilan/export menghitung grups & sheet
+    5× lipat. `PdMigrationController::loadResults()` dan
+    `CalculationExportController::pdMigrationGroupedRows()` sudah melakukan grouping dengan
+    PD grup = EAD-weighted (`rating_exposure` × `rating_pd`).
+12. **PD Migration 0% itu sah**, bukan bug: rumus kertas kerja (cascade dari Hapus Buku +
+    rating 4/5) akan menghasilkan 0 bila matriks hanya berisi migrasi antar rating 1–3.
 
 ---
 
@@ -250,6 +258,34 @@ di `tests/` lalu `php artisan test`.
 ## 10. Log Perubahan (append-only)
 
 > Tambah entri terbaru di **atas**. Format: `### YYYY-MM-DD — ringkasan`.
+
+### 2026-10-20 — Historical window PD berlaku untuk Net Flow & Migration
+Sebelumnya `historical_months` hanya dipakai PD Net Flow (dan dibaca dari
+`$config` yang tidak terdefinisi di `PdMigrationController::run()` → selalu default 36).
+Sekarang satu window untuk kedua metode, beda basis periode:
+
+- **Net Flow**: bucket tunggakan, H titik bulanan (+1 posisi asesmen).
+- **Migration**: kualitas/Kol 1–5, matriks triwulan = `max(1, floor(H / 3))`, horizon transisi 12 bulan per matriks (`PeriodResolver`).
+- `$config` diambil via `configFor()` di `run()`; detail hasil menyimpan `historical_months`.
+- Fingerprint (`BaseCalculationController::fingerprintKeys`) selalu menyertakan
+  `historical_months` untuk PD & CKPN → ubah window = hasil PD (metode aktif) & CKPN Kolektif
+  **tidak valid** (dulu Migration dikecualikan).
+- View: label/help konfigurasi, kartu Window + Matriks Triwulan di PD Migration,
+  subtitle PD Net Flow (basis bucket).
+- Test: `tests/Feature/PdMigrationWindowTest.php` + penyesuaian
+  `CalculationConfigInvalidationTest` (2 tes yang dulu mengharapkan Migration kebal window).
+
+### 2026-10-20 — Halaman LGD Weighted & jebakan kolom ER vs CS
+`stage_lgd_results` menampung dua skema kolom berbeda: **ER** menulis
+`total_write_off`/`total_recovery`, **CS** menulis `total_exposure_wo`/`total_shortfall`.
+`LgdWeightedController` dan ringkasan weighted di `LgdDetailController` sempat membaca
+er dari kolom CS sehingga WO/Recovery/Loss ER tampil 0 — patokan benar:
+`DetailCkpnController` (~baris 278).
+
+- Halaman baru `/calculation/module/lgd-weighted` (`LgdWeightedController`,
+  view `calculation/lgd_weighted.blade.php`, menu sidebar #7); pilih periode via
+  query `?assessment_period_id=`, bukan `period_id`; kolom tanggal = `assessment_date`.
+- Regresi: `tests/Feature/LgdWeightedPageTest.php`.
 
 ### 2026-10-11 — Invalidasi hasil kalkulasi saat konfigurasi berubah
 Perubahan konfigurasi (segmentasi / historical window / metode PD) kini membatalkan

@@ -14,7 +14,12 @@
     <div class="flex items-start justify-between gap-4">
         <div>
             <h2 class="text-base font-bold text-gray-900">LGD Collateral Shortfall (Shortfall Agunan)</h2>
-            <p class="text-sm text-gray-600 mt-1">Populasi: kol 5 aktif (baki debet) ATAU write-off aktif (saldo saat WO) · jaminan eligible wajib · Sale cost: {{ number_format((float) ($config['sale_cost_percentage'] ?? 0) * 100, 2) }}% · Method: <span class="font-semibold">CS</span></p>
+            <p class="text-sm text-gray-600 mt-1">Populasi: <strong>WO 5 tahun beragunan bernilai</strong> + <strong>Kol 5 aktif</strong> · Sale cost: {{ number_format((float) ($config['sale_cost_percentage'] ?? 0) * 100, 2) }}% · Method: <span class="font-semibold">CS</span></p>
+            <div class="text-xs text-gray-500 mt-1 space-y-0.5">
+                <p>• WO beragunan: Kerugian = OS saat WO − (Net Likuidasi + Recovery Tunai/angsuran sejak WO) · LGD = Kerugian / OS saat WO</p>
+                <p>• Kol 5 aktif: LGD = Total Shortfall / Baki Debet 1 bulan terakhir sebelum periode assessment</p>
+                <p>WO <em>tanpa</em> agunan (likuid ≤ 0) masuk populasi <strong>LGD ER</strong>.</p>
+            </div>
         </div>
         <div class="flex gap-2">
             <form method="POST" action="{{ $runRoute }}" data-progress data-confirm-title="Konfirmasi Hitung LGD CS" data-confirm-message="Proses akan menghitung ulang LGD Collateral Shortfall berbasis data agunan." data-confirm-type="warning" data-confirm-button="Ya, Hitung" data-loading-message="Menghitung LGD Collateral Shortfall…">

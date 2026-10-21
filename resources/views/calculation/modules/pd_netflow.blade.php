@@ -19,7 +19,7 @@
         <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div>
                 <h2 class="text-base font-bold text-gray-900">PD Net Flow per Grup Segmentasi</h2>
-                <p class="text-sm text-gray-600 mt-1">Window historis: {{ $config['historical_months'] ?? 24 }} bulan · Method: <span class="font-semibold">NET_FLOW</span></p>
+                <p class="text-sm text-gray-600 mt-1">Window historis: {{ $config['historical_months'] ?? 36 }} bulan → {{ (int) ($config['historical_months'] ?? 36) + 1 }} titik bucket tunggakan bulanan · Method: <span class="font-semibold">NET_FLOW</span></p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 @if (!$hasHistory)

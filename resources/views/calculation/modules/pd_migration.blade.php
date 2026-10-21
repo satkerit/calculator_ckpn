@@ -15,7 +15,7 @@
     <div class="flex items-start justify-between gap-4">
         <div>
             <h2 class="text-base font-bold text-gray-900">PD Migration (Quality Rating) per Grup Segmentasi</h2>
-            <p class="text-sm text-gray-600 mt-1">Rentang historis mengikuti snapshot aktual loan grup (bukan konfigurasi window). Method: <span class="font-semibold">MIGRATION</span></p>
+            <p class="text-sm text-gray-600 mt-1">Window historis: {{ $histM }} bulan → {{ $numMatrices }} matriks triwulan (transisi 12 bulan per matriks) · basis kualitas/Kol 1–5 + Hapus Buku &amp; Pembayaran · Method: <span class="font-semibold">MIGRATION</span></p>
         </div>
         <div class="flex gap-2">
             <form method="POST" action="{{ $runRoute }}" data-progress data-confirm-title="Konfirmasi Hitung PD Migration" data-confirm-message="Proses akan menghitung ulang PD berbasis quality rating migration untuk seluruh grup." data-confirm-type="warning" data-confirm-button="Ya, Hitung" data-loading-message="Menghitung PD Migration…">
@@ -33,12 +33,12 @@
             <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold shrink-0">⚠</div>
             <div>
                 <p class="text-sm font-semibold text-red-900">Hasil PD Migration TIDAK VALID — konfigurasi berubah</p>
-                <p class="text-xs text-red-700 mt-1">Segmentasi (kombinasi dimensi) atau metode PD berubah setelah perhitungan terakhir. Klik <strong>Hitung PD Migration</strong> untuk memperbarui sebelum melanjutkan ke modul LGD / CKPN.</p>
+                <p class="text-xs text-red-700 mt-1">Segmentasi (kombinasi dimensi), historical window, atau metode PD berubah setelah perhitungan terakhir, sehingga matriks triwulan &amp; PD per rating di bawah ini tidak lagi akurat. Klik <strong>Hitung PD Migration</strong> untuk memperbarui sebelum melanjutkan ke modul LGD / CKPN.</p>
             </div>
         </div>
     @endif
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
         <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
             <p class="text-xs font-semibold text-gray-600 uppercase">Groups</p>
             <p class="text-2xl font-bold text-gray-900 mt-1">{{ $results['count'] ?? 0 }}</p>
@@ -48,8 +48,12 @@
             <p class="text-2xl font-bold text-gray-900 mt-1">{{ number_format((float) ($results['avg_pd'] ?? 0), 4, ',', '.') }}</p>
         </div>
         <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
-            <p class="text-xs font-semibold text-gray-600 uppercase">Method</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">MIGRATION</p>
+            <p class="text-xs font-semibold text-gray-600 uppercase">Window Historis</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1">{{ $histM }} <span class="text-sm font-medium text-gray-500">bulan</span></p>
+        </div>
+        <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
+            <p class="text-xs font-semibold text-gray-600 uppercase">Matriks Triwulan</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1">{{ $numMatrices }} <span class="text-sm font-medium text-gray-500">× 12 bln</span></p>
         </div>
     </div>
 </div>

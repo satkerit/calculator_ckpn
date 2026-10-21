@@ -55,11 +55,7 @@ class CalculationExportController extends BaseCalculationController
      */
     public function pdMigrationMatrixDetail(AssessmentPeriod $assessmentPeriod): Response
     {
-        $rows = DB::table('stage_pd_results')
-            ->where('assessment_period_id', $assessmentPeriod->id)
-            ->where('method', 'MIGRATION')
-            ->orderBy('pd_calculated', 'desc')
-            ->get();
+        $rows = $this->pdMigrationGroupedRows($assessmentPeriod->id);
 
         abort_if($rows->isEmpty(), 422, 'Belum ada hasil PD Migration pada periode ini. Jalankan perhitungan PD Migration terlebih dahulu.');
 
@@ -503,11 +499,7 @@ class CalculationExportController extends BaseCalculationController
         $titleStyle  = (new Style())->setFontBold()->setBackgroundColor('D9E1F2');
         $destLabels  = [1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => 'Hapus Buku', 7 => 'Pembayaran'];
 
-        $rows = DB::table('stage_pd_results')
-            ->where('assessment_period_id', $assessmentPeriod->id)
-            ->where('method', 'MIGRATION')
-            ->orderBy('pd_calculated', 'desc')
-            ->get();
+        $rows = $this->pdMigrationGroupedRows($assessmentPeriod->id);
 
         abort_if($rows->isEmpty(), 422, 'Belum ada hasil PD Migration pada periode ini. Jalankan perhitungan PD Migration terlebih dahulu.');
 
@@ -558,6 +550,42 @@ class CalculationExportController extends BaseCalculationController
             $assessmentPeriod->assessment_date?->format('Ym') ?? 'unknown',
             now()->format('Ymd_His'),
         ));
+    }
+
+    /**
+     * Ambil hasil PD Migration ter-group: 1 baris per grup (bukan 5 baris
+     * per bucket). PD grup dihitung ulang EAD-weighted dari rating_exposure ×
+     * rating_pd, sesuai kertas kerja B2.PD-Migration.
+     */
+    private function pdMigrationGroupedRows(int $periodId): \Illuminate\Support\Collection
+    {
+        return DB::table('stage_pd_results')
+            ->where('assessment_period_id', $periodId)
+            ->where('method', 'MIGRATION')
+            ->orderBy('bucket_no')
+            ->get()
+            ->groupBy('group_key')
+            ->map(function ($grp) {
+                $r = $grp->first();
+                $d = json_decode($r->detail ?? '{}', true) ?: [];
+                $ratingPd = array_map('floatval', $d['rating_pd'] ?? []);
+                $exposure = array_map('floatval', $d['rating_exposure'] ?? []);
+
+                $expSum = array_sum($exposure);
+                if ($expSum > 0) {
+                    $pd = 0.0;
+                    foreach ([1, 2, 3, 4, 5] as $k) {
+                        $pd += (($exposure[$k] ?? 0.0) / $expSum) * ($ratingPd[$k] ?? 0.0);
+                    }
+                    $r->pd_calculated = round($pd, 6);
+                } elseif (isset($d['pd_group'])) {
+                    $r->pd_calculated = (float) $d['pd_group'];
+                }
+
+                return $r;
+            })
+            ->sortByDesc(fn ($r) => (float) $r->pd_calculated)
+            ->values();
     }
 
     /**

@@ -13,8 +13,9 @@
 <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
     <div class="flex items-start justify-between gap-4">
         <div>
-            <h2 class="text-base font-bold text-gray-900">LGD Expected Recovery (Recovery Rate dari Write-Off Historis)</h2>
-            <p class="text-sm text-gray-600 mt-1">Populasi: write-off {{ $config['lgd_historical_months'] ?? 60 }} bulan · recovery tunai · Method: <span class="font-semibold">ER</span></p>
+            <h2 class="text-base font-bold text-gray-900">LGD Expected Recovery (Recovery Rate dari Write-Off Tanpa Agunan)</h2>
+            <p class="text-sm text-gray-600 mt-1">Populasi: write-off {{ $config['lgd_historical_months'] ?? 60 }} bulan <strong>tanpa agunan bernilai (likuid ≤ 0)</strong> · pengurang: recovery tunai/angsuran sejak WO · Method: <span class="font-semibold">ER</span></p>
+            <p class="text-xs text-gray-500 mt-1">Rumus: LGD = (Σ OS saat WO − Σ recovery tunai) / Σ OS saat WO. WO beragunan bernilai dihitung di <strong>LGD CS</strong>.</p>
         </div>
         <div class="flex gap-2">
             <form method="POST" action="{{ $runRoute }}" data-progress data-confirm-title="Konfirmasi Hitung LGD ER" data-confirm-message="Proses akan menghitung ulang LGD Expected Recovery berbasis data write-off 5 tahun terakhir." data-confirm-type="warning" data-confirm-button="Ya, Hitung" data-loading-message="Menghitung LGD Expected Recovery…">

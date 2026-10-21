@@ -21,6 +21,7 @@ use App\Http\Controllers\Calculation\PdMigrationController;
 use App\Http\Controllers\Calculation\LgdExpectedRecoveryController;
 use App\Http\Controllers\Calculation\LgdCollateralShortfallController;
 use App\Http\Controllers\Calculation\LgdDetailController;
+use App\Http\Controllers\Calculation\LgdWeightedController;
 use App\Http\Controllers\Calculation\DetailPdEadController;
 use App\Http\Controllers\Calculation\DetailCkpnController;
 use App\Http\Controllers\Calculation\CkpnDetailController;
@@ -120,6 +121,8 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('permission:calculation.run')->name('lgd_cs.run');
 
         Route::get('/lgd-detail/{method}', [LgdDetailController::class, 'show'])->name('lgd_detail');
+
+        Route::get('/lgd-weighted',   [LgdWeightedController::class, 'index'])->name('lgd_weighted');
 
         Route::get('/detail-pd-ead',  [DetailPdEadController::class, 'index'])->name('detail_pd_ead');
 

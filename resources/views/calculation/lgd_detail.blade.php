@@ -7,165 +7,378 @@
 @php
     $backUrl = route($backRoute, ['assessment_period_id' => $period->id]);
     $detailUrl = fn ($m) => route('calculation.module.lgd_detail', ['method' => $m, 'assessment_period_id' => $period->id]);
+    $fmt = fn ($v) => is_null($v) ? '' : number_format((float) $v, 2, ',', '.');
+    $pct = fn ($v) => number_format((float) $v * 100, 2, ',', '.').'%';
 @endphp
 
-<div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-    <div class="flex items-start justify-between gap-4">
-        <div>
-            <h2 class="text-base font-bold text-gray-900">Detail Write-Off per Debitur — LGD {{ $method }}</h2>
-            <p class="text-sm text-gray-600 mt-1">
-                Periode: <span class="font-semibold">{{ $period->period_name ?? $period->id }}</span>
-                · Window: {{ $histM }} bulan
-                @if ($method === 'CS')
-                    · Sale cost: {{ number_format($saleCostPct * 100, 2) }}%
-                @endif
-            </p>
-        </div>
-        <div class="flex gap-2">
-            <a href="{{ $detailUrl('ER') }}"
-               class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg {{ $method === 'ER' ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50' }}">
-                Detail ER
-            </a>
-            <a href="{{ $detailUrl('CS') }}"
-               class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg {{ $method === 'CS' ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50' }}">
-                Detail CS
-            </a>
-            <a href="{{ $backUrl }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">← Kembali</a>
-        </div>
-    </div>
-
-    @if ($emptyNotice)
-        <div class="mt-6 p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-3">
-            <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center font-bold shrink-0">⚠</div>
-            <p class="text-sm text-amber-900">{{ $emptyNotice }}</p>
-        </div>
-    @endif
-
-    @if (! $emptyNotice)
-        {{-- Filter grup segmentasi --}}
-        <form method="GET" action="{{ route('calculation.module.lgd_detail', ['method' => $method]) }}" class="mt-6 flex items-end gap-3">
-            <input type="hidden" name="assessment_period_id" value="{{ $period->id }}">
+<div class="space-y-5">
+    {{-- Header --}}
+    <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        <div class="flex items-start justify-between gap-4">
             <div>
-                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Filter Grup Segmentasi</label>
-                <select name="group_key" class="border border-gray-300 rounded-lg px-3 py-2 text-sm min-w-[260px]">
-                    <option value="">— Semua Grup —</option>
-                    @foreach ($groups as $gk)
-                        <option value="{{ $gk }}" @selected($selectedGroup === $gk)>{{ $gk }}</option>
-                    @endforeach
-                </select>
+                <h2 class="text-base font-bold text-gray-900">Kertas Kerja LGD {{ $method }}</h2>
+                <p class="text-sm text-gray-600 mt-1">
+                    Periode: <span class="font-semibold">{{ $period->period_name ?? $period->id }}</span>
+                    · Window: {{ $histM }} bulan
+                    @if ($method === 'CS')
+                        · Biaya penjualan: {{ number_format($saleCostPct * 100, 2) }}%
+                    @endif
+                </p>
+                <p class="text-xs text-gray-500 mt-1">
+                    @if ($method === 'ER')
+                        Data kredit dihapusbuku — penyelesaian cash. Populasi: WO tanpa agunan bernilai.
+                    @else
+                        Data kredit dihapusbuku dengan agunan / kol 5 aktif. Net Likuidasi = Nilai Agunan × (1 − {{ number_format($saleCostPct * 100, 2) }}%).
+                    @endif
+                </p>
             </div>
-            <button type="submit" class="px-4 py-2 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-900">Filter</button>
-        </form>
-
-        {{-- Ringkasan pergerakan OS per tahun (agregat lintas debitur) --}}
-        <div class="mt-6">
-            <h3 class="text-sm font-bold text-gray-900 mb-2">Pergerakan Penurunan OS per Tahun (agregat seluruh debitur WO)</h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                @forelse ($yearlyRows as $y)
-                    <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
-                        <p class="text-xs font-semibold text-gray-600 uppercase">Tahun {{ $y->year }}</p>
-                        <p class="text-lg font-bold text-gray-900 mt-1">{{ number_format((float) $y->total_os, 0, ',', '.') }}</p>
-                        <p class="text-[11px] text-gray-500">OS outstanding akhir tahun</p>
-                    </div>
-                @empty
-                    <p class="text-sm text-gray-500">Tidak ada data.</p>
-                @endforelse
+            <div class="flex gap-2">
+                <a href="{{ $detailUrl('ER') }}"
+                   class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg {{ $method === 'ER' ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50' }}">
+                    LGD ER
+                </a>
+                <a href="{{ $detailUrl('CS') }}"
+                   class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg {{ $method === 'CS' ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50' }}">
+                    LGD CS
+                </a>
+                <a href="{{ $backUrl }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">← Kembali</a>
             </div>
         </div>
 
-        {{-- Tabel detail debitur + pergerakan OS per tahun per debitur --}}
-        <div class="mt-6 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h3 class="text-sm font-bold text-gray-900">
-                    Detail per Debitur ({{ $debtorRows->count() }} rekening)
-                    @if ($method === 'CS')
-                        <span class="text-xs font-normal text-gray-500 ml-2">
-                            (Kol 5: {{ $debtorRows->where('population_status', 'K5')->count() }} · WO: {{ $debtorRows->where('population_status', 'WO')->count() }})
-                        </span>
-                    @endif
-                </h3>
+        @if ($emptyNotice)
+            <div class="mt-5 p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-3">
+                <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center font-bold shrink-0">⚠</div>
+                <p class="text-sm text-amber-900">{{ $emptyNotice }}</p>
             </div>
+        @endif
+
+        {{-- Tabel Segmentasi per Group Key --}}
+        @if ($groupSummary && $groupSummary->count() > 0)
+        <div class="mt-5">
+            <h3 class="text-sm font-bold text-gray-700 mb-2">Ringkasan LGD {{ strtoupper($method) }} per Segmentasi</h3>
             <div class="overflow-x-auto">
-                <table class="min-w-full text-xs">
-                    <thead class="bg-gray-50 text-gray-600 uppercase sticky top-0">
+                <table class="min-w-full text-xs border border-gray-300">
+                    <thead class="bg-gray-100 text-gray-700">
                         <tr>
-                            <th class="px-3 py-2 text-left">Loan</th>
-                            <th class="px-3 py-2 text-left">Grup</th>
-                            <th class="px-3 py-2 text-left">{{ $method === 'CS' ? 'Status Populasi' : 'Tgl WO' }}</th>
-                            <th class="px-3 py-2 text-right">{{ $method === 'CS' ? 'Baki Debet' : 'OS Awal WO' }}</th>
-                            <th class="px-3 py-2 text-center">Pergerakan OS per Tahun ({{ $method === 'CS' ? 'posisi historis' : 'awal WO' }} → posisi {{ $period->assessment_date->format('Y') }})</th>
-                            @if ($method === 'CS')
-                                <th class="px-3 py-2 text-right">Nilai Agunan</th>
-                                <th class="px-3 py-2 text-right">Biaya Penjualan</th>
-                                <th class="px-3 py-2 text-right">Net Recovery</th>
-                                <th class="px-3 py-2 text-right">Shortfall</th>
-                                <th class="px-3 py-2 text-right">Shortfall %</th>
-                            @else
-                                <th class="px-3 py-2 text-right">OS Saat Ini</th>
-                                <th class="px-3 py-2 text-right">Recovery</th>
-                                <th class="px-3 py-2 text-right">Recovery %</th>
-                            @endif
+                            <th class="px-3 py-2 border border-gray-300 text-left">Group Key</th>
+                            <th class="px-3 py-2 border border-gray-300 text-right">Total WO</th>
+                            <th class="px-3 py-2 border border-gray-300 text-right">Total Recovery</th>
+                            <th class="px-3 py-2 border border-gray-300 text-right">Recovery Rate</th>
+                            <th class="px-3 py-2 border border-gray-300 text-right">LGD {{ strtoupper($method) }} Rate</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @forelse ($debtorRows as $r)
-                            <tr class="align-top">
-                                <td class="px-3 py-2 font-mono whitespace-nowrap">{{ $r->loan_number }}</td>
-                                <td class="px-3 py-2 font-mono">{{ $r->group_key }}</td>
-                                <td class="px-3 py-2 whitespace-nowrap">
-                                    @if ($method === 'CS')
-                                        @if ($r->is_write_off)
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-semibold">Write-Off</span>
-                                            @if ($r->tglwo !== '')
-                                                <span class="block text-[10px] text-gray-500 mt-0.5">{{ $r->tglwo }}</span>
-                                            @endif
-                                        @else
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">Kualitas {{ $r->quality_rating !== '' ? $r->quality_rating : '5' }}</span>
-                                        @endif
-                                    @else
-                                        {{ $r->tglwo }}
-                                    @endif
-                                </td>
-                                <td class="px-3 py-2 text-right">{{ number_format((float) $r->wo_nominal, 0, ',', '.') }}</td>
-                                <td class="px-3 py-2">
-                                    {{-- Rantai pergerakan OS per tahun --}}
-                                    <div class="flex items-center gap-1 flex-wrap">
-                                        @foreach ($r->movement as $i => $m)
-                                            @if ($i > 0)
-                                                <span class="text-gray-400">→</span>
-                                            @endif
-                                            <span class="inline-flex flex-col items-center px-2 py-1 rounded-lg border {{ $m['os'] <= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-gray-200' }}">
-                                                <span class="text-[10px] text-gray-500 font-semibold">{{ $m['year'] }}</span>
-                                                <span class="font-semibold {{ $m['os'] <= 0 ? 'text-emerald-700' : 'text-gray-900' }}">{{ number_format($m['os'], 0, ',', '.') }}</span>
-                                                @if ($m['penurunan'] > 0)
-                                                    <span class="text-[10px] text-red-600">▼ {{ number_format($m['penurunan'], 0, ',', '.') }}</span>
-                                                @endif
-                                            </span>
-                                        @endforeach
-                                    </div>
-                                    <div class="mt-1 h-1.5 w-full max-w-[240px] bg-gray-100 rounded-full overflow-hidden">
-                                        <div class="h-full bg-emerald-500 rounded-full" style="width: {{ min(100, $r->recovery_pct) }}%"></div>
-                                    </div>
-                                    <span class="text-[10px] text-gray-500">Penurunan kumulatif: {{ number_format($r->recovery_pct, 1, ',', '.') }}%</span>
-                                </td>
-                                @if ($method === 'CS')
-                                    <td class="px-3 py-2 text-right">{{ number_format((float) $r->liquidity_value, 0, ',', '.') }}</td>
-                                    <td class="px-3 py-2 text-right text-red-600">-{{ number_format((float) $r->sale_cost, 0, ',', '.') }}</td>
-                                    <td class="px-3 py-2 text-right">{{ number_format((float) $r->net_recovery, 0, ',', '.') }}</td>
-                                    <td class="px-3 py-2 text-right font-semibold">{{ number_format((float) $r->shortfall, 0, ',', '.') }}</td>
-                                    <td class="px-3 py-2 text-right">{{ number_format($r->shortfall_pct, 1, ',', '.') }}%</td>
-                                @else
-                                    <td class="px-3 py-2 text-right">{{ number_format((float) $r->current_os, 0, ',', '.') }}</td>
-                                    <td class="px-3 py-2 text-right font-semibold text-emerald-700">{{ number_format((float) $r->recovery, 0, ',', '.') }}</td>
-                                    <td class="px-3 py-2 text-right">{{ number_format($r->recovery_pct, 1, ',', '.') }}%</td>
-                                @endif
-                            </tr>
-                        @empty
-                            <tr><td colspan="{{ $method === 'CS' ? 10 : 7 }}" class="px-3 py-6 text-center text-gray-500">Tidak ada rekening pada populasi ini.</td></tr>
-                        @endforelse
+                    <tbody>
+                        @foreach ($groupSummary as $g)
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-3 py-2 border border-gray-300 font-mono">{{ $g->group_key }}</td>
+                            <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($g->total_wo) }}</td>
+                            <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($g->total_recovery) }}</td>
+                            <td class="px-3 py-2 border border-gray-300 text-right">{{ $pct($g->recovery_rate) }}</td>
+                            <td class="px-3 py-2 border border-gray-300 text-right font-bold text-indigo-700">{{ $pct($g->lgd_rate) }}</td>
+                        </tr>
+                        @endforeach
                     </tbody>
                 </table>
             </div>
+        </div>
+        @endif
+
+        {{-- Ringkasan LGD Weighted (kertas kerja B4 baris 24-26) --}}
+        @if ($weightedSummary)
+        <div class="mt-5 overflow-x-auto">
+            <table class="min-w-full text-xs border border-gray-300">
+                <thead class="bg-gray-100 text-gray-700">
+                    <tr>
+                        <th class="px-3 py-2 border border-gray-300 text-left" style="width:220px"></th>
+                        @if ($method === 'ER')
+                            <th class="px-3 py-2 border border-gray-300 text-right">LGD ER</th>
+                        @else
+                            <th class="px-3 py-2 border border-gray-300 text-right">LGD CS</th>
+                        @endif
+                    </tr>
+                </thead>
+                <tbody>
+                    @php
+                        if ($method === 'ER') {
+                            $exp = $weightedSummary->er_exp ?? 0;
+                            $recovery = $weightedSummary->er_recovery ?? 0;
+                            $recoveryRate = $exp > 0 ? ($recovery / $exp) : 0;
+                            $lgdRate = 1 - $recoveryRate;
+                        } else {
+                            $exp = $weightedSummary->cs_exp ?? 0;
+                            $recovery = $weightedSummary->cs_recovery ?? 0;
+                            $recoveryRate = $exp > 0 ? ($recovery / $exp) : 0;
+                            $lgdRate = 1 - $recoveryRate;
+                        }
+                    @endphp
+                    <tr>
+                        <td class="px-3 py-2 border border-gray-300 font-semibold bg-gray-50">Total WO / Eksposur</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($exp) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="px-3 py-2 border border-gray-300 font-semibold bg-gray-50">Total Recovery</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($recovery) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="px-3 py-2 border border-gray-300 font-semibold bg-gray-50">Recovery Rate</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $pct($recoveryRate) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="px-3 py-2 border border-gray-300 font-semibold bg-gray-50">LGD ER Rate</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-bold text-indigo-700">{{ $pct($lgdRate) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        @endif
+    </div>
+
+    {{-- ===== LGD ER: Kertas Kerja B3 ===== --}}
+    @if ($method === 'ER' && $erCohorts->isNotEmpty())
+        @php $allYears = $erTotalCombine ? $erTotalCombine->years : []; @endphp
+
+        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-bold text-gray-900">Kertas Kerja LGD Expected Recoveries</h3>
+                <p class="text-xs text-gray-500">{{ $erCohorts->count() }} kohort tahun hapus buku · {{ $debtorRows->count() }} rekening</p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-xs border border-gray-300">
+                    <thead>
+                        <tr class="bg-blue-50 text-gray-800">
+                            <th rowspan="2" class="px-2 py-1.5 border border-gray-300" style="width:34px">No</th>
+                            <th rowspan="2" class="px-2 py-1.5 border border-gray-300 text-left">Nama Nasabah / No Rekening</th>
+                            <th rowspan="2" class="px-2 py-1.5 border border-gray-300" style="width:70px">Tahun<br>Hapus Buku</th>
+                            <th rowspan="2" class="px-2 py-1.5 border border-gray-300 text-right" style="width:130px">Balance<br>Hapus Buku</th>
+                            <th colspan="{{ count($allYears) }}" class="px-2 py-1.5 border border-gray-300">Saldo Outstanding per Tahun</th>
+                            <th rowspan="2" class="px-2 py-1.5 border border-gray-300 text-right" style="width:120px">Jumlah<br>Recovery</th>
+                            <th rowspan="2" class="px-2 py-1.5 border border-gray-300 text-right" style="width:85px">Recovery<br>Rate</th>
+                        </tr>
+                        <tr class="bg-blue-50 text-gray-800">
+                            @foreach ($allYears as $i => $y)
+                                <th class="px-2 py-1 border border-gray-300 text-right" style="width:110px">
+                                    Tahun {{ $y }}
+                                </th>
+                            @endforeach
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @php $no = 0; @endphp
+                        @foreach ($erCohorts as $cohort)
+                            {{-- Header kohort --}}
+                            <tr class="bg-indigo-100">
+                                <td colspan="{{ count($allYears) + 6 }}" class="px-2 py-1.5 border border-gray-300 font-bold text-indigo-900">
+                                    Tahun hapus buku {{ $cohort->year }}
+                                </td>
+                            </tr>
+
+                            @foreach ($cohort->debiturs as $d)
+                                @php $no++; @endphp
+                                {{-- Baris saldo OS --}}
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-2 py-1 border border-gray-300 text-center">{{ $no }}</td>
+                                    <td class="px-2 py-1 border border-gray-300 font-medium">{{ $d->loan_number }}</td>
+                                    <td class="px-2 py-1 border border-gray-300 text-center">{{ $cohort->year }}</td>
+                                    <td class="px-2 py-1 border border-gray-300 text-right font-semibold">{{ $fmt($d->wo_nominal) }}</td>
+                                    @foreach ($allYears as $y)
+                                        <td class="px-2 py-1 border border-gray-300 text-right">{{ $fmt($d->sal[$y]) }}</td>
+                                    @endforeach
+                                    <td class="px-2 py-1 border border-gray-300 text-right"></td>
+                                    <td class="px-2 py-1 border border-gray-300 text-right"></td>
+                                </tr>
+                                {{-- Baris recovery --}}
+                                <tr class="bg-gray-50">
+                                    <td class="px-2 py-1 border border-gray-300"></td>
+                                    <td class="px-2 py-1 border border-gray-300 text-gray-500 italic pl-6">recovery</td>
+                                    <td class="px-2 py-1 border border-gray-300"></td>
+                                    <td class="px-2 py-1 border border-gray-300"></td>
+                                    @foreach ($allYears as $y)
+                                        <td class="px-2 py-1 border border-gray-300 text-right text-emerald-700">{{ $fmt($d->rec[$y]) }}</td>
+                                    @endforeach
+                                    <td class="px-2 py-1 border border-gray-300 text-right font-semibold text-emerald-700">{{ $fmt($d->total_recovery) }}</td>
+                                    <td class="px-2 py-1 border border-gray-300 text-right font-semibold">{{ $pct($d->recovery_rate) }}</td>
+                                </tr>
+                            @endforeach
+
+                            {{-- Baris combine kohort --}}
+                            <tr class="bg-amber-50 font-semibold">
+                                <td class="px-2 py-1 border border-gray-300"></td>
+                                <td class="px-2 py-1 border border-gray-300 italic">combine</td>
+                                <td class="px-2 py-1 border border-gray-300"></td>
+                                <td class="px-2 py-1 border border-gray-300 text-right">{{ $fmt($cohort->combine_balance) }}</td>
+                                @foreach ($allYears as $y)
+                                    <td class="px-2 py-1 border border-gray-300 text-right">{{ $fmt($cohort->combine_sal[$y]) }}</td>
+                                @endforeach
+                                <td class="px-2 py-1 border border-gray-300 text-right">{{ $fmt($cohort->combine_total_rec) }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-right">{{ $pct($cohort->combine_rate) }}</td>
+                            </tr>
+                            <tr class="bg-amber-50">
+                                <td class="px-2 py-1 border border-gray-300"></td>
+                                <td class="px-2 py-1 border border-gray-300 text-gray-500 italic pl-6">recovery</td>
+                                <td class="px-2 py-1 border border-gray-300"></td>
+                                <td class="px-2 py-1 border border-gray-300"></td>
+                                @foreach ($allYears as $y)
+                                    <td class="px-2 py-1 border border-gray-300 text-right text-emerald-700">{{ $fmt($cohort->combine_rec[$y]) }}</td>
+                                @endforeach
+                                <td class="px-2 py-1 border border-gray-300"></td>
+                                <td class="px-2 py-1 border border-gray-300"></td>
+                            </tr>
+                            <tr><td colspan="{{ count($allYears) + 6 }}" class="h-2"></td></tr>
+                        @endforeach
+
+                        {{-- Total combine --}}
+                        @if ($erTotalCombine)
+                        <tr class="bg-indigo-200 font-bold text-indigo-900">
+                            <td class="px-2 py-1.5 border border-gray-300"></td>
+                            <td class="px-2 py-1.5 border border-gray-300">Total combine</td>
+                            <td class="px-2 py-1.5 border border-gray-300"></td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($erTotalCombine->total_balance) }}</td>
+                            @foreach ($allYears as $y)
+                                <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($erTotalCombine->sal_years[$y] ?? null) }}</td>
+                            @endforeach
+                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($erTotalCombine->total_recovery) }}</td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $pct($erTotalCombine->recovery_rate) }}</td>
+                        </tr>
+                        <tr class="bg-indigo-200">
+                            <td class="px-2 py-1.5 border border-gray-300"></td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-gray-700 italic pl-6">recovery</td>
+                            <td class="px-2 py-1.5 border border-gray-300"></td>
+                            <td class="px-2 py-1.5 border border-gray-300"></td>
+                            @foreach ($allYears as $y)
+                                <td class="px-2 py-1.5 border border-gray-300 text-right text-emerald-800">{{ $fmt($erTotalCombine->rec_years[$y] ?? null) }}</td>
+                            @endforeach
+                            <td class="px-2 py-1.5 border border-gray-300"></td>
+                            <td class="px-2 py-1.5 border border-gray-300"></td>
+                        </tr>
+                        @endif
+                    </tbody>
+                </table>
+            </div>
+
+            {{-- Hasil LGD ER --}}
+            @if ($erTotalCombine)
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p class="text-xs text-gray-500">Recovery Rate (weighted)</p>
+                    <p class="text-lg font-bold text-gray-900">{{ $pct($erTotalCombine->recovery_rate) }}</p>
+                </div>
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p class="text-xs text-gray-500">LGD = 1 − Recovery Rate</p>
+                    <p class="text-lg font-bold text-red-700">{{ $pct($erTotalCombine->lgd) }}</p>
+                </div>
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p class="text-xs text-gray-500">Formula</p>
+                    <p class="text-xs text-gray-700 leading-relaxed mt-0.5">
+                        LGD = (Σ Balance WO − Σ Recovery) / Σ Balance WO<br>
+                        = ({{ $fmt($erTotalCombine->total_balance) }} − {{ $fmt($erTotalCombine->total_recovery) }}) / {{ $fmt($erTotalCombine->total_balance) }}
+                    </p>
+                </div>
+            </div>
+            @endif
+        </div>
+    @endif
+
+    {{-- ===== LGD CS: Kertas Kerja B4 ===== --}}
+    @if ($method === 'CS' && $debtorRows->isNotEmpty())
+        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-bold text-gray-900">Kertas Kerja LGD Collateral Shortfall</h3>
+                <p class="text-xs text-gray-500">
+                    {{ $debtorRows->where('is_write_off', true)->count() }} WO beragunan ·
+                    {{ $debtorRows->where('is_write_off', false)->count() }} Kol 5 aktif
+                </p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-xs border border-gray-300">
+                    <thead class="bg-blue-50 text-gray-800">
+                        <tr>
+                            <th class="px-2 py-1.5 border border-gray-300" style="width:34px">No</th>
+                            <th class="px-2 py-1.5 border border-gray-300 text-left">Nomor Rekening Kredit</th>
+                            <th class="px-2 py-1.5 border border-gray-300 text-center" style="width:80px">Status</th>
+                            <th class="px-2 py-1.5 border border-gray-300 text-right" style="width:130px">Baki Debet /<br>Outstanding</th>
+                            <th class="px-2 py-1.5 border border-gray-300 text-right" style="width:130px">Nilai Agunan<br>Dijaminkan</th>
+                            <th class="px-2 py-1.5 border border-gray-300 text-center" style="width:70px">Tahun<br>Hapus Buku</th>
+                            <th class="px-2 py-1.5 border border-gray-300 text-center" style="width:70px">Tahun<br>Eksekusi</th>
+                            <th class="px-2 py-1.5 border border-gray-300 text-right" style="width:150px">Nilai Agunan Setelah<br>Biaya (Net Likuidasi)</th>
+                            <th class="px-2 py-1.5 border border-gray-300 text-right" style="width:130px">Recovery Tunai<br>(sejak WO)</th>
+                            <th class="px-2 py-1.5 border border-gray-300 text-right" style="width:130px">Shortfall<br>(Kerugian)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @php $no = 0; @endphp
+                        @foreach ($debtorRows as $r)
+                            @php $no++; @endphp
+                            <tr class="hover:bg-gray-50 {{ $r->is_write_off ? '' : 'bg-yellow-50/40' }}">
+                                <td class="px-2 py-1 border border-gray-300 text-center">{{ $no }}</td>
+                                <td class="px-2 py-1 border border-gray-300 font-medium">{{ $r->loan_number }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-center">
+                                    @if ($r->is_write_off)
+                                        <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">WO</span>
+                                    @else
+                                        <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">K5</span>
+                                    @endif
+                                </td>
+                                <td class="px-2 py-1 border border-gray-300 text-right font-semibold">{{ $fmt($r->exposure) }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-right">{{ $fmt($r->liquidity_value) }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-center">{{ $r->is_write_off ? $r->wo_year : '—' }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-center text-gray-400">—</td>
+                                <td class="px-2 py-1 border border-gray-300 text-right text-emerald-700">{{ $fmt($r->net_recovery) }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-right text-blue-700">{{ $r->is_write_off ? $fmt($r->cash_recovery) : '—' }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-right font-semibold {{ (float) $r->shortfall > 0 ? 'text-red-700' : 'text-gray-500' }}">{{ $fmt($r->shortfall) }}</td>
+                            </tr>
+                        @endforeach
+
+                        {{-- Total --}}
+                        @php
+                            $totExposure = $debtorRows->sum('exposure');
+                            $totLiq = $debtorRows->sum('liquidity_value');
+                            $totNet = $debtorRows->sum('net_recovery');
+                            $totCash = $debtorRows->sum('cash_recovery');
+                            $totShort = $debtorRows->sum('shortfall');
+                        @endphp
+                        <tr class="bg-gray-100 font-bold">
+                            <td class="px-2 py-1.5 border border-gray-300"></td>
+                            <td class="px-2 py-1.5 border border-gray-300">Total</td>
+                            <td class="px-2 py-1.5 border border-gray-300"></td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($totExposure) }}</td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($totLiq) }}</td>
+                            <td class="px-2 py-1.5 border border-gray-300"></td>
+                            <td class="px-2 py-1.5 border border-gray-300"></td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($totNet) }}</td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($totCash) }}</td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($totShort) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            {{-- Hasil LGD CS --}}
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p class="text-xs text-gray-500">LGD = Total Shortfall / Total Baki Debet</p>
+                    <p class="text-lg font-bold text-red-700">{{ $pct($totExposure > 0 ? $totShort / $totExposure : 0) }}</p>
+                </div>
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p class="text-xs text-gray-500">Total Shortfall (Kerugian)</p>
+                    <p class="text-lg font-bold text-gray-900">{{ $fmt($totShort) }}</p>
+                </div>
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p class="text-xs text-gray-500">Formula per debitur</p>
+                    <p class="text-xs text-gray-700 leading-relaxed mt-0.5">
+                        WO: Shortfall = Baki saat WO − (Net Likuidasi + Recovery Tunai)<br>
+                        K5: Shortfall = Baki Debet − Net Likuidasi<br>
+                        Net Likuidasi = Nilai Agunan × (1 − {{ number_format($saleCostPct * 100, 2) }}%)
+                    </p>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if ($debtorRows->isEmpty() && ! $emptyNotice)
+        <div class="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500 text-sm">
+            Tidak ada rekening pada populasi LGD {{ $method }} untuk periode ini.
         </div>
     @endif
 </div>

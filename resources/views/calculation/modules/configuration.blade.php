@@ -8,6 +8,10 @@
     $segmentDims = isset($config['segment_dimensions']) ? explode('|', str_replace(',', '|', $config['segment_dimensions'])) : ['OFFICE'];
     $moduleRoute  = route('calculation.module.config.save');
     $exportRoute  = route('calculation.export.module.period', ['module' => 'config', 'assessmentPeriod' => $period->id]);
+    // Window PD dipakai kedua metode: Net Flow = titik bucket bulanan,
+    // Migration = matriks triwulan (floor(window / 3)).
+    $pdWindowMonths = (int) ($config['historical_months'] ?? 36);
+    $pdMatrixCount  = max(1, (int) floor($pdWindowMonths / 3));
 @endphp
 
 <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
@@ -33,9 +37,13 @@
                 <p class="text-xs text-gray-500 mt-1">Weighted = penjumlahan Loss &amp; Exposure ER + CS sesuai kertas kerja; ER/CS = pakai satu metode saja.</p>
             </div>
             <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Historical Window — PD Net Flow (bulan)</label>
-                <input type="number" min="12" max="120" name="historical_months" value="{{ $config['historical_months'] ?? 24 }}" class="w-full border-gray-300 rounded-lg text-sm">
-                <p class="text-xs text-gray-500 mt-1">Hanya dipakai PD <strong>Net Flow</strong>. PD <strong>Migration</strong> memakai rentang snapshot aktual loan grup (tidak mengacu nilai ini).</p>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Historical Window — PD (bulan)</label>
+                <input type="number" min="12" max="120" name="historical_months" value="{{ $pdWindowMonths }}" class="w-full border-gray-300 rounded-lg text-sm">
+                <p class="text-xs text-gray-500 mt-1">
+                    Berlaku untuk <strong>kedua metode PD</strong>:
+                    <strong>Net Flow</strong> memakai {{ $pdWindowMonths }} titik bucket tunggakan bulanan;
+                    <strong>Migration</strong> memakai {{ $pdMatrixCount }} matriks triwulan (floor({{ $pdWindowMonths }} / 3), horizon transisi 12 bulan per matriks) berbasis kualitas/Kol 1–5.
+                </p>
             </div>
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Historical Window LGD (bulan)</label>
@@ -90,6 +98,6 @@
 <div class="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-900">
     <p class="font-semibold mb-1">Periode aktif: {{ $period->assessment_date?->format('Y-m-d') ?? '-' }} (ID: {{ $period->id }})</p>
     <p>Konfigurasi ini akan dipakai oleh Modul 2–8. Segmentasi menentukan group_key kolektif.</p>
-    <p class="mt-2"><strong>Perhatian:</strong> perubahan segmentasi membatalkan hasil PD, LGD &amp; CKPN Kolektif; perubahan metode PD membatalkan hasil PD &amp; CKPN Kolektif. Historical window hanya memengaruhi PD <em>Net Flow</em> — mengubahnya tidak membatalkan hasil PD <em>Migration</em>. Hasil yang dibatalkan otomatis ditandai <em>tidak valid</em> dan wajib dihitung ulang sebelum Finalize CKPN.</p>
+    <p class="mt-2"><strong>Perhatian:</strong> perubahan segmentasi membatalkan hasil PD, LGD &amp; CKPN Kolektif; perubahan metode PD membatalkan hasil PD &amp; CKPN Kolektif. Historical window PD berlaku untuk <em>kedua</em> metode — <em>Net Flow</em> (bucket tunggakan) maupun <em>Migration</em> (kualitas/Kol) — sehingga mengubahnya membatalkan hasil PD metode aktif dan CKPN Kolektif. Hasil yang dibatalkan otomatis ditandai <em>tidak valid</em> dan wajib dihitung ulang sebelum Finalize CKPN.</p>
 </div>
 @endsection

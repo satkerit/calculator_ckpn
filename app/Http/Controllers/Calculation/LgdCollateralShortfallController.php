@@ -55,13 +55,14 @@ class LgdCollateralShortfallController extends BaseCalculationController
                 return $this->backTo($request, 'calculation.module.lgd_cs', [], 'Belum ada klasifikasi COLLECTIVE.');
             }
 
-            // Periode assessment (yyyymm) & window 5 tahun.
+            // Periode assessment (yyyymm), window 5 tahun, baki debet 1 bulan sebelum assessment.
             $assessYm = $assessmentDate->format('Ym');
             $startYm = $assessmentDate->copy()->subMonths($histM)->format('Ym');
+            $prevYm = $assessmentDate->copy()->subMonth()->format('Ym');
 
-            // Populasi CS: debitur dengan kondisi Kol 5 Aktif pada periode assessment
-            // ATAU write-off (5 tahun terakhir), yang memiliki jaminan aktif bernilai.
-            // Eksposur: WO = saldo saat WO; Kol 5 = baki debet periode assessment.
+            // Populasi CS:
+            // 1) Kol 5 aktif pada periode assessment → baki debet bulan sebelum assessment.
+            // 2) WO 5 tahun terakhir yang PUNYA agunan bernilai (WO tanpa agunan → LGD ER).
             $csRows = DB::table('snapshot')
                 ->where('periode_snapshot', $assessYm)
                 ->where('active_flag', 1)
@@ -94,28 +95,30 @@ class LgdCollateralShortfallController extends BaseCalculationController
                         ?? $rows->last();
                 });
 
+            // Posisi OS periode assessment (angsuran/recovery tunai setelah WO).
+            $lastBalances = $woLoans === [] ? collect() : DB::table('snapshot')
+                ->whereIn('loan_number', $woLoans)
+                ->where('periode_snapshot', $assessYm)
+                ->pluck('outstanding_balance', 'loan_number');
+
+            // Baki debet Kol 5 = posisi 1 bulan terakhir sebelum periode assessment.
+            $prevBalances = DB::table('snapshot')
+                ->where('periode_snapshot', $prevYm)
+                ->pluck('outstanding_balance', 'loan_number');
+
             $this->pushProgress($token, 'Memuat baki debet & agunan periode assessment…', 20);
 
             $byGroup = [];
 
             if ($csRows->isNotEmpty()) {
-                // Kode jenis agunan yang memenuhi syarat untuk LGD CS
-                // (agunan yang dapat dieksekusi/dijual untuk menutup kerugian).
-                $eligibleCollateralCodes = ['02','04','08','11','12','17','18','19','21','22','23','24','25','26','27','28','29'];
-
-                // Nilai agunan (liquidity value) per loan — hanya jaminan aktif bernilai
-                // DENGAN kode jenis agunan yang memenuhi syarat.
+                // Nilai agunan (liquidity value) per loan — jaminan aktif bernilai.
                 $collateralByLoan = DB::table('collateral')
                     ->whereIn('loan_number', $csRows->keys())
                     ->where('active_flag', 1)
                     ->where('liquidity_value', '>', 0)
-                    ->whereIn('collateral_type', $eligibleCollateralCodes)
                     ->selectRaw('loan_number, COALESCE(SUM(liquidity_value), 0) as liq_value')
                     ->groupBy('loan_number')
                     ->pluck('liq_value', 'loan_number');
-
-                // Wajib berjamin bernilai & berkode eligible: hanya loan yang lolos yang dihitung.
-                $csRows = $csRows->only($collateralByLoan->keys()->all());
 
                 $totalWo = max(1, $csRows->count());
                 $woIdx = 0;
@@ -127,24 +130,48 @@ class LgdCollateralShortfallController extends BaseCalculationController
                             'current' => $woIdx, 'total' => $totalWo, 'label' => 'Proses Debitur CS',
                         ]);
                     }
-                    // Eksposur: WO → saldo saat WO; Kol 5 → baki debet periode assessment.
                     $isWo = (int) $row->write_off_flag === 1;
-                    $exposure = $isWo && isset($woBalances[$loanNumber])
-                        ? (float) $woBalances[$loanNumber]->outstanding_balance
-                        : (float) $row->outstanding_balance;
                     $liqValue = (float) ($collateralByLoan[$loanNumber] ?? 0.0);
-                    // Net recovery = nilai agunan − (nilai agunan × haircut/biaya penjualan).
+
+                    if ($isWo) {
+                        // WO beragunan saja yang dihitung di CS (tanpa agunan → ER).
+                        if ($liqValue <= 0) {
+                            continue;
+                        }
+                        // Eksposur = outstanding saat WO.
+                        $exposure = isset($woBalances[$loanNumber])
+                            ? (float) $woBalances[$loanNumber]->outstanding_balance
+                            : (float) $row->outstanding_balance;
+                        $lastPos = isset($lastBalances[$loanNumber]) ? (float) $lastBalances[$loanNumber] : 0.0;
+                        $cashRecovery = max(0.0, $exposure - $lastPos);
+                    } else {
+                        // Kol 5: baki debet bulan terakhir sebelum periode assessment.
+                        $exposure = (float) ($prevBalances[$loanNumber] ?? $row->outstanding_balance);
+                        $cashRecovery = 0.0;
+                    }
+
+                    // Net likuidasi = nilai likuid − biaya penjualan (haircut).
                     $netRecov = max(0.0, $liqValue * (1 - $saleCost));
-                    $shortfall = max(0.0, $exposure - $netRecov);
+                    // Kerugian = eksposur − (net likuidasi + recovery tunai/angsuran sejak WO).
+                    $loss = max(0.0, $exposure - ($netRecov + $cashRecovery));
 
                     $akadCode = ProductAkadMappingService::resolveAkadCode($row->product_code ?? '');
                     $usageCode = $row->usage_type ?? $row->financing_contract_code ?? 'OTHER';
                     $key = $this->collectiveGroupKey($dims, $row->office_code, $akadCode, $usageCode);
 
                     $byGroup[$key]['exposure'] = ($byGroup[$key]['exposure'] ?? 0.0) + $exposure;
-                    $byGroup[$key]['shortfall'] = ($byGroup[$key]['shortfall'] ?? 0.0) + $shortfall;
+                    $byGroup[$key]['shortfall'] = ($byGroup[$key]['shortfall'] ?? 0.0) + $loss;
                     $byGroup[$key]['net'] = ($byGroup[$key]['net'] ?? 0.0) + $netRecov;
                     $byGroup[$key]['count'] = ($byGroup[$key]['count'] ?? 0) + 1;
+                    if ($isWo) {
+                        $byGroup[$key]['wo_exposure'] = ($byGroup[$key]['wo_exposure'] ?? 0.0) + $exposure;
+                        $byGroup[$key]['wo_loss'] = ($byGroup[$key]['wo_loss'] ?? 0.0) + $loss;
+                        $byGroup[$key]['wo_count'] = ($byGroup[$key]['wo_count'] ?? 0) + 1;
+                    } else {
+                        $byGroup[$key]['k5_exposure'] = ($byGroup[$key]['k5_exposure'] ?? 0.0) + $exposure;
+                        $byGroup[$key]['k5_loss'] = ($byGroup[$key]['k5_loss'] ?? 0.0) + $loss;
+                        $byGroup[$key]['k5_count'] = ($byGroup[$key]['k5_count'] ?? 0) + 1;
+                    }
                 }
             }
 
@@ -183,9 +210,15 @@ class LgdCollateralShortfallController extends BaseCalculationController
                     'lgd_calculated' => round($lgd, 6),
                     'detail' => json_encode([
                         'method' => 'CS',
-                        'population' => 'quality_rating=5 aktif (baki debet) OR WO aktif 5thn (saldo saat WO) dengan jaminan aktif bernilai & eligible',
-                        'eligible_collateral_codes' => $eligibleCollateralCodes,
+                        'population' => 'Kol 5 aktif (baki debet bulan lalu) OR WO 5thn beragunan bernilai',
+                        'wo_exposure' => round($agg['wo_exposure'] ?? 0.0, 2),
+                        'wo_loss' => round($agg['wo_loss'] ?? 0.0, 2),
+                        'wo_accounts' => $agg['wo_count'] ?? 0,
+                        'k5_exposure' => round($agg['k5_exposure'] ?? 0.0, 2),
+                        'k5_shortfall' => round($agg['k5_loss'] ?? 0.0, 2),
+                        'k5_accounts' => $agg['k5_count'] ?? 0,
                         'assessment_ym' => $assessYm,
+                        'prev_ym' => $prevYm,
                         'sale_cost' => $saleCost,
                         'no_exposure_history' => $agg['exposure'] == 0.0,
                     ]),
@@ -204,14 +237,14 @@ class LgdCollateralShortfallController extends BaseCalculationController
 
             $this->audit('LGD_CS', 'RUN', $period->id, [
                 'groups' => $groups->count(),
-                'population' => 'quality_rating=5 atau write-off, aktif',
+                'population' => 'Kol 5 aktif + WO beragunan',
                 'inserted' => count($batch),
             ]);
 
             return $this->backTo($request, 'calculation.module.lgd_cs', [
                 'groups' => $groups->count(),
                 'method' => 'CS',
-                'population' => 'Kualitas 5 / WO aktif',
+                'population' => 'Kol 5 aktif + WO beragunan',
             ]);
         }));
     }

@@ -241,10 +241,9 @@ abstract class BaseCalculationController extends Controller
      *
      * - PD: dimensi segmentasi (group_key) + metode PD + metode LGD (untuk
      *   konsolidasi) — semuanya langsung memengaruhi nilai per grup.
-     *   `historical_months` adalah kondisional: hanya PD Netflow yang
-     *   memakai window ini (lihat {@see fingerprintKeys()}).
-     * - CKPN Kolektif: dimensi segmentasi + metode PD + metode LGD.
-     *   `historical_months` kondisional mengikuti metode PD aktif.
+     *   `historical_months` ikut dibandingkan karena dipakai PD Netflow maupun
+     *   PD Migration (lihat {@see fingerprintKeys()}).
+     * - CKPN Kolektif: dimensi segmentasi + metode PD + metode LGD + window PD.
      * - LGD: dimensi segmentasi + metode LGD yang dipakai saat konsolidasi.
      */
     protected const FINGERPRINT_KEYS = [
@@ -254,26 +253,22 @@ abstract class BaseCalculationController extends Controller
     ];
 
     /**
-     * Fingerprint keys untuk result type, dengan logika kondisional per metode.
+     * Fingerprint keys untuk result type.
      *
-     * `historical_months` hanya disertakan untuk PD Netflow — PD Migration
-     * (per AGENTS.md #6) rentang historisnya diturunkan dari snapshot
-     * aktual yang tersedia untuk loan grup, sehingga perubahan window
-     * konfigurasi tidak relevan dan tidak boleh membatalkan hasilnya.
-     * Berlaku juga untuk CKPN Kolektif yang PD-nya bersumber dari metode
-     * yang sedang aktif.
+     * `historical_months` selalu disertakan untuk PD & CKPN Kolektif: window
+     * historis dipakai oleh kedua metode PD — Net Flow memakainya sebagai
+     * jumlah titik bucket bulanan, Migration sebagai jumlah matriks triwulan
+     * (floor(window / 3)). Mengubahnya karena itu membatalkan hasil PD metode
+     * aktif beserta CKPN Kolektif yang diturunkan darinya.
      *
-     * @param  array<string, mixed>  $config
+     * @param  array<string, mixed>  $config  konfigurasi efektif saat run
      * @return array<int, string>
      */
     protected function fingerprintKeys(string $resultType, array $config): array
     {
         $keys = self::FINGERPRINT_KEYS[$resultType] ?? self::FINGERPRINT_KEYS['PD'];
 
-        $usesWindow = in_array($resultType, ['PD', 'CKPN'], true)
-            && strtoupper((string) ($config['pd_method'] ?? 'NET_FLOW')) === 'NET_FLOW';
-
-        if ($usesWindow && ! in_array('historical_months', $keys, true)) {
+        if (in_array($resultType, ['PD', 'CKPN'], true) && ! in_array('historical_months', $keys, true)) {
             $keys[] = 'historical_months';
         }
 

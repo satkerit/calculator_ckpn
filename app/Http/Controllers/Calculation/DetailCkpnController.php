@@ -290,7 +290,12 @@ class DetailCkpnController extends BaseCalculationController
             $lgd = min(1.0, max(0.0, $lgd));
             $totalEad = (float) $eg->total_ead;
 
-            $ckpn = CkpnCalculator::calculateCollective($pd, $lgd, $totalEad);
+            // Pastikan PD & LGD di-round ke 2 angka desimal di level persentase
+            // (misal 54.367% -> 54.37% -> 0.5437) sebelum dipakai kalkulasi CKPN
+            $pdRounded = round($pd * 100, 2) / 100;
+            $lgdRounded = round($lgd * 100, 2) / 100;
+
+            $ckpn = CkpnCalculator::calculateCollective($pdRounded, $lgdRounded, $totalEad);
 
             $batch[] = [
                 'assessment_period_id' => $periodId,
@@ -300,8 +305,8 @@ class DetailCkpnController extends BaseCalculationController
                 'akad_code' => $eg->akad_code,
                 'usage_code' => $eg->usage_code,
                 'total_ead' => round($totalEad, 2),
-                'pd' => round($pd, 6),
-                'lgd' => round($lgd, 6),
+                'pd' => round($pdRounded, 4),
+                'lgd' => round($lgdRounded, 4),
                 'lgd_method' => $lgdMethod,
                 'ckpn_kolektif' => $ckpn,
                 'member_count' => (int) $eg->member_count,

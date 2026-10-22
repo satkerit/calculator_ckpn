@@ -356,7 +356,7 @@ class FullCkpnExportController extends BaseCalculationController
             'No. Rekening / Akad', 'Kode Kantor', 'Kode Akad', 'Jenis Penggunaan', 'Segmen Group Key',
             $isMigration ? 'Rating Kualitas' : 'Nomor Bucket',
             $isMigration ? 'Keterangan Kualitas' : 'Hari Tunggakan',
-            'EAD / Baki Debet (Rp)', 'PD (Desimal)', 'LGD (Desimal)', 'Metode LGD',
+            'EAD / Baki Debet (Rp)', 'PD (%)', 'LGD (%)', 'Metode LGD',
             'CKPN Kolektif (Rp)',
         ];
         $writer->addRow(Row::fromValues($headers)->setStyle($this->styleHeader));
@@ -389,8 +389,11 @@ class FullCkpnExportController extends BaseCalculationController
             $dimKey = $isMigration ? (int) $r->quality_rating : (int) $r->bucket_no;
             $g = $ckpnMap[$groupKey.'|'.$dimKey] ?? null;
 
-            $pd = $g ? (float) $g->pd : 0.0;
-            $lgd = $g ? (float) $g->lgd : 0.0;
+            // Round ke 2 desimal pada level persen, lalu kembalikan ke desimal untuk hitung
+            $pdRaw  = $g ? (float) $g->pd  : 0.0;
+            $lgdRaw = $g ? (float) $g->lgd : 0.0;
+            $pd  = round($pdRaw  * 100, 2) / 100; // 0.543672 → 54.37% → 0.5437
+            $lgd = round($lgdRaw * 100, 2) / 100;
             $ead = (float) $r->ead_amount;
             $ckpn = round($ead * $pd * $lgd, 2);
 
@@ -410,8 +413,8 @@ class FullCkpnExportController extends BaseCalculationController
                 $dimKey,
                 $dimLabel,
                 $ead,
-                round($pd, 2),
-                round($lgd, 2),
+                round($pd * 100, 2),
+                round($lgd * 100, 2),
                 $g->lgd_method ?? 'WEIGHTED',
                 $ckpn,
             ]));
@@ -426,7 +429,7 @@ class FullCkpnExportController extends BaseCalculationController
         $writer->addRow(Row::fromValues(['RINGKASAN AGREGASI PER GRUP & BUCKET/RATING'])->setStyle($this->styleSection));
         $writer->addRow(Row::fromValues([
             'Group Key', 'Bucket/Rating', 'Kantor', 'Akad', 'Penggunaan',
-            'Total EAD (Rp)', 'PD (Desimal)', 'LGD (Desimal)', 'Metode LGD', 'Total CKPN (Rp)', 'Jumlah Rekening',
+            'Total EAD (Rp)', 'PD (%)', 'LGD (%)', 'Metode LGD', 'Total CKPN (Rp)', 'Jumlah Rekening',
         ])->setStyle($this->styleHeaderAccent));
 
         $aggs = DB::table('stage_collective_ckpn')
@@ -443,8 +446,8 @@ class FullCkpnExportController extends BaseCalculationController
                 $a->akad_code ?? '',
                 $a->usage_code ?? '',
                 (float) $a->total_ead,
-                round((float) $a->pd, 2),
-                round((float) $a->lgd, 2),
+                round((float) $a->pd * 100, 2),
+                round((float) $a->lgd * 100, 2),
                 $a->lgd_method,
                 (float) $a->ckpn_kolektif,
                 (int) $a->member_count,
@@ -581,9 +584,9 @@ class FullCkpnExportController extends BaseCalculationController
                     foreach ([1, 2, 3, 4, 5] as $k) {
                         $pd += (($exposure[$k] ?? 0.0) / $expSum) * ($ratingPd[$k] ?? 0.0);
                     }
-                    $r->pd_calculated = round($pd, 2);
+                    $r->pd_calculated = round($pd, 4);
                 } elseif (isset($d['pd_group'])) {
-                    $r->pd_calculated = (float) $d['pd_group'];
+                    $r->pd_calculated = round((float) $d['pd_group'], 4);
                 }
                 return $r;
             })
@@ -629,9 +632,9 @@ class FullCkpnExportController extends BaseCalculationController
                 $totRow[] = (float) ($s['grand_total'] ?? 0);
                 $writer->addRow(Row::fromValues($totRow)->setStyle($this->styleTotal));
 
-                // Tabel Rate (Desimal, maks 2 desimal)
-                $writer->addRow(Row::fromValues(['2. Proporsi Migrasi / Rate / PD (Desimal, Maks 2 Desimal) — Terhadap Saldo Awal']));
-                $writer->addRow(Row::fromValues(array_merge(['Kualitas', 'Saldo Awal (Rp)'], array_values($destLabels), ['TOTAL (PD)']))->setStyle($this->styleHeaderAccent));
+                // Tabel Rate (Desimal, maks 4 desimal untuk rate, PD dalam persen)
+                $writer->addRow(Row::fromValues(['2. Proporsi Migrasi / Rate / PD — Terhadap Saldo Awal']));
+                $writer->addRow(Row::fromValues(array_merge(['Kualitas', 'Saldo Awal (Rp)'], array_values($destLabels), ['TOTAL PD (%)']))->setStyle($this->styleHeaderAccent));
 
                 $colTotals = $s['total_to'] ?? [];
                 $grandRate = array_sum($colTotals) ?: 0.0;
@@ -643,17 +646,18 @@ class FullCkpnExportController extends BaseCalculationController
                 for ($src = 1; $src <= 5; $src++) {
                     $row = [$src, (float) ($s['saldo_awal'][$src] ?? 0)];
                     for ($t = 1; $t <= 7; $t++) {
-                        $row[] = round((float) ($s['rate'][$src][$t] ?? 0), 2);
+                        $row[] = round((float) ($s['rate'][$src][$t] ?? 0), 4);
                     }
-                    $row[] = round((float) ($s['pd'][$src] ?? 0), 2);
+                    // PD per rating dalam persen (2 desimal di level %)
+                    $row[] = round((float) ($s['pd'][$src] ?? 0) * 100, 2);
                     $writer->addRow(Row::fromValues($row));
                 }
 
                 $rateTotRow = ['TOTAL', $grandBase];
                 for ($t = 1; $t <= 7; $t++) {
-                    $rateTotRow[] = $grandRate > 0 ? round(((float) ($colTotals[$t] ?? 0) / $grandRate), 2) : 0.0;
+                    $rateTotRow[] = $grandRate > 0 ? round(((float) ($colTotals[$t] ?? 0) / $grandRate), 4) : 0.0;
                 }
-                $rateTotRow[] = round($weightedPd, 2);
+                $rateTotRow[] = round($weightedPd * 100, 2);
                 $writer->addRow(Row::fromValues($rateTotRow)->setStyle($this->styleTotalAccent));
                 $writer->addRow(Row::fromValues(['']));
             }
@@ -662,12 +666,12 @@ class FullCkpnExportController extends BaseCalculationController
             $rp = $d['rating_pd'] ?? [];
             $exp = $d['rating_exposure'] ?? [];
             $writer->addRow(Row::fromValues(['PD Akhir per Rating & Exposure Posisi Assessment'])->setStyle($this->styleSubSection));
-            $writer->addRow(Row::fromValues(['Rating Kualitas', 'Exposure Baki Debet (Rp)', 'PD Rating (Desimal)'])->setStyle($this->styleHeader));
+            $writer->addRow(Row::fromValues(['Rating Kualitas', 'Exposure Baki Debet (Rp)', 'PD Rating (%)'])->setStyle($this->styleHeader));
             for ($rr = 1; $rr <= 5; $rr++) {
                 $writer->addRow(Row::fromValues([
                     'Rating '.$rr,
                     (float) ($exp[$rr] ?? 0),
-                    isset($rp[$rr]) ? round((float) $rp[$rr], 2) : '-',
+                    isset($rp[$rr]) ? round((float) $rp[$rr] * 100, 2) : '-',
                 ]));
             }
             $writer->addRow(Row::fromValues(['TOTAL EXPOSURE', array_sum($exp), round((float) $r->pd_calculated * 100, 2)])->setStyle($this->styleTotalAccent));
@@ -681,13 +685,13 @@ class FullCkpnExportController extends BaseCalculationController
     private function writeLgdErSheet(Writer $writer, AssessmentPeriod $period): void
     {
         $writer->addRow(Row::fromValues(['DETAIL PERHITUNGAN LGD METODE EXPECTED RECOVERY (ER)'])->setStyle($this->styleTitle));
-        $writer->addRow(Row::fromValues(['Formula: LGD ER = 1 - Recovery Rate (Desimal) | Populasi: WO Historis Tanpa Agunan Likuid'])->setStyle($this->styleSubSection));
+        $writer->addRow(Row::fromValues(['Formula: LGD ER = 1 - Recovery Rate | Populasi: WO Historis Tanpa Agunan Likuid'])->setStyle($this->styleSubSection));
         $writer->addRow(Row::fromValues(['']));
 
         $headers = [
             'Group Key', 'Kode Kantor', 'Kode Akad', 'Penggunaan',
-            'Total Write Off (Rp)', 'Total Recovery Terkumpul (Rp)', 'Recovery Rate (Desimal)',
-            'LGD ER (Desimal)', 'Periode Analisis (Tahun)', 'Jumlah Rekening WO',
+            'Total Write Off (Rp)', 'Total Recovery Terkumpul (Rp)', 'Recovery Rate (%)',
+            'LGD ER (%)', 'Periode Analisis (Tahun)', 'Jumlah Rekening WO',
         ];
         $writer->addRow(Row::fromValues($headers)->setStyle($this->styleHeader));
 
@@ -709,8 +713,9 @@ class FullCkpnExportController extends BaseCalculationController
             $detail = json_decode($r->detail ?? '{}', true) ?: [];
             $wo = (float) $r->total_write_off;
             $rec = (float) $r->total_recovery;
-            $recRate = $r->recovery_rate !== null ? round((float) $r->recovery_rate, 2) : 0.0;
-            $lgd = round((float) $r->lgd_calculated, 2);
+            // Round ke 2 desimal di level persentase
+            $recRate = $r->recovery_rate !== null ? round((float) $r->recovery_rate * 100, 2) : 0.0;
+            $lgd = round((float) $r->lgd_calculated * 100, 2);
 
             $sumWo += $wo;
             $sumRec += $rec;
@@ -732,8 +737,8 @@ class FullCkpnExportController extends BaseCalculationController
         $writer->addRow(Row::fromValues([
             'TOTAL KESELURUHAN', '', '', '',
             $sumWo, $sumRec,
-            $sumWo > 0 ? round(($sumRec / $sumWo), 2) : 0.0,
-            $sumWo > 0 ? round((1 - ($sumRec / $sumWo)), 2) : 0.0,
+            $sumWo > 0 ? round(($sumRec / $sumWo) * 100, 2) : 0.0,
+            $sumWo > 0 ? round((1 - ($sumRec / $sumWo)) * 100, 2) : 0.0,
             '', '',
         ])->setStyle($this->styleTotalAccent));
     }
@@ -750,7 +755,7 @@ class FullCkpnExportController extends BaseCalculationController
         $headers = [
             'Group Key', 'Kode Kantor', 'Kode Akad', 'Penggunaan',
             'Total Exposure WO (Rp)', 'Net Recovery Agunan (Rp)', 'Total Shortfall (Rp)',
-            'Collateral Coverage (Desimal)', 'LGD CS (Desimal)', 'Jumlah Rekening',
+            'Collateral Coverage (%)', 'LGD CS (%)', 'Jumlah Rekening',
         ];
         $writer->addRow(Row::fromValues($headers)->setStyle($this->styleHeader));
 
@@ -773,8 +778,8 @@ class FullCkpnExportController extends BaseCalculationController
             $exp = (float) $r->total_exposure_wo;
             $shortfall = (float) $r->total_shortfall;
             $netRec = round($exp - $shortfall, 2);
-            $cov = $r->collateral_coverage !== null ? round((float) $r->collateral_coverage, 2) : 0.0;
-            $lgd = round((float) $r->lgd_calculated, 2);
+            $cov = $r->collateral_coverage !== null ? round((float) $r->collateral_coverage * 100, 2) : 0.0;
+            $lgd = round((float) $r->lgd_calculated * 100, 2);
 
             $sumExp += $exp;
             $sumNet += $netRec;
@@ -797,8 +802,8 @@ class FullCkpnExportController extends BaseCalculationController
         $writer->addRow(Row::fromValues([
             'TOTAL KESELURUHAN', '', '', '',
             $sumExp, $sumNet, $sumShortfall,
-            $sumExp > 0 ? round(($sumNet / $sumExp), 2) : 0.0,
-            $sumExp > 0 ? round(($sumShortfall / $sumExp), 2) : 0.0,
+            $sumExp > 0 ? round(($sumNet / $sumExp) * 100, 2) : 0.0,
+            $sumExp > 0 ? round(($sumShortfall / $sumExp) * 100, 2) : 0.0,
             '',
         ])->setStyle($this->styleTotalAccent));
     }
@@ -814,8 +819,8 @@ class FullCkpnExportController extends BaseCalculationController
 
         $headers = [
             'Group Key', 'Kode Kantor', 'Kode Akad', 'Penggunaan',
-            'LGD ER (Desimal)', 'Exposure ER (Rp)', 'LGD CS (Desimal)', 'Exposure CS (Rp)',
-            'LGD Weighted Final (Desimal)', 'Metode Terpilih',
+            'LGD ER (%)', 'Exposure ER (Rp)', 'LGD CS (%)', 'Exposure CS (Rp)',
+            'LGD Weighted Final (%)', 'Metode Terpilih',
         ];
         $writer->addRow(Row::fromValues($headers)->setStyle($this->styleHeader));
 
@@ -846,11 +851,11 @@ class FullCkpnExportController extends BaseCalculationController
             $er = $erMap[$w->group_key] ?? null;
             $cs = $csMap[$w->group_key] ?? null;
 
-            $lgdEr = $er ? round((float) $er->lgd_calculated, 2) : '-';
+            $lgdEr = $er ? round((float) $er->lgd_calculated * 100, 2) : '-';
             $expEr = $er ? (float) $er->total_write_off : 0.0;
 
             $cs = $csMap->get($w->group_key);
-            $lgdCs = $cs ? round((float) $cs->lgd_calculated, 2) : '-';
+            $lgdCs = $cs ? round((float) $cs->lgd_calculated * 100, 2) : '-';
             $expCs = $cs ? (float) $cs->total_exposure_wo : 0.0;
 
             $writer->addRow(Row::fromValues([
@@ -862,7 +867,7 @@ class FullCkpnExportController extends BaseCalculationController
                 $expEr,
                 $lgdCs,
                 $expCs,
-                round((float) $w->lgd_calculated, 2),
+                round((float) $w->lgd_calculated * 100, 2),
                 $w->method,
             ]));
         }

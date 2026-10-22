@@ -1,6 +1,9 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@plugin "@tailwindcss/forms";
+
+@source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
+@source "../views/**/*.blade.php";
 
 /* Alpine.js: sembunyikan elemen x-cloak sampai Alpine selesai init
    (mencegah flash elemen yang visibility-nya dikontrol x-show). */

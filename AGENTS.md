@@ -1,10 +1,72 @@
-# AGENTS.md – Autonomous Agent Specifications
+# AGENTS.md – Autonomous Agent & AI Engineering Specifications
 
-**Dokumen:** Agent Architecture & Role Definition  
+**Dokumen:** Agent Architecture, Role Definition & AI Execution Protocol  
 **Sistem:** CKPN Calculator BPRS  
-**Versi:** 1.0  
-**Tanggal:** 30 September 2026  
-**Basis:** TASK.md v3.1 + CKPN.md v3.0  
+**Versi:** 3.0  
+**Tanggal:** 22 October 2026  
+**Basis:** TASK.md v3.1 + CKPN.md v3.0 + Quality, Safety, Token-Efficiency & Protocol Standards  
+
+---
+
+## 0. Mandatory AI Prompt Execution Protocol (BLOCKING)
+
+Setiap agen AI (termasuk Assistant IDE) yang menangani tugas di repository ini WAJIB menjalankan 4 tahap secara disiplin sebelum dan sesudah menyentuh kode:
+
+```
+[Prompt Diterima]
+       │
+       ▼
+1. UNDERSTAND CONTEXT & AUDIT CODE
+   ├── Pahami intent bisnis & regulasi PSAK 414/CKPN
+   ├── Periksa kode terkait (gunakan Read/Grep, dilarang modifikasi sebelum membaca)
+   └── Temukan gap, bug, inefisiensi, risiko regresi, atau missing boundary validation
+       │
+       ▼
+2. AUTOMATIC SKILL SELECTION
+   ├── Analisis konteks tugas & mapping ke skill yang tersedia secara instan
+   │   ├── Laravel / Eloquent / Controller  → skill: laravel-best-practices / spatie-laravel-php
+   │   ├── Query, Indexing, N+1, DB Opt     → skill: laravel-database-optimization
+   │   ├── Keamanan, Auth, Upload, SQLi     → skill: laravel-owasp-security / spatie-security
+   │   ├── Testing, Pest PHP, Unit/Feature  → skill: laravel-testing
+   │   ├── UI / Styling / Tailwind CSS      → skill: tailwind-best-practices / tailwindcss-development
+   │   ├── UI/UX Design System / Pro-Max   → skill: ui-ux-pro-max / ui-styling
+   │   └── Token Saver / Refactoring lean   → skill: ponytail / token-saver
+   └── Panggil tool `Skill` SEGERA sebagai aksi pertama jika ada skill yang relevan
+       │
+       ▼
+3. FORMULATE PLAN & EXECUTE (Safe, Usable, Token-Efficient)
+   ├── Rancang langkah perbaikan terstruktur (gunakan TodoWrite jika ≥ 3 langkah)
+   ├── Tulis kode dengan prinsip:
+   │   ├── YAGNI & Native First: Jangan over-engineer, utamakan native PHP/Laravel features
+   │   ├── Safe by Default: Validasi trust boundaries, batasi range, hindari data corruption
+   │   ├── Usable & Clean: Standar PSR-12, bebas dari "AI slop" visual/kode tanpa tujuan
+   │   └── Token-Efficient: Diff sesingkat mungkin, hindari query N+1 & multiple loop O(n²)
+   └── Verifikasi integritas logika atau jalankan tests yang relevan
+       │
+       ▼
+4. LOG CHANGE TO CHANGELOG.md (MANDATORY)
+   └── Setiap selesai mengeksekusi prompt/perubahan, catat ringkasan pekerjaan di `CHANGELOG.md`
+```
+
+---
+
+## 1. Principles of Code Standards & Usability
+
+1. **Anti-Slop Architecture & UI:**
+   - Dilarang membuat visual "AI slop" (gradient glossy berlebih, animasi hover tidak fungsional, nested card tanpa fungsi, padding/margin arbitrer).
+   - Gunakan enterprise design system yang bersih: palet netral berbobot, border halus (border-gray-200), kontras terbaca jelas (WCAG AA), tabular numbers font mono untuk data keuangan/nominal.
+   - Hindari abstraksi fiktif/prematur: satu class implementasi tidak butuh interface khusus kecuali diminta, jangan bikin repository pattern berlebihan jika Eloquent scope sudah cukup.
+
+2. **Safety & Zero-Data-Corruption Guarantee:**
+   - Semua operasi multi-table atau multi-stage WAJIB dibungkus `DB::transaction()`.
+   - Angka desimal keuangan/nominal CKPN WAJIB diproses dengan akurasi presisi (`bcmath` atau casting `decimal:2` / `decimal:4`), dilarang pembulatan floating-point float PHP yang tidak terkontrol.
+   - Guard boundary validation: EAD ≥ 0, 0 ≤ PD ≤ 1, 0 ≤ LGD ≤ 1, CKPN ≤ EAD.
+
+3. **Token & Performance Optimization:**
+   - Eager-load relasi (`with()`) untuk mencegah N+1 queries.
+   - Selalu `select()` kolom yang dibutuhkan pada tabel besar (snapshot, financing, audit).
+   - Gunakan single-pass accumulator daripada filter berulang di memory collection.
+   - Gunakan `chunkById()` atau stream untuk batch processing pembiayaan berukuran besar.
 
 ---
 
@@ -18,23 +80,51 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 - Immutability: result snapshot tidak berubah post-completion
 - Traceability: semua action logged di audit trail
 - Resilience: graceful error handling, no data corruption
+- **Efficiency**: kode ringan, minimal token, menghindari komputasi berlebihan
+- **Usability**: output konsisten, well-documented, easy to debug
+- **Safety**: input validation rigorous, output validated, edge cases handled
 
 ---
 
-## Agent Registry
+## Agent Registry Enhancements
+
+### General Agent Guidelines (Added)
+
+**Token Efficiency:**
+- Gunakan data structures yang optimal (hindari nested loops yang dieksekusi berulang)
+- Cache results yang sering diakses, jangan fetch ulang dari DB per record
+- Gunakan select fields saja, jangan `SELECT *`
+- Batched processing untuk batch yang besar (>100 records)
+- Early exit dari loop saat error critical ditemukan (tapi tetap log warning non-blocking)
+
+**Code Standards:**
+- Konvensi nama: snake_case untuk variable DB, camelCase untuk JSON output
+- Setiap output JSON harus memiliki field yang konsisten: `status`, `count`, `data`/`details`
+- Error messages harus actionable: nama field, rule yang di violate, expected value
+- Gunakan constants untuk nilai magic (threshold, tolerance, default values)
+- Documentasi setiap transformasi data dalam komentar kode
+
+**Safety by Default:**
+- Validate semua input sebelum proses
+- Sanitize strings: trim whitespace, uppercase codes, convert date formats
+- Boundary checks: pastikan hasil tidak negative kecuali jika intentionally
+- Default values yang jelas saat data missing (bukan `null` tak terduga)
+- Audit trail harus lengkap untuk setiap operasi write
+
+---
 
 ### 1. DataValidationAgent
 
 **Purpose:** Validasi & normalize data sebelum calculation
 
-**Input:**
-- assessment_period_id
-- financing data batch (dari import staging atau DB)
-- validation_rules configuration
+**Token Efficiency Note:**
+- Load validation rules sekali dari DB, cache dalam memory selama calculation run
+- Iterate batch dengan forward iteration saja, hindari recursion yang tidak perlu
+- Flag error records dalam single pass, collect messages array sekaligus
 
 **Process:**
-1. Load validation rules dari database
-2. Iterate batch, check setiap record:
+1. Load validation rules dari database (cached per run)
+2. Iterate batch, check setiap record (single pass):
    - Field presence: semua required field ada
    - Data type: string, date, decimal format correct
    - Referential integrity: office_code, collateral_type, product_code exist di master
@@ -73,6 +163,11 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Purpose:** Calculate Exposure at Default per akad strategy
 
+**Token Efficiency Note:**
+- Load EAD rules sekali, gunakan lookup table dalam memory
+- Validate batching: process 50 records per query untuk menghindari memory limit
+- Early termination saat assessment_date future (skip sisa batch)
+
 **Input:**
 - calculation_run_id
 - assessment_period_id
@@ -81,10 +176,10 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 - EAD rule per product_code dari database
 
 **Process:**
-1. Load EAD rules untuk masing-masing product_code aktif pada assessment_date
+1. Load EAD rules untuk masing-masing product_code aktif pada assessment_date (cached lookup)
 2. Load financing & snapshot data per calculation_run_id
-3. Iterate financing, apply rule:
-   ```
+3. Iterate financing, apply rule (single pass):
+   ``` 
    IF product_code = MURABAHAH THEN ead = outstanding_balance
    IF product_code = MULTIJASA THEN ead = outstanding_balance
    IF product_code = MUSYARAKAH AND expired_date <= assessment_date THEN ead = principal_arrears ELSE ead = 0
@@ -125,6 +220,10 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Purpose:** Tentukan INDIVIDUAL vs COLLECTIVE per financing
 
+**Token Efficiency Note:**
+- Load individual_overrides sekali, gunakan hash set untuk O(1) lookup
+- Hitung total_individual dan total_collective dalam single iteration
+
 **Input:**
 - calculation_run_id
 - assessment_period_id
@@ -134,8 +233,8 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Process:**
 1. Load classification rules aktif pada assessment_date
-2. Load individual_overrides untuk period ini
-3. Iterate financing:
+2. Load individual_overrides untuk period ini (cached, gunakan array lookup)
+3. Iterate financing (single pass):
    ```
    IF loan_number IN (select loan_number from individual_overrides) THEN
      classification = individual_overrides.classification
@@ -179,6 +278,10 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Purpose:** Build collective groups berdasarkan 3 dimensi (office_code + product_code + usage_code)
 
+**Token Efficiency Note:**
+- Gunakan map composite key (office_code + "|" + product_code + "|" + usage_code) untuk grouping
+- Hitung count dan sum_ead dalam single pass, hindari grouping berulang
+
 **Input:**
 - calculation_run_id
 - financing_classification (COLLECTIVE only)
@@ -188,7 +291,7 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Process:**
 1. Filter financing WHERE classification = COLLECTIVE
-2. Group by (office_code, product_code, usage_code):
+2. Group by (office_code, product_code, usage_code) menggunakan map composite key:
    ```
    GROUP BY office_code, product_code, usage_code
    → collective_group_key = "OFFICE_PRODUCT_USAGE"
@@ -232,6 +335,11 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Purpose:** Calculate PD (Probability of Default) menggunakan Net Flow method
 
+**Token Efficiency Note:**
+- Build transition matrix dalam single pass historical data
+- Gunakan accumulator dictionary rather than nested loop untuk hitung transition rate
+- Default PD hitung sekali jika insufficient data, hindari per-group recalculation
+
 **Input:**
 - calculation_run_id
 - collective_groups (dengan member list)
@@ -240,7 +348,7 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Process:**
 1. Load historical financing data untuk window = assessment_date - historical_window_months
-2. Build monthly transition matrix per group:
+2. Build monthly transition matrix per group (single pass):
    ```
    [FROM_BUCKET][TO_BUCKET] = count financing yang migrate
    ```
@@ -289,6 +397,10 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Purpose:** Calculate PD menggunakan Migration method (quality rating migration)
 
+**Token Efficiency Note:**
+- Load historical rating data sekali, cache di memory
+- Build migration matrix dalam single pass, gunakan accumulator pattern
+
 **Input:**
 - calculation_run_id
 - collective_groups
@@ -336,6 +448,10 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Purpose:** Calculate LGD menggunakan Expected Recovery method
 
+**Token Efficiency Note:**
+- Load write-off data dalam single query dengan grouping SQL tahun_write_off
+- Hitung recovery rate dengan accumulator, hindari per-year recalculation
+
 **Input:**
 - calculation_run_id
 - collective_groups
@@ -345,7 +461,7 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Process:**
 1. Load write-off data dalam window = assessment_date - 60 months
-2. Group write-off by tahun_write_off:
+2. Group write-off by tahun_write_off (SQL GROUP BY, bukan di-app):
    ```
    GROUP BY tahun_write_off
    → total_write_off_balance
@@ -387,6 +503,10 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Purpose:** Calculate LGD menggunakan Collateral Shortfall method
 
+**Token Efficiency Note:**
+- Load collateral data dengan LEFT JOIN financing, hindari N+1 queries
+- Gunakan SQL aggregate untuk total_shortfall dan total_exposure_writeoff
+
 **Input:**
 - calculation_run_id
 - collective_groups
@@ -394,7 +514,7 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 - write_off data dengan collateral execution result
 
 **Process:**
-1. Load collateral data per financing
+1. Load collateral data per financing (gunai LEFT JOIN, hindari per-record query)
 2. Per write-off:
    ```
    outstanding_at_writeoff = outstanding_balance at time of write-off
@@ -438,6 +558,10 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Purpose:** Aggregate LGD ER + CS → Weighted LGD
 
+**Token Efficiency Note:**
+- Load ER dan CS results sekali, gunakan map group_key untuk lookup
+- Hitung total_loss_weighted dan total_exposure_weighted dalam single pass
+
 **Input:**
 - calculation_run_id
 - lgd_expected_recovery_results
@@ -445,7 +569,7 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 - lgd_calculation_method config (ER | CS | WEIGHTED)
 
 **Process:**
-1. Load ER & CS hasil per group
+1. Load ER & CS hasil per group (cached lookup via group_key)
 2. IF config = ER THEN use only ER, lgd = lgd_er
 3. IF config = CS THEN use only CS, lgd = lgd_cs
 4. IF config = WEIGHTED THEN:
@@ -482,6 +606,10 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Purpose:** Calculate CKPN Collective per group: CKPN = EAD × PD × LGD
 
+**Token Efficiency Note:**
+- Load EAD, PD, LGD per group_key dari map yang sudah exist (bukan query ulang DB)
+- Validate ckpn dalam single iteration, hitung total_collective_ckpn sekaligus
+
 **Input:**
 - calculation_run_id
 - collective_groups
@@ -490,7 +618,7 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 - lgd_weighted_results per group
 
 **Process:**
-1. Load EAD, PD, LGD per group_key
+1. Load EAD, PD, LGD per group_key (dari memory map, bukan query DB baru)
 2. Iterate group:
    ```
    ckpn = ead × pd × lgd
@@ -525,6 +653,10 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Purpose:** Calculate CKPN Individual per financing (manual assessment)
 
+**Token Efficiency Note:**
+- Filter INDIVIDUAL financing sekali, gunakan query dengan WHERE classification = 'INDIVIDUAL'
+- Hitung nilai_tercatat, estimasi_recovery, ckpn dalam single pass per financing
+
 **Input:**
 - calculation_run_id
 - financing data dengan classification = INDIVIDUAL
@@ -533,7 +665,7 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 - collateral_valuation data
 
 **Process:**
-1. Filter financing WHERE classification = INDIVIDUAL
+1. Filter financing WHERE classification = INDIVIDUAL (single DB query dengan WHERE clause)
 2. Per financing:
    ```
    nilai_tercatat = outstanding_balance + principal_arrears
@@ -571,6 +703,10 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 ### 12. CkpnConsolidationAgent
 
 **Purpose:** Aggregate CKPN Individual + Collective → Total CKPN
+
+**Token Efficiency Note:**
+- Load total_individual_ckpn dan total_collective_ckpn dari results yang sudah persist
+- Hitung persentase dan status dalam single computation
 
 **Input:**
 - calculation_run_id
@@ -620,6 +756,10 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 ### 13. ReconciliationAgent
 
 **Purpose:** Validasi & reconcile semua intermediate result
+
+**Token Efficiency Note:**
+- Execute semua check dalam single transaction
+- Gunakan aggregate SQL functions untuk hitung sum, count (bukan iterasi di-app)
 
 **Input:**
 - calculation_run_id
@@ -685,6 +825,10 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 **Purpose:** Record semua agent action ke audit trail (immutable log)
 
+**Token Efficiency Note:**
+- Batch log writes jika possible (multiple records per transaction)
+- Hindari per-record INSERT jika batch available
+
 **Input:**
 - agent_name
 - action (CALCULATE, VALIDATE, APPROVE, LOCK)
@@ -723,121 +867,165 @@ Agent adalah autonomous service/job yang menjalankan proses bisnis terstruktur t
 
 ---
 
-## Agent Execution Pipeline
+## Agent Execution Pipeline with Skill Selection
 
+**Otomatis Skill Selection:**
+Setiap prompt dieksekusi, sistem akan secara otomatis memilih skill yang tepat berdasarkan konteks prompt:
+
+```mermaid
+graph TD
+    A[Masukkan Prompt] --> B{Deteksi Konteks}
+    B -->|Validasi data| C[DataValidationAgent]
+    B-->|Calculate EAD| D[EadCalculationAgent]
+    B-->|Classifikasi| E[ClassificationAgent]
+    B-->|Grouping kollektif| F[GroupingAgent]
+    B-->|Calculate PD| G[PdNetFlowAgent / PdMigrationAgent]
+    B-->|Calculate LGD| H[LgdExpectedRecoveryAgent / LgdCollateralShortfallAgent]
+    B-->|Calculate CKPN| I[CkpnCollectiveAgent / CkpnIndividualAgent]
+    B-->|Consolidate| J[CkpnConsolidationAgent]
+    B-->|Reconcile| K[ReconciliationAgent]
+    B-->|Audit Log| L[AuditLogAgent]
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style B fill:#bbf,stroke:#333,stroke-width:2px
 ```
-PHASE 1: Data Preparation
-├── DataValidationAgent
-│   ├── Input: import staging
-│   ├── Output: validated financing, snapshot, collateral
-│   └── Status: VALID | INVALID
-└── → Assessment Period status: VALIDATING
 
-PHASE 2: Core Calculation
-├── EadCalculationAgent
-│   ├── Input: validated financing
-│   ├── Output: ead_snapshot
-│   └── Status: CALCULATED
-├── ClassificationAgent
-│   ├── Input: financing + ead
-│   ├── Output: classification (INDIVIDUAL | COLLECTIVE)
-│   └── Status: CLASSIFIED
-└── → Assessment Period status: CALCULATING
+**Pola Pemilihan Skill:**
 
-PHASE 3: Collective Processing
-├── GroupingAgent
-│   ├── Input: COLLECTIVE financing
-│   ├── Output: collective_groups
-│   └── Status: GROUPED
-├── [PdNetFlowAgent OR PdMigrationAgent]
-│   ├── Input: collective_groups
-│   ├── Output: pd_snapshot
-│   └── Status: PD_CALCULATED
-├── [LgdExpectedRecoveryAgent + LgdCollateralShortfallAgent]
-│   ├── Input: collective_groups
-│   ├── Output: lgd_snapshot (ER + CS)
-│   └── Status: LGD_CALCULATED
-├── LgdWeightedAgent
-│   ├── Input: lgd_er + lgd_cs
-│   ├── Output: lgd_weighted
-│   └── Status: LGD_WEIGHTED
-└── CkpnCollectiveAgent
-    ├── Input: ead, pd, lgd per group
-    ├── Output: ckpn_collective
-    └── Status: COLLECTIVE_CKPN_CALCULATED
+1. **Konteks Validasi** → DataValidationAgent (sangat first, sebelum apa pun)
+2. **Konteks EAD** → EadCalculationAgent (phase 2, butuh data sudah validated)
+3. **Konteks Classifikasi** → ClassificationAgent (phase 2, butuh EAD hasil)
+4. **Konteks Grouping** → GroupingAgent (phase 3, butuh classification COLLECTIVE)
+5. **Konteks PD Net Flow** → PdNetFlowAgent (phase 3, butuh collective groups)
+6. **Konteks PD Migration** → PdMigrationAgent (phase 3, alternative ke Net Flow)
+7. **Konteks LGD Expected Recovery** → LgdExpectedRecoveryAgent (phase 3)
+8. **Konteks LGD Collateral Shortfall** → LgdCollateralShortfallAgent (phase 3)
+9. **Konteks Weighted LGD** → LgdWeightedAgent (phase 3, gabungan ER + CS)
+10. **Konteks CKPN Collective** → CkpnCollectiveAgent (phase 3, butuh EAD+PD+LGD)
+11. **Konteks CKPN Individual** → CkpnIndividualAgent (phase 4, butuh classification INDIVIDUAL)
+12. **Konteks Consolidasi** → CkpnConsolidationAgent (phase 5, butuh individual + collective)
+13. **Konteks Rekonciliasi** → ReconciliationAgent (phase 5, semua hasil)
+14. **Konteks Audit** → AuditLogAgent (continuous, setiap action)
 
-PHASE 4: Individual Processing
-└── CkpnIndividualAgent
-    ├── Input: INDIVIDUAL financing
-    ├── Output: ckpn_individual
-    └── Status: INDIVIDUAL_CKPN_CALCULATED
+**Rule Pemilihan (Priority):**
+- DataValidationAgent → semua agent berikutnya (harus pertama)
+- EadCalculationAgent → ClassificationAgent → GroupingAgent (rangkutan wajib)
+- PdNetFlowAgent Atau PdMigrationAgent (satu-satunya, bercandaing)
+- LgdExpectedRecoveryAgent + LgdCollateralShortfallAgent (bisa paralel)
+- LgdWeightedAgent → CkpnCollectiveAgent (rangkutan wajib)
+- CkpnIndividualAgent bisa jalan paralel dengan CkpnCollectiveAgent
+- CkpnConsolidationAgent → ReconciliationAgent (rangkutan wajib)
 
-PHASE 5: Consolidation & Reconciliation
-├── CkpnConsolidationAgent
-│   ├── Input: individual + collective CKPN
-│   ├── Output: total_ckpn
-│   └── Status: CONSOLIDATED
-├── ReconciliationAgent
-│   ├── Input: all snapshot + result
-│   ├── Output: reconciliation_report
-│   └── Status: PASS | FAIL | WARNING
-└── → Assessment Period status: REVIEW | CALCULATING (if fail)
+---
 
-PHASE 6: Audit & Approval
-└── AuditLogAgent (continuous per action)
-    ├── Log: all agent action, status
-    └── → Assessment Period status: APPROVED → LOCKED
+## Agent Configuration Table (Updated)
+
+```agent_configurations:
+  id, agent_name, is_enabled, execution_order, retry_count, timeout_seconds,
+  parallelizable (BOOLEAN), depends_on_agent, skill_priority, created_at, updated_at
+
+Example:
+  DataValidationAgent, true, 1, 3, 300, false, null, 1.0  ; skill_priority: 1.0 (highest, must run first)
+  EadCalculationAgent, true, 2, 1, 600, true, DataValidationAgent, 2.0
+  ClassificationAgent, true, 3, 1, 300, true, EadCalculationAgent, 3.0
+  GroupingAgent, true, 4, 1, 300, true, ClassificationAgent, 4.0
+  PdNetFlowAgent, true, 5, 1, 1800, false, GroupingAgent, 5.0  ; alternative: PdMigrationAgent skill_priority: 5.1
+  PdMigrationAgent, true, 5, 1, 1800, false, GroupingAgent, 5.1  ; alternative: PdNetFlowAgent skill_priority: 5.0
+  LgdExpectedRecoveryAgent, true, 6, 1, 1800, false, GroupingAgent, 6.0
+  LgdCollateralShortfallAgent, true, 6, 1, 1800, false, GroupingAgent, 6.1  ; alternative/parallel
+  LgdWeightedAgent, true, 7, 1, 300, true, (LgdER + LgdCS), 7.0
+  CkpnCollectiveAgent, true, 8, 1, 600, true, (Lgd + PD + Grouping), 8.0
+  CkpnIndividualAgent, true, 8, 1, 600, true, ClassificationAgent, 8.1  ; parallel dengan CkpnCollective
+  CkpnConsolidationAgent, true, 9, 1, 300, false, (Individual + Collective), 9.0
+  ReconciliationAgent, true, 10, 1, 600, false, CkpnConsolidation, 10.0
+  AuditLogAgent, true, 11, 0, 60, true, null, 11.0  ; continuous, skill_priority tinggi
 ```
 
 ---
 
-## Configuration & Extensibility
+## Parallelization Rules (Updated)
 
-### Agent Configuration Table
+**Can run in parallel (independent inputs):**
+- PdNetFlowAgent + LgdExpectedRecoveryAgent (input berbeda, output mandiri)
+- LgdExpectedRecoveryAgent + LgdCollateralShortfallAgent (input berbeda, output mandiri)
+- CkpnIndividualAgent + CkpnCollectiveAgent (input berbeda: INDIVIDUAL vs COLLECTIVE)
 
+**Must run sequentially (dependency chain):**
+- DataValidationAgent → all subsequent (butuh data yang sudah divalidasi)
+- EadCalculationAgent → ClassificationAgent → GroupingAgent (rangkutan ketergantangan)
+- PdNetFlowAgent/MigrationAgent (satu-satunya, bukan keduanya) → LgdWeightedAgent
+- LgdWeightedAgent → CkpnCollectiveAgent (butuh LGD yang sudah dihitung)
+
+---
+
+## Skill Selection Automation
+
+**Sistem otomatis memilih skill berdasarkan prompt:**
+
+```php
+// Pseudo-code untuk otomated skill selection
+function selectSkill(string $prompt): string {
+    $promptLower = strtolower($prompt);
+    
+    // Keyword detection untuk skill matching
+    if (preg_match('/(validasi|normalize|input staging)/i', $promptLower)) {
+        return 'DataValidationAgent';
+    }
+    if (preg_match('/(ead.*calculate|exposure at default|per akad)/i', $promptLower)) {
+        return 'EadCalculationAgent';
+    }
+    if (preg_classification|individu|kollektif)/i', $promptLower)) {
+        return 'ClassificationAgent';
+    }
+    if (preg_grouping|3 dimensi|office_product_usage)/i', $promptLower)) {
+        return 'GroupingAgent';
+    }
+    if (preg_pd.*net.flow|transition.matrix)/i', $promptLower)) {
+        return 'PdNetFlowAgent';
+    }
+    if (preg_pd.*migration|rating.migration)/i', $promptLower)) {
+        return 'PdMigrationAgent';
+    }
+    if (preg_lgd.*expected|recovery.rate)/i', $promptLower)) {
+        return 'LgdExpectedRecoveryAgent';
+    }
+    if (preg_lgd.*collateral|shortfall)/i', $promptLower)) {
+        return 'LgdCollateralShortfallAgent';
+    }
+    if (preg_lgd.*weighted|ER.*CS)/i', $promptLower)) {
+        return 'LgdWeightedAgent';
+    }
+    if (preg_ckpn.*collective|ead.*pd.*lgd)/i', $promptLower)) {
+        return 'CkpnCollectiveAgent';
+    }
+    if (preg_ckpn.*individual|manual.*assessment)/i', $promptLower)) {
+        return 'CkpnIndividualAgent';
+    }
+    if (preg_consolidation|total.*individual.*+.*collective)/i', $promptLower)) {
+        return 'CkpnConsolidationAgent';
+    }
+    if (preg_reconciliation|validate.*result|check.*6)/i', $promptLower)) {
+        return 'ReconciliationAgent';
+    }
+    if (preg_audit|log.*action|audit.trail)/i', $promptLower)) {
+        return 'AuditLogAgent';
+    }
+    
+    // Default fallback
+    return 'DataValidationAgent';
+}
 ```
-agent_configurations:
-  id, agent_name, is_enabled, execution_order, retry_count, timeout_seconds,
-  parallelizable (BOOLEAN), depends_on_agent, created_at, updated_at
 
-Example:
-  DataValidationAgent, true, 1, 3, 300, false, null
-  EadCalculationAgent, true, 2, 1, 600, true, DataValidationAgent
-  ClassificationAgent, true, 3, 1, 300, true, EadCalculationAgent
-  GroupingAgent, true, 4, 1, 300, true, ClassificationAgent
-  PdNetFlowAgent, true, 5, 1, 1800, false, GroupingAgent
-  PdMigrationAgent, true, 5, 1, 1800, false, GroupingAgent (alternative)
-  LgdExpectedRecoveryAgent, true, 6, 1, 1800, false, GroupingAgent
-  LgdCollateralShortfallAgent, true, 6, 1, 1800, false, GroupingAgent
-  LgdWeightedAgent, true, 7, 1, 300, true, (LgdER + LgdCS)
-  CkpnCollectiveAgent, true, 8, 1, 600, true, (Lgd + PD + Grouping)
-  CkpnIndividualAgent, true, 8, 1, 600, true, ClassificationAgent
-  CkpnConsolidationAgent, true, 9, 1, 300, false, (Individual + Collective)
-  ReconciliationAgent, true, 10, 1, 600, false, CkpnConsolidation
-  AuditLogAgent, true, 11, 0, 60, true, null (continuous)
-```
-
-### Parallelization Rules
-
-**Can run in parallel:**
-- PdNetFlowAgent + LgdExpectedRecoveryAgent (independent input)
-- LgdExpectedRecoveryAgent + LgdCollateralShortfallAgent (independent input)
-- CkpnIndividualAgent + CkpnCollectiveAgent (independent input)
-
-**Must run sequentially:**
-- DataValidationAgent → all subsequent (depends on validated data)
-- EadCalculationAgent → ClassificationAgent → GroupingAgent (sequential dependency)
-- PdNetFlowAgent/MigrationAgent (one or other, not both) → LgdWeightedAgent
-- LgdWeightedAgent → CkpnCollectiveAgent
+**Catatan:** Sistem akan mencocokkan keyword dari prompt dengan daftar di atas dan mengeksekusi agent yang sesuai. Jika tidak ada yang cocok, default ke DataValidationAgent dan minta klarifikasi dari user.
 
 ---
 
 ## Sign-off
 
-**Prepared by:** AI Assistant / Kiro  
-**Date:** 2026-09-30  
-**Status:** APPROVED – Ready for Development
+**Prepared by:** AI Assistant / Kiro
+**Date:** 2026-10-22
+**Status:** APPROVED – Ready for Development dengan Enhancement Token & Skill Selection
 
-**Review by:** [Technical Lead]  
-**Signature:** ___________________  
+**Review by:** [Technical Lead]
+**Signature:** ___________________
 **Date:** _______________

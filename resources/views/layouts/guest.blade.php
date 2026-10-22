@@ -46,7 +46,7 @@
                     <div class="mb-8 flex justify-center">
                         <div class="relative">
                             <div class="absolute inset-0 bg-white opacity-20 rounded-3xl blur-2xl"></div>
-                            <div class="relative bg-white bg-opacity-10 backdrop-blur-xl rounded-3xl p-6 border border-white border-opacity-20">
+                            <div class="relative bg-white/10 backdrop-blur-xl rounded-3xl p-6 border border-white/20">
                                 <svg class="h-24 w-24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                                 </svg>
@@ -61,25 +61,25 @@
                     <!-- Features List -->
                     <div class="space-y-4 mt-12 text-left">
                         <div class="flex items-center gap-3 group">
-                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-white bg-opacity-20 flex items-center justify-center group-hover:bg-opacity-30 transition">
+                            <div class="shrink-0 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition">
                                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/></svg>
                             </div>
                             <span class="text-sm">PSAK 414 Compliant Calculation</span>
                         </div>
                         <div class="flex items-center gap-3 group">
-                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-white bg-opacity-20 flex items-center justify-center group-hover:bg-opacity-30 transition">
+                            <div class="shrink-0 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition">
                                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/></svg>
                             </div>
                             <span class="text-sm">Real-time Analytics & Reporting</span>
                         </div>
                         <div class="flex items-center gap-3 group">
-                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-white bg-opacity-20 flex items-center justify-center group-hover:bg-opacity-30 transition">
+                            <div class="shrink-0 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition">
                                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/></svg>
                             </div>
                             <span class="text-sm">Bulk Upload with SSE Streaming</span>
                         </div>
                         <div class="flex items-center gap-3 group">
-                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-white bg-opacity-20 flex items-center justify-center group-hover:bg-opacity-30 transition">
+                            <div class="shrink-0 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition">
                                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/></svg>
                             </div>
                             <span class="text-sm">Dual PD & LGD Calculation Methods</span>
@@ -87,7 +87,7 @@
                     </div>
 
                     <!-- Footer Text -->
-                    <div class="mt-16 pt-8 border-t border-white border-opacity-20">
+                    <div class="mt-16 pt-8 border-t border-white/20">
                         <p class="text-sm text-blue-200">Trusted by BPRS institutions for credit risk assessment</p>
                     </div>
                 </div>

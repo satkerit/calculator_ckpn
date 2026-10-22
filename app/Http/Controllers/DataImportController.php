@@ -37,7 +37,7 @@ class DataImportController extends Controller
      */
     public function uploadSnapshot(Request $request): StreamedResponse
     {
-        $request->validate(['file' => 'required|file|mimes:csv,txt,xlsx,xls']);
+        $request->validate(['file' => 'required|file|mimes:csv,txt,xlsx,xls|max:51200']);
 
         $file = $request->file('file');
         $extension = strtolower($file->getClientOriginalExtension());
@@ -409,7 +409,7 @@ class DataImportController extends Controller
      */
     private function streamImport(Request $request, array $fields, \Closure $batchUpsert): StreamedResponse
     {
-        $request->validate(['file' => 'required|file|mimes:csv,txt,xlsx,xls']);
+        $request->validate(['file' => 'required|file|mimes:csv,txt,xlsx,xls|max:20480']);
 
         $file = $request->file('file');
         $extension = strtolower($file->getClientOriginalExtension());

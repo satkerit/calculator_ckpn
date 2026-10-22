@@ -21,11 +21,25 @@ class Role extends Model
 
     public function hasPermission(string $permissionName): bool
     {
-        return $this->permissions()->where('name', $permissionName)->exists();
+        return in_array($permissionName, $this->permissionNames(), true);
     }
 
     public function hasAnyPermission(array $permissionNames): bool
     {
-        return $this->permissions()->whereIn('name', $permissionNames)->exists();
+        return (bool) array_intersect($permissionNames, $this->permissionNames());
+    }
+
+    /** Sekali query per role per request; dipakai middleware CheckPermission. */
+    private function permissionNames(): array
+    {
+        static $cache = [];
+
+        $key = $this->getKey();
+
+        if (! isset($cache[$key])) {
+            $cache[$key] = $this->permissions()->pluck('name')->all();
+        }
+
+        return $cache[$key];
     }
 }

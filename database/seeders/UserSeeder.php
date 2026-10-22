@@ -10,11 +10,15 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
+        $defaultPassword = config('app.env') === 'production'
+            ? str()->random(32)
+            : env('SEEDER_DEFAULT_PASSWORD', 'password');
+
         User::firstOrCreate(
             ['email' => 'admin@bprs.local'],
             [
                 'name' => 'Admin BPRS',
-                'password' => Hash::make('password'),
+                'password' => Hash::make($defaultPassword),
                 'email_verified_at' => now(),
             ]
         );
@@ -23,7 +27,7 @@ class UserSeeder extends Seeder
             ['email' => 'analyst@bprs.local'],
             [
                 'name' => 'Credit Analyst',
-                'password' => Hash::make('password'),
+                'password' => Hash::make($defaultPassword),
                 'email_verified_at' => now(),
             ]
         );

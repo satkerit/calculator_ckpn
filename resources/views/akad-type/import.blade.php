@@ -204,9 +204,12 @@ uploadForm.addEventListener('submit', async (e) => {
 
                     if (data.errors && data.errors.length > 0) {
                         errorLog.classList.remove('hidden');
-                        errorList.innerHTML = data.errors.slice(0, 10).map(e => 
-                            `<div class="p-2 bg-red-100 rounded">Row ${e.row}: ${e.error}</div>`
-                        ).join('');
+                        errorList.innerHTML = data.errors.slice(0, 10).map(e => {
+                            const div = document.createElement('div');
+                            div.className = 'p-2 bg-red-100 rounded';
+                            div.textContent = `Row ${e.row}: ${e.error}`;
+                            return div.outerHTML;
+                        }).join('');
                     }
 
                     successMessage.classList.remove('hidden');

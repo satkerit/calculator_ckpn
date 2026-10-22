@@ -26,6 +26,7 @@ use App\Http\Controllers\Calculation\DetailPdEadController;
 use App\Http\Controllers\Calculation\DetailCkpnController;
 use App\Http\Controllers\Calculation\CkpnDetailController;
 use App\Http\Controllers\Export\CalculationExportController;
+use App\Http\Controllers\Export\FullCkpnExportController;
 use App\Http\Controllers\BucketConfigurationController;
 
 Route::get('/', function () {
@@ -41,44 +42,77 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/assessment-bulk-destroy', [AssessmentPeriodController::class, 'bulkDestroy'])->name('assessment.bulk-destroy');
 
     // Offices
-    Route::resource('office', OfficeController::class);
+    Route::resource('office', OfficeController::class)->middleware('permission:office.view');
     Route::delete('/office-bulk-destroy', [OfficeController::class, 'bulkDestroy'])
         ->middleware('permission:office.bulk-delete')->name('office.bulk-destroy');
 
     // Collateral & Collateral Setup
-    Route::resource('collateral', CollateralController::class);
+    Route::resource('collateral', CollateralController::class)->middleware('permission:collateral.view');
     Route::delete('/collateral-bulk-destroy', [CollateralController::class, 'bulkDestroy'])
         ->middleware('permission:collateral.bulk-delete')->name('collateral.bulk-destroy');
-    Route::resource('collateral-setup', CollateralSetupController::class);
-    Route::delete('/collateral-setup-bulk-destroy', [CollateralSetupController::class, 'bulkDestroy'])->name('collateral-setup.bulk-destroy');
+    Route::resource('collateral-setup', CollateralSetupController::class)->middleware('permission:collateral.view');
+    Route::delete('/collateral-setup-bulk-destroy', [CollateralSetupController::class, 'bulkDestroy'])
+        ->middleware('permission:collateral.delete')->name('collateral-setup.bulk-destroy');
 
     // Snapshot History
     Route::get('/snapshot-history', [SnapshotHistoryController::class, 'index'])->name('snapshot-history.index');
     Route::get('/snapshot-history/{id}', [SnapshotHistoryController::class, 'show'])->name('snapshot-history.show');
     Route::post('/snapshot-history/export', [SnapshotHistoryController::class, 'export'])->name('snapshot-history.export');
 
-    // User Management Routes
-    Route::resource('user', UserController::class);
-    Route::delete('/user-bulk-destroy', [UserController::class, 'bulkDestroy'])->name('user.bulk-destroy');
+    // User Management Routes (read = user.view, tulis per-aksi)
+    Route::get('/user', [UserController::class, 'index'])->middleware('permission:user.view')->name('user.index');
+    Route::get('/user/{user}', [UserController::class, 'show'])->middleware('permission:user.view')->name('user.show');
+    Route::middleware('permission:user.create')->group(function () {
+        Route::get('/user/create', [UserController::class, 'create'])->name('user.create');
+        Route::post('/user', [UserController::class, 'store'])->name('user.store');
+    });
+    Route::middleware('permission:user.edit')->group(function () {
+        Route::get('/user/{user}/edit', [UserController::class, 'edit'])->name('user.edit');
+        Route::put('/user/{user}', [UserController::class, 'update'])->name('user.update');
+    });
+    Route::delete('/user/{user}', [UserController::class, 'destroy'])
+        ->middleware('permission:user.delete')->name('user.destroy');
+    Route::delete('/user-bulk-destroy', [UserController::class, 'bulkDestroy'])
+        ->middleware('permission:user.delete')->name('user.bulk-destroy');
 
-    // Role Management Routes
-    Route::resource('role', RoleController::class);
-    Route::delete('/role-bulk-destroy', [RoleController::class, 'bulkDestroy'])->name('role.bulk-destroy');
+    // Role Management Routes (read = role.view, tulis per-aksi)
+    Route::get('/role', [RoleController::class, 'index'])->middleware('permission:role.view')->name('role.index');
+    Route::get('/role/{role}', [RoleController::class, 'show'])->middleware('permission:role.view')->name('role.show');
+    Route::middleware('permission:role.create')->group(function () {
+        Route::get('/role/create', [RoleController::class, 'create'])->name('role.create');
+        Route::post('/role', [RoleController::class, 'store'])->name('role.store');
+    });
+    Route::middleware('permission:role.edit')->group(function () {
+        Route::get('/role/{role}/edit', [RoleController::class, 'edit'])->name('role.edit');
+        Route::put('/role/{role}', [RoleController::class, 'update'])->name('role.update');
+    });
+    Route::delete('/role/{role}', [RoleController::class, 'destroy'])
+        ->middleware('permission:role.delete')->name('role.destroy');
+    Route::delete('/role-bulk-destroy', [RoleController::class, 'bulkDestroy'])
+        ->middleware('permission:role.delete')->name('role.bulk-destroy');
 
     // Akad Type
-    Route::resource('akad-type', AkadTypeController::class);
-    Route::delete('/akad-type-bulk-destroy', [AkadTypeController::class, 'bulkDestroy'])->name('akad-type.bulk-destroy');
-    Route::post('/akad-type-bulk-store', [AkadTypeController::class, 'bulkStore'])->name('akad-type.bulk-store');
-    Route::put('/akad-type-bulk-update', [AkadTypeController::class, 'bulkUpdate'])->name('akad-type.bulk-update');
-    Route::get('/import/akad-type', [AkadTypeController::class, 'importForm'])->name('import.akad-type.form');
-    Route::post('/import/akad-type', [AkadTypeController::class, 'uploadImport'])->name('import.akad-type.upload');
+    Route::resource('akad-type', AkadTypeController::class)->middleware('permission:financing.view');
+    Route::delete('/akad-type-bulk-destroy', [AkadTypeController::class, 'bulkDestroy'])
+        ->middleware('permission:financing.delete')->name('akad-type.bulk-destroy');
+    Route::post('/akad-type-bulk-store', [AkadTypeController::class, 'bulkStore'])
+        ->middleware('permission:financing.create')->name('akad-type.bulk-store');
+    Route::put('/akad-type-bulk-update', [AkadTypeController::class, 'bulkUpdate'])
+        ->middleware('permission:financing.edit')->name('akad-type.bulk-update');
+    Route::get('/import/akad-type', [AkadTypeController::class, 'importForm'])
+        ->middleware('permission:financing.import')->name('import.akad-type.form');
+    Route::post('/import/akad-type', [AkadTypeController::class, 'uploadImport'])
+        ->middleware('permission:financing.import')->name('import.akad-type.upload');
 
     // Product Akad Mapping
-    Route::resource('product-akad', ProductAkadMappingController::class);
-    Route::delete('/product-akad-bulk-destroy', [ProductAkadMappingController::class, 'bulkDestroy'])->name('product-akad.bulk-destroy');
+    Route::resource('product-akad', ProductAkadMappingController::class)->middleware('permission:financing.view');
+    Route::delete('/product-akad-bulk-destroy', [ProductAkadMappingController::class, 'bulkDestroy'])
+        ->middleware('permission:financing.delete')->name('product-akad.bulk-destroy');
     Route::get('/api/product-akad/resolve', [ProductAkadMappingController::class, 'resolve'])->name('product-akad.resolve');
-    Route::get('/import/product-akad', [ProductAkadMappingController::class, 'importForm'])->name('import.product-akad.form');
-    Route::post('/import/product-akad', [ProductAkadMappingController::class, 'uploadImport'])->name('import.product-akad.upload');
+    Route::get('/import/product-akad', [ProductAkadMappingController::class, 'importForm'])
+        ->middleware('permission:financing.import')->name('import.product-akad.form');
+    Route::post('/import/product-akad', [ProductAkadMappingController::class, 'uploadImport'])
+        ->middleware('permission:financing.import')->name('import.product-akad.upload');
 
     // CKPN Calculation — 8 Modul
     // Polling progress realtime untuk proses kalkulasi berat (dipakai global).
@@ -132,20 +166,29 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Bucket Configuration Routes
-    Route::resource('bucket', BucketConfigurationController::class);
-    Route::post('bucket/{bucket}/restore', [BucketConfigurationController::class, 'restore'])->name('bucket.restore');
-    Route::delete('bucket-bulk-destroy', [BucketConfigurationController::class, 'bulkDestroy'])->name('bucket.bulk-destroy');
-    Route::post('bucket-bulk-restore', [BucketConfigurationController::class, 'bulkRestore'])->name('bucket.bulk-restore');
+    Route::resource('bucket', BucketConfigurationController::class)->middleware('permission:calculation.view');
+    Route::post('bucket/{bucket}/restore', [BucketConfigurationController::class, 'restore'])
+        ->middleware('permission:calculation.run')->name('bucket.restore');
+    Route::delete('bucket-bulk-destroy', [BucketConfigurationController::class, 'bulkDestroy'])
+        ->middleware('permission:calculation.run')->name('bucket.bulk-destroy');
+    Route::post('bucket-bulk-restore', [BucketConfigurationController::class, 'bulkRestore'])
+        ->middleware('permission:calculation.run')->name('bucket.bulk-restore');
 
     // Tampilan hasil CKPN per komponen (Individual & Kolektif)
     Route::prefix('calculation/ckpn')->name('calculation.ckpn.')->group(function () {
-        Route::get('/individual', [CkpnDetailController::class, 'individual'])->name('individual');
-        Route::get('/collective', [CkpnDetailController::class, 'collective'])->name('collective');
+        Route::get('/individual', [CkpnDetailController::class, 'individual'])
+            ->middleware('permission:calculation.view')->name('individual');
+        Route::get('/collective', [CkpnDetailController::class, 'collective'])
+            ->middleware('permission:calculation.view')->name('collective');
     });
 
-    // Export XLSX per modul + Backtest Bundle
+    // Export XLSX per modul + Backtest Bundle + Full Multi-Sheet Workbook
     // Literal segments first agar tidak match oleh `{module}/{assessmentPeriod}`
-    Route::prefix('calculation/export')->name('calculation.export.')->group(function () {
+    Route::prefix('calculation/export')->name('calculation.export.')
+        ->middleware(['permission:reporting.export', 'throttle:20,1'])
+        ->group(function () {
+        Route::get('/full/{assessmentPeriod}', [FullCkpnExportController::class, 'export'])->name('full.period');
+        Route::get('/full', [FullCkpnExportController::class, 'export'])->name('full');
         Route::get('/pd-netflow-backtest/{assessmentPeriod}', [CalculationExportController::class, 'pdNetflowBacktest'])->name('pd_netflow_backtest.period');
         Route::get('/pd-migration-matrix/{assessmentPeriod}', [CalculationExportController::class, 'pdMigrationMatrixDetail'])->name('pd_migration_matrix.period');
         Route::get('/{module}/{assessmentPeriod}', [CalculationExportController::class, 'module'])->name('module.period');
@@ -155,20 +198,30 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Reporting Routes
-    Route::get('/reporting/ckpn-summary', [ReportingController::class, 'ckpnSummary'])->name('reporting.ckpn-summary');
-    Route::get('/reporting/risk-matrix', [ReportingController::class, 'riskMatrix'])->name('reporting.risk-matrix');
-    Route::get('/reporting/aging-analysis', [ReportingController::class, 'agingAnalysis'])->name('reporting.aging-analysis');
-    Route::get('/reporting/export/{type}', [ReportingController::class, 'exportReport'])->name('reporting.export-report');
+    Route::get('/reporting/ckpn-summary', [ReportingController::class, 'ckpnSummary'])
+        ->middleware('permission:reporting.view')->name('reporting.ckpn-summary');
+    Route::get('/reporting/risk-matrix', [ReportingController::class, 'riskMatrix'])
+        ->middleware('permission:reporting.view')->name('reporting.risk-matrix');
+    Route::get('/reporting/aging-analysis', [ReportingController::class, 'agingAnalysis'])
+        ->middleware('permission:reporting.view')->name('reporting.aging-analysis');
+    Route::get('/reporting/export/{type}', [ReportingController::class, 'exportReport'])
+        ->middleware(['permission:reporting.export', 'throttle:20,1'])->name('reporting.export-report');
 
     // Data Import
-    Route::get('/import/snapshot', [DataImportController::class, 'snapshotImportForm'])->name('import.snapshot.form');
-    Route::post('/import/snapshot', [DataImportController::class, 'uploadSnapshot'])->name('import.snapshot.upload');
-    Route::get('/import/collateral', [DataImportController::class, 'collateralImportForm'])->name('import.collateral.form');
-    Route::post('/import/collateral', [DataImportController::class, 'uploadCollateral'])->name('import.collateral.upload');
-    Route::get('/import/office', [DataImportController::class, 'officeImportForm'])->name('import.office.form');
-    Route::post('/import/office', [DataImportController::class, 'uploadOffice'])->name('import.office.upload');
-    Route::get('/import/collateral-setup', [DataImportController::class, 'collateralSetupImportForm'])->name('import.collateral_setup.form');
-    Route::post('/import/collateral-setup', [DataImportController::class, 'uploadCollateralSetup'])->name('import.collateral_setup.upload');
+    Route::middleware('permission:financing.import')->group(function () {
+        Route::get('/import/snapshot', [DataImportController::class, 'snapshotImportForm'])->name('import.snapshot.form');
+        Route::post('/import/snapshot', [DataImportController::class, 'uploadSnapshot'])
+            ->middleware('throttle:10,1')->name('import.snapshot.upload');
+        Route::get('/import/collateral', [DataImportController::class, 'collateralImportForm'])->name('import.collateral.form');
+        Route::post('/import/collateral', [DataImportController::class, 'uploadCollateral'])
+            ->middleware('throttle:10,1')->name('import.collateral.upload');
+        Route::get('/import/office', [DataImportController::class, 'officeImportForm'])->name('import.office.form');
+        Route::post('/import/office', [DataImportController::class, 'uploadOffice'])
+            ->middleware('throttle:10,1')->name('import.office.upload');
+        Route::get('/import/collateral-setup', [DataImportController::class, 'collateralSetupImportForm'])->name('import.collateral_setup.form');
+        Route::post('/import/collateral-setup', [DataImportController::class, 'uploadCollateralSetup'])
+            ->middleware('throttle:10,1')->name('import.collateral_setup.upload');
+    });
     Route::get('/template/download/{type}', [DataImportController::class, 'downloadTemplate'])->name('template.download');
 });
 

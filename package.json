@@ -14,14 +14,8 @@
         "concurrently": "^10.0.3",
         "laravel-vite-plugin": "^3.1",
         "postcss": "^8.4.31",
-        "tailwindcss": "^3.1.0",
+        "tailwindcss": "^4.3.3",
         "terser": "^5.51.2",
         "vite": "^8.0.0"
-    },
-    "optionalDependencies": {
-        "@laravel/multiplex": "^0.4.1"
-    },
-    "dependencies": {
-        "headroom-ai": "^0.39.1"
     }
 }

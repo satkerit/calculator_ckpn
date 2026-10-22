@@ -96,6 +96,31 @@ class RolePermissionSeeder extends Seeder
         );
         $analystRole->permissions()->sync($analystPerms);
 
+        // Operational roles: MAKER, CHECKER, APPROVER, AUDITOR
+        // Semua harus dapat melihat hasil perhitungan & meng-export untuk backtesting/audit.
+        $operationalPerms = Permission::whereIn('name', [
+            'financing.view',
+            'collateral.view',
+            'office.view',
+            'calculation.view',
+            'reporting.view', 'reporting.export',
+        ])->pluck('id');
+
+        $operationalRoles = [
+            ['kode_role' => 'MAKER', 'nama_role' => 'Maker', 'deskripsi' => 'Input and prepare data'],
+            ['kode_role' => 'CHECKER', 'nama_role' => 'Checker', 'deskripsi' => 'Verify data and calculations'],
+            ['kode_role' => 'APPROVER', 'nama_role' => 'Approver', 'deskripsi' => 'Approve final CKPN'],
+            ['kode_role' => 'AUDITOR', 'nama_role' => 'Auditor', 'deskripsi' => 'Read-only audit and backtesting'],
+        ];
+
+        foreach ($operationalRoles as $roleDef) {
+            $role = Role::updateOrCreate(
+                ['kode_role' => $roleDef['kode_role']],
+                ['nama_role' => $roleDef['nama_role'], 'deskripsi' => $roleDef['deskripsi'], 'active' => true]
+            );
+            $role->permissions()->syncWithoutDetaching($operationalPerms);
+        }
+
         // Viewer role
         $viewerPerms = Permission::whereIn('name', [
             'financing.view', 'collateral.view', 'office.view',

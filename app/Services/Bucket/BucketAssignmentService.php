@@ -88,19 +88,24 @@ class BucketAssignmentService
 
         // Write-off/hapus buku → bucket terakhir (>360), apa pun DPD-nya.
         // Mencakup pembiayaan aktif ber-DPD > 360 maupun WO pada periode tsb.
+        // Nilai bucket bersumber dari tabel konfigurasi (bukan input user),
+        // tetap di-cast int sebagai defense-in-depth sebelum interpolasi SQL.
         $caseWhen = "CASE WHEN write_off_flag = 1 THEN {$lastBucketNo}";
 
         foreach ($buckets as $bucket) {
             $bucketNo = (int) $bucket->urutan;
-            if ($bucket->hari_min == 0 && $bucket->hari_max == 0) {
+            $hariMin = (int) $bucket->hari_min;
+            $hariMax = $bucket->hari_max === null ? null : (int) $bucket->hari_max;
+
+            if ($hariMin == 0 && $hariMax == 0) {
                 // Bucket lancar (0 hari)
                 $caseWhen .= " WHEN days_past_due <= 0 THEN {$bucketNo}";
-            } elseif ($bucket->hari_max === null || (int) $bucket->hari_max >= 99999) {
+            } elseif ($hariMax === null || $hariMax >= 99999) {
                 // Bucket tanpa batas atas
-                $caseWhen .= " WHEN days_past_due >= {$bucket->hari_min} THEN {$bucketNo}";
+                $caseWhen .= " WHEN days_past_due >= {$hariMin} THEN {$bucketNo}";
             } else {
                 // Bucket dengan range hari
-                $caseWhen .= " WHEN days_past_due BETWEEN {$bucket->hari_min} AND {$bucket->hari_max} THEN {$bucketNo}";
+                $caseWhen .= " WHEN days_past_due BETWEEN {$hariMin} AND {$hariMax} THEN {$bucketNo}";
             }
         }
 

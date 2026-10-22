@@ -168,7 +168,10 @@ function addLog(message, type = 'info') {
     
     const logEntry = document.createElement('div');
     logEntry.className = `${colors[type]} py-1`;
-    logEntry.innerHTML = `<span class="text-gray-500">[${timestamp}]</span> ${icons[type]} ${message}`;
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'text-gray-500';
+    timeSpan.textContent = `[${timestamp}]`;
+    logEntry.append(timeSpan, ` ${icons[type]} ${message}`);
     logContainer.appendChild(logEntry);
     logContainer.scrollTop = logContainer.scrollHeight;
 }
@@ -242,7 +245,10 @@ uploadForm.addEventListener('submit', async (e) => {
         const response = await fetch('{{ route("import.snapshot.upload") }}', {
             method: 'POST',
             body: formData,
-            headers: { 'Accept': 'text/event-stream' },
+            headers: {
+                'Accept': 'text/event-stream',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+            },
             signal: abortController.signal,
         });
 

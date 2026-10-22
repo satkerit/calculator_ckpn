@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'CKPN Calculator BPRS')</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha256-DiMmxoaAcr7BWSdgxnKQQ8ruopYKK0bO5qIZKqxqv/A=" crossorigin="anonymous"></script>
     <style>
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
         .sidebar-nav.active { background-color: #eff6ff; color: #2563eb; border-left: 4px solid #2563eb; }
@@ -91,6 +92,7 @@
                                 <li><a href="{{ route('calculation.ckpn.individual') }}" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors {{ request()->routeIs('calculation.ckpn.individual') ? 'bg-blue-50 text-blue-600 font-semibold' : '' }}">CKPN Individual</a></li>
                                 <li><a href="{{ route('calculation.ckpn.collective') }}" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors {{ request()->routeIs('calculation.ckpn.collective') ? 'bg-blue-50 text-blue-600 font-semibold' : '' }}">CKPN Kolektif</a></li>
                                 <li class="pt-1 border-t border-gray-100"><a href="{{ route('calculation.export.backtest') }}" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-700 hover:bg-blue-50 transition-colors">⬇ Backtest Bundle (XLSX)</a></li>
+                                <li><a href="{{ route('calculation.export.full') }}" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors">⬇ Laporan Lengkap Audit (9 Sheet)</a></li>
                             </ul>
                         </li>
                         <li class="ml-4">

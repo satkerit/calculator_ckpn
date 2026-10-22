@@ -93,10 +93,15 @@
         if (pct) pct.textContent = '0%';
     }
 
+    // Escape karakter HTML agar aman disisipkan ke innerHTML.
+    // PENTING: div.innerHTML hanya meng-escape `&` dan `<`, sehingga `>` dan `"` tetap lolos.
     function escapeHtml(str) {
-        const div = document.createElement('div');
-        div.textContent = String(str == null ? '' : str);
-        return div.innerHTML;
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     // Hentikan animasi + tampilkan pesan error (dipakai global, termasuk modul kalkulasi).

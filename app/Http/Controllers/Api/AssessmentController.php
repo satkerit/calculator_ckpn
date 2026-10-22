@@ -35,7 +35,7 @@ class AssessmentController extends Controller
 
         $assessmentPeriod = AssessmentPeriod::create([
             ...$validated,
-            'created_by' => auth()->id() ?? 1,
+            'created_by' => $request->user()->id,
             'status' => 'PENDING',
         ]);
 

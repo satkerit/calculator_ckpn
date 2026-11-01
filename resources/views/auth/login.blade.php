@@ -80,8 +80,8 @@
             </div>
             
             <!-- ===== Right Panel: Form ===== -->
-            <div class="animate-slide-right flex flex-col justify-center">
-                <div class="bg-white rounded-2xl shadow-2xl shadow-black/40 p-8 sm:p-10">
+            <div class="flex flex-col justify-center">
+                <div class="bg-white rounded-xl shadow-lg p-8 sm:p-10">
                     <!-- Header -->
                     <div class="mb-8">
                         <h3 class="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">Selamat Datang</h3>
@@ -96,7 +96,7 @@
                         @csrf
 
                         <!-- Email Field -->
-                        <div class="animate-fade" style="animation-delay: 0.1s">
+                        <div>
                             <label for="email" class="block text-sm font-semibold text-slate-900 mb-3">Alamat Email</label>
                             <div class="relative group">
                                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-emerald-500 transition-colors">
@@ -122,7 +122,7 @@
                         </div>
 
                         <!-- Password Field -->
-                        <div class="animate-fade" style="animation-delay: 0.2s">
+                        <div>
                             <label for="password" class="block text-sm font-semibold text-slate-900 mb-3">Kata Sandi</label>
                             <div class="relative group">
                                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-emerald-500 transition-colors">
@@ -156,7 +156,7 @@
                         </div>
 
                         <!-- Remember & Forgot -->
-                        <div class="flex items-center justify-between gap-3 animate-fade" style="animation-delay: 0.3s">
+                        <div class="flex items-center justify-between gap-3">
                             <label for="remember_me" class="flex items-center gap-2 cursor-pointer group">
                                 <input
                                     id="remember_me"
@@ -187,10 +187,10 @@
 
                     <!-- Demo Box -->
                     @if (app()->isLocal())
-                        <div class="mt-8 p-4 rounded-lg bg-emerald-50 border border-emerald-200 animate-fade" style="animation-delay: 0.5s">
+                        <div class="mt-8 p-4 rounded-lg bg-emerald-50 border border-emerald-200">
                             <p class="flex items-center gap-2 text-xs font-semibold text-emerald-900 mb-3">
                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zm-11-1a1 1 0 11-2 0 1 1 0 012 0z" clip-rule="evenodd" /></svg>
-                                Demo Credentials
+                                Kredensial Demo
                             </p>
                             <div class="space-y-2 text-xs text-emerald-800">
                                 <p><span class="font-medium">Admin:</span> <code class="font-mono bg-white px-2 py-1 rounded">admin@bprs.local</code></p>

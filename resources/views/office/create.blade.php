@@ -10,36 +10,36 @@
         @csrf
 
         <div>
-            <label for="office_code" class="block text-sm font-semibold text-gray-900 mb-2">Office Code <span class="text-red-500">*</span></label>
+            <label for="office_code" class="block text-sm font-semibold text-gray-900 mb-2">Kode Kantor <span class="text-red-500">*</span></label>
             <input type="text" id="office_code" name="office_code" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., PUSAT001" value="{{ old('office_code') }}">
             @error('office_code')<span class="text-sm text-red-600 mt-1 block">{{ $message }}</span>@enderror
         </div>
 
         <div>
-            <label for="office_name" class="block text-sm font-semibold text-gray-900 mb-2">Office Name <span class="text-red-500">*</span></label>
+            <label for="office_name" class="block text-sm font-semibold text-gray-900 mb-2">Nama Kantor <span class="text-red-500">*</span></label>
             <input type="text" id="office_name" name="office_name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="{{ old('office_name') }}">
             @error('office_name')<span class="text-sm text-red-600 mt-1 block">{{ $message }}</span>@enderror
         </div>
 
         <div>
-            <label for="office_type" class="block text-sm font-semibold text-gray-900 mb-2">Office Type <span class="text-red-500">*</span></label>
+            <label for="office_type" class="block text-sm font-semibold text-gray-900 mb-2">Tipe Kantor <span class="text-red-500">*</span></label>
             <select id="office_type" name="office_type" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white">
-                <option value="">-- Select Office Type --</option>
-                <option value="PUSAT" @selected(old('office_type') === 'PUSAT')>Pusat (Head Office)</option>
-                <option value="CABANG" @selected(old('office_type') === 'CABANG')>Cabang (Branch)</option>
-                <option value="UNIT" @selected(old('office_type') === 'UNIT')>Unit (Sub Branch)</option>
+                <option value="">-- Pilih Tipe Kantor --</option>
+                <option value="PUSAT" @selected(old('office_type') === 'PUSAT')>Pusat</option>
+                <option value="CABANG" @selected(old('office_type') === 'CABANG')>Cabang</option>
+                <option value="UNIT" @selected(old('office_type') === 'UNIT')>Unit</option>
             </select>
             @error('office_type')<span class="text-sm text-red-600 mt-1 block">{{ $message }}</span>@enderror
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <label for="province" class="block text-sm font-semibold text-gray-900 mb-2">Province <span class="text-red-500">*</span></label>
+                <label for="province" class="block text-sm font-semibold text-gray-900 mb-2">Provinsi <span class="text-red-500">*</span></label>
                 <input type="text" id="province" name="province" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="{{ old('province') }}">
                 @error('province')<span class="text-sm text-red-600 mt-1 block">{{ $message }}</span>@enderror
             </div>
             <div>
-                <label for="city" class="block text-sm font-semibold text-gray-900 mb-2">City <span class="text-red-500">*</span></label>
+                <label for="city" class="block text-sm font-semibold text-gray-900 mb-2">Kota <span class="text-red-500">*</span></label>
                 <input type="text" id="city" name="city" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="{{ old('city') }}">
                 @error('city')<span class="text-sm text-red-600 mt-1 block">{{ $message }}</span>@enderror
             </div>

@@ -5,7 +5,7 @@
 @section('content')
 <div class="container mx-auto px-4 py-8">
     <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold">Product Akad Mapping</h1>
+        <h1 class="text-3xl font-bold">Pemetaan Akad Produk</h1>
         <div class="flex items-center gap-2">
             <a href="{{ route('import.product-akad.form') }}" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors shadow-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
@@ -45,10 +45,10 @@
                     <th class="px-4 py-3 text-center w-12">
                         <input type="checkbox" id="select-all" aria-label="Pilih semua baris" class="rounded border-gray-300" onchange="toggleSelectAll(this)">
                     </th>
-                    <th class="px-4 py-3 text-left">Product Code</th>
-                    <th class="px-4 py-3 text-left">Product Name</th>
-                    <th class="px-4 py-3 text-left">Akad Code</th>
-                    <th class="px-4 py-3 text-left">EAD Rule Type</th>
+                    <th class="px-4 py-3 text-left">Kode Produk</th>
+                    <th class="px-4 py-3 text-left">Nama Produk</th>
+                    <th class="px-4 py-3 text-left">Kode Akad</th>
+                    <th class="px-4 py-3 text-left">Tipe Aturan EAD</th>
                     <th class="px-4 py-3 text-center">Status</th>
                     <th class="px-4 py-3 text-center">Aksi</th>
                 </tr>
@@ -65,7 +65,7 @@
                         <td class="px-4 py-3">{{ $mapping->ead_rule_type }}</td>
                         <td class="px-4 py-3 text-center">
                             @if($mapping->active)
-                                <span class="text-green-600 font-semibold">✓ Aktif</span>
+                                <span class="text-emerald-600 font-semibold">✓ Aktif</span>
                             @else
                                 <span class="text-red-600">Nonaktif</span>
                             @endif

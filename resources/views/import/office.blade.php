@@ -1,23 +1,23 @@
 @extends('layouts.app')
 
-@section('title', 'Import Office Data - CKPN Calculator')
+@section('title', 'Impor Data Kantor - CKPN Calculator')
 
 @section('content')
 <div class="max-w-4xl mx-auto">
-    <h1 class="text-3xl font-bold mb-2">Import Office Data</h1>
-    <p class="text-gray-600 mb-8">Upload Excel file dengan data kantor cabang</p>
+    <h1 class="text-3xl font-bold mb-2">Impor Data Kantor</h1>
+    <p class="text-gray-600 mb-8">Unggah file Excel dengan data kantor cabang</p>
 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div class="bg-white rounded-lg p-4 border border-gray-200">
-            <p class="text-gray-500 text-sm">Format Required</p>
+            <p class="text-gray-500 text-sm">Format Wajib</p>
             <p class="text-lg font-bold text-gray-900">.xlsx / .xls</p>
         </div>
         <div class="bg-white rounded-lg p-4 border border-gray-200">
-            <p class="text-gray-500 text-sm">Max Rows</p>
-            <p class="text-lg font-bold text-gray-900">Unlimited</p>
+            <p class="text-gray-500 text-sm">Maks. Baris</p>
+            <p class="text-lg font-bold text-gray-900">Tak Terbatas</p>
         </div>
         <div class="bg-white rounded-lg p-4 border border-gray-200">
-            <p class="text-gray-500 text-sm">Processing</p>
+            <p class="text-gray-500 text-sm">Pemrosesan</p>
             <p class="text-lg font-bold text-gray-900">Realtime SSE</p>
         </div>
     </div>
@@ -32,16 +32,16 @@
                 <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                     <path d="M28 8H12a4 4 0 00-4 4v20a4 4 0 004 4h24a4 4 0 004-4V16a4 4 0 00-4-4zm0-4l8 8M12 24l8-8m0 0l-8-8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-                <h3 class="text-lg font-semibold text-gray-700 mb-2">Drag & Drop File Here</h3>
-                <p class="text-gray-500 mb-4">or click to browse</p>
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">Tarik & Lepas File di Sini</h3>
+                <p class="text-gray-500 mb-4">atau klik untuk memilih file</p>
                 <input type="file" id="fileInput" name="file" class="hidden" accept=".csv,.txt,.xlsx,.xls" required>
-                <p class="text-xs text-gray-400">Supported: .csv (Direkomendasikan untuk >50rb baris), .xlsx, .xls</p>
+                <p class="text-xs text-gray-400">Didukung: .csv (Direkomendasikan untuk >50rb baris), .xlsx, .xls</p>
             </div>
 
             <!-- Selected File Info -->
             <div id="fileInfo" class="hidden bg-gray-50 rounded-lg p-4 flex justify-between items-center">
                 <div class="flex items-center gap-3">
-                    <svg class="h-8 w-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="h-8 w-8 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 112 8z" clip-rule="evenodd"/>
                     </svg>
                     <div>
@@ -49,18 +49,18 @@
                         <p id="fileSize" class="text-xs text-gray-500"></p>
                     </div>
                 </div>
-                <button type="button" onclick="resetForm()" class="text-red-600 hover:text-red-700 text-sm">Remove</button>
+                <button type="button" onclick="resetForm()" class="text-red-600 hover:text-red-700 text-sm">Hapus</button>
             </div>
 
             <!-- Submit Button -->
             <div class="flex flex-wrap gap-3">
                 <button type="submit" id="submitBtn" class="flex-1 min-w-[200px] inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold shadow-sm hover:shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                    Start Upload
+                    Mulai Unggah
                 </button>
                 <a href="{{ route('template.download', 'office') }}" class="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-semibold shadow-sm hover:shadow transition-all">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                    Download Template
+                    Unduh Template
                 </a>
                 <a href="{{ route('office.index') }}" class="inline-flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold shadow-sm hover:shadow transition-all">
                     Batal
@@ -71,28 +71,28 @@
 
     <!-- Progress Container (Hidden by default) -->
     <div id="progressContainer" class="hidden mt-8 bg-white rounded-lg shadow-lg p-8">
-        <h2 class="text-xl font-bold mb-6">Upload Progress</h2>
+        <h2 class="text-xl font-bold mb-6">Progres Unggah</h2>
 
         <!-- Stats -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             <div class="bg-blue-50 rounded-lg p-4">
-                <p class="text-gray-600 text-sm">Processed</p>
-                <p id="processedCount" class="text-2xl font-bold text-blue-600">0</p>
+                <p class="text-gray-600 text-sm">Diproses</p>
+                <p id="processedCount" class="text-2xl font-bold text-blue-600 font-mono">0</p>
             </div>
-            <div class="bg-green-50 rounded-lg p-4">
-                <p class="text-gray-600 text-sm">Success</p>
-                <p id="successCount" class="text-2xl font-bold text-green-600">0</p>
+            <div class="bg-emerald-50 rounded-lg p-4">
+                <p class="text-gray-600 text-sm">Berhasil</p>
+                <p id="successCount" class="text-2xl font-bold text-emerald-600 font-mono">0</p>
             </div>
             <div class="bg-red-50 rounded-lg p-4">
-                <p class="text-gray-600 text-sm">Failed</p>
-                <p id="failedCount" class="text-2xl font-bold text-red-600">0</p>
+                <p class="text-gray-600 text-sm">Gagal</p>
+                <p id="failedCount" class="text-2xl font-bold text-red-600 font-mono">0</p>
             </div>
         </div>
 
         <!-- Percentage Display -->
         <div class="text-center mb-6">
-            <p id="percentageText" class="text-4xl font-bold text-blue-600 mb-2">0%</p>
-            <p id="statusMessage" class="text-gray-600">Initializing...</p>
+            <p id="percentageText" class="text-4xl font-bold text-blue-600 font-mono mb-2">0%</p>
+            <p id="statusMessage" class="text-gray-600">Menginisialisasi...</p>
         </div>
 
         <!-- Progress Bar with Animation -->
@@ -101,21 +101,21 @@
                 <div id="progressBar" class="h-full bg-blue-600 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
             </div>
             <div class="flex justify-between text-xs text-gray-500 mt-2">
-                <span>Progress</span>
+                <span>Progres</span>
                 <span id="progressText">0 / 0</span>
             </div>
         </div>
 
         <!-- Advanced Stats -->
         <div class="bg-gray-50 rounded-lg p-4 mb-6">
-            <h3 class="font-semibold text-gray-700 mb-3">Stats</h3>
+            <h3 class="font-semibold text-gray-700 mb-3">Statistik</h3>
             <div class="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                    <p class="text-gray-600">Current Row</p>
+                    <p class="text-gray-600">Baris Saat Ini</p>
                     <p id="currentRow" class="text-lg font-bold text-gray-800">-</p>
                 </div>
                 <div>
-                    <p class="text-gray-600">Total Rows</p>
+                    <p class="text-gray-600">Total Baris</p>
                     <p id="totalRows" class="text-lg font-bold text-gray-800">-</p>
                 </div>
             </div>
@@ -128,11 +128,11 @@
         </div>
 
         <!-- Success Message -->
-        <div id="successMessage" class="hidden mt-6 bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
-            <p id="successText" class="text-green-700 font-semibold mb-3"></p>
+        <div id="successMessage" class="hidden mt-6 bg-emerald-50 rounded-lg p-4 border border-emerald-200">
+            <p id="successText" class="text-emerald-700 font-semibold mb-3"></p>
             <div class="flex gap-3">
-                <a href="{{ route('office.index') }}" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">View Data</a>
-                <button type="button" onclick="resetForm()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Import Another</button>
+                <a href="{{ route('office.index') }}" class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700">Lihat Data</a>
+                <button type="button" onclick="resetForm()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Impor Lagi</button>
             </div>
         </div>
     </div>
@@ -201,7 +201,7 @@ uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     if (!fileInput.files[0]) {
-        alert('Please select a file');
+        alert('Silakan pilih file terlebih dahulu');
         return;
     }
 
@@ -254,7 +254,7 @@ uploadForm.addEventListener('submit', async (e) => {
                 } else if (data.status === 'complete') {
                     progressBar.style.width = '100%';
                     percentageText.textContent = '100%';
-                    statusMessage.textContent = 'Completed!';
+                    statusMessage.textContent = 'Selesai!';
                     document.getElementById('successCount').textContent = data.imported;
                     document.getElementById('failedCount').textContent = data.failed;
 
@@ -263,19 +263,19 @@ uploadForm.addEventListener('submit', async (e) => {
                         errorList.innerHTML = data.errors.slice(0, 10).map(e => {
                             const div = document.createElement('div');
                             div.className = 'p-2 bg-red-100 rounded';
-                            div.textContent = `Row ${e.row}: ${e.error}`;
+                            div.textContent = `Baris ${e.row}: ${e.error}`;
                             return div.outerHTML;
                         }).join('');
                     }
 
                     successMessage.classList.remove('hidden');
-                    successText.textContent = `Import berhasil! ${data.imported} records di-import.`;
+                    successText.textContent = `Impor berhasil! ${data.imported} data diimpor.`;
                     document.getElementById('submitBtn').disabled = false;
                 }
             }
         }
     } catch (err) {
-        statusMessage.textContent = 'Error during upload: ' + err.message;
+        statusMessage.textContent = 'Terjadi kesalahan saat mengunggah: ' + err.message;
         errorLog.classList.remove('hidden');
         document.getElementById('submitBtn').disabled = false;
     }

@@ -14,7 +14,7 @@
     <h2 class="text-2xl font-bold text-gray-900 mb-6">{{ isset($role) ? 'Edit Role: ' . $role->nama_role : 'Tambah Role Baru' }}</h2>
 
     @if($errors->any())
-        <div class="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded text-red-800 text-sm">
+        <div class="mb-6 bg-red-50 border border-red-200 p-4 rounded-lg text-red-800 text-sm">
             <ul class="list-disc list-inside">
                 @foreach($errors->all() as $error)
                     <li>{{ $error }}</li>

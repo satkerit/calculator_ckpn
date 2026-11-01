@@ -61,7 +61,7 @@
                             <div class="shrink-0 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition">
                                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/></svg>
                             </div>
-                            <span class="text-sm">Bulk Upload with SSE Streaming</span>
+                            <span class="text-sm">Unggah Massal dengan SSE Streaming</span>
                         </div>
                         <div class="flex items-center gap-3 group">
                             <div class="shrink-0 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition">

@@ -4,26 +4,26 @@
 
 @section('content')
 <div class="container mx-auto px-4 py-8">
-    <h1 class="text-3xl font-bold mb-6">Edit Product Akad Mapping</h1>
+    <h1 class="text-3xl font-bold mb-6">Ubah Pemetaan Akad Produk</h1>
 
     <div class="bg-white rounded shadow p-6 max-w-2xl">
         <form action="{{ route('product-akad.update', $productAkad) }}" method="POST">
             @csrf @method('PUT')
 
             <div class="mb-4">
-                <label class="block text-sm font-semibold mb-2">Product Code</label>
+                <label class="block text-sm font-semibold mb-2">Kode Produk</label>
                 <input type="text" class="w-full border rounded px-3 py-2 bg-gray-100" value="{{ $productAkad->product_code }}" disabled>
             </div>
 
             <div class="mb-4">
-                <label class="block text-sm font-semibold mb-2">Product Name *</label>
+                <label class="block text-sm font-semibold mb-2">Nama Produk *</label>
                 <input type="text" name="product_name" class="w-full border rounded px-3 py-2 @error('product_name') border-red-500 @enderror" 
                     value="{{ old('product_name', $productAkad->product_name) }}" required>
                 @error('product_name') <span class="text-red-600 text-sm">{{ $message }}</span> @enderror
             </div>
 
             <div class="mb-4">
-                <label class="block text-sm font-semibold mb-2">Akad Type *</label>
+                <label class="block text-sm font-semibold mb-2">Tipe Akad *</label>
                 <select name="akad_code" class="w-full border rounded px-3 py-2 @error('akad_code') border-red-500 @enderror" required>
                     @foreach($akadTypes as $akad)
                         <option value="{{ $akad->kode_akad }}" @selected(old('akad_code', $productAkad->akad_code) === $akad->kode_akad)>{{ $akad->kode_akad }} - {{ $akad->nama_akad }}</option>
@@ -33,7 +33,7 @@
             </div>
 
             <div class="mb-4">
-                <label class="block text-sm font-semibold mb-2">EAD Rule Type *</label>
+                <label class="block text-sm font-semibold mb-2">Tipe Aturan EAD *</label>
                 <select name="ead_rule_type" class="w-full border rounded px-3 py-2 @error('ead_rule_type') border-red-500 @enderror" required>
                     <option value="MURABAHAH" @selected(old('ead_rule_type', $productAkad->ead_rule_type) === 'MURABAHAH')>MURABAHAH</option>
                     <option value="MULTIJASA" @selected(old('ead_rule_type', $productAkad->ead_rule_type) === 'MULTIJASA')>MULTIJASA</option>

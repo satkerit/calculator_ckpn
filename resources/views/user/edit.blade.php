@@ -1,20 +1,20 @@
 @extends('layouts.app')
 
-@section('title', 'Edit User - CKPN Calculator')
+@section('title', 'Ubah Pengguna - CKPN Calculator')
 
-@section('page-title', 'Edit User')
+@section('page-title', 'Ubah Pengguna')
 
 @section('content')
 <div class="max-w-2xl mx-auto">
     <div class="bg-white rounded-lg shadow-lg p-8">
-        <h2 class="text-2xl font-bold mb-6">Edit User</h2>
+        <h2 class="text-2xl font-bold mb-6">Ubah Pengguna</h2>
 
         <form action="{{ route('user.update', $user) }}" method="POST" class="space-y-6">
             @csrf @method('PUT')
 
             <!-- Name -->
             <div>
-                <label for="name" class="block text-sm font-semibold text-gray-700 mb-2">Name *</label>
+                <label for="name" class="block text-sm font-semibold text-gray-700 mb-2">Nama *</label>
                 <input type="text" id="name" name="name" value="{{ old('name', $user->name) }}" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 @error('name')
                     <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
@@ -32,7 +32,7 @@
 
             <!-- Password (Optional) -->
             <div>
-                <label for="password" class="block text-sm font-semibold text-gray-700 mb-2">New Password (leave blank to keep current)</label>
+                <label for="password" class="block text-sm font-semibold text-gray-700 mb-2">Kata Sandi Baru (biarkan kosong untuk tetap menggunakan yang sekarang)</label>
                 <input type="password" id="password" name="password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 @error('password')
                     <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
@@ -41,7 +41,7 @@
 
             <!-- Confirm Password -->
             <div>
-                <label for="password_confirmation" class="block text-sm font-semibold text-gray-700 mb-2">Confirm Password</label>
+                <label for="password_confirmation" class="block text-sm font-semibold text-gray-700 mb-2">Konfirmasi Kata Sandi</label>
                 <input type="password" id="password_confirmation" name="password_confirmation" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
 
@@ -49,7 +49,7 @@
             <div>
                 <label for="role_id" class="block text-sm font-semibold text-gray-700 mb-2">Role *</label>
                 <select id="role_id" name="role_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">-- Select Role --</option>
+                    <option value="">-- Pilih Role --</option>
                     @foreach ($roles as $role)
                         <option value="{{ $role->id }}" @selected(old('role_id', $user->role_id) == $role->id)>{{ $role->nama_role }}</option>
                     @endforeach
@@ -61,9 +61,9 @@
 
             <!-- Office -->
             <div>
-                <label for="office_id" class="block text-sm font-semibold text-gray-700 mb-2">Office</label>
+                <label for="office_id" class="block text-sm font-semibold text-gray-700 mb-2">Kantor</label>
                 <select id="office_id" name="office_id" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">-- Select Office --</option>
+                    <option value="">-- Pilih Kantor --</option>
                     @foreach ($offices as $office)
                         <option value="{{ $office->id }}" @selected(old('office_id', $user->office_id) == $office->id)>{{ $office->office_name }}</option>
                     @endforeach

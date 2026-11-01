@@ -7,18 +7,18 @@
     <h1 class="text-3xl font-bold mb-2">Import Office Data</h1>
     <p class="text-gray-600 mb-8">Upload Excel file dengan data kantor cabang</p>
 
-    <div class="grid grid-cols-3 gap-4 mb-8">
-        <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
-            <p class="text-gray-600 text-sm">Format Required</p>
-            <p class="text-lg font-bold text-blue-600">.xlsx / .xls</p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div class="bg-white rounded-lg p-4 border border-gray-200">
+            <p class="text-gray-500 text-sm">Format Required</p>
+            <p class="text-lg font-bold text-gray-900">.xlsx / .xls</p>
         </div>
-        <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
-            <p class="text-gray-600 text-sm">Max Rows</p>
-            <p class="text-lg font-bold text-green-600">Unlimited</p>
+        <div class="bg-white rounded-lg p-4 border border-gray-200">
+            <p class="text-gray-500 text-sm">Max Rows</p>
+            <p class="text-lg font-bold text-gray-900">Unlimited</p>
         </div>
-        <div class="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-500">
-            <p class="text-gray-600 text-sm">Processing</p>
-            <p class="text-lg font-bold text-purple-600">Realtime SSE</p>
+        <div class="bg-white rounded-lg p-4 border border-gray-200">
+            <p class="text-gray-500 text-sm">Processing</p>
+            <p class="text-lg font-bold text-gray-900">Realtime SSE</p>
         </div>
     </div>
 
@@ -28,7 +28,7 @@
             @csrf
 
             <!-- Drag & Drop Zone -->
-            <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all" onclick="document.getElementById('fileInput').click()">
+            <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" role="button" tabindex="0" onclick="document.getElementById('fileInput').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('fileInput').click();}">
                 <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                     <path d="M28 8H12a4 4 0 00-4 4v20a4 4 0 004 4h24a4 4 0 004-4V16a4 4 0 00-4-4zm0-4l8 8M12 24l8-8m0 0l-8-8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
@@ -74,7 +74,7 @@
         <h2 class="text-xl font-bold mb-6">Upload Progress</h2>
 
         <!-- Stats -->
-        <div class="grid grid-cols-3 gap-4 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             <div class="bg-blue-50 rounded-lg p-4">
                 <p class="text-gray-600 text-sm">Processed</p>
                 <p id="processedCount" class="text-2xl font-bold text-blue-600">0</p>
@@ -98,7 +98,7 @@
         <!-- Progress Bar with Animation -->
         <div class="mb-8">
             <div class="relative h-3 bg-gray-200 rounded-full overflow-hidden">
-                <div id="progressBar" class="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+                <div id="progressBar" class="h-full bg-blue-600 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
             </div>
             <div class="flex justify-between text-xs text-gray-500 mt-2">
                 <span>Progress</span>
@@ -123,7 +123,7 @@
 
         <!-- Error Log (if any) -->
         <div id="errorLog" class="hidden bg-red-50 rounded-lg p-4 max-h-48 overflow-y-auto">
-            <h3 class="font-semibold text-red-700 mb-2">⚠️ Errors</h3>
+            <h3 class="font-semibold text-red-700 mb-2">Kesalahan</h3>
             <div id="errorList" class="space-y-2 text-xs text-red-600"></div>
         </div>
 
@@ -269,7 +269,7 @@ uploadForm.addEventListener('submit', async (e) => {
                     }
 
                     successMessage.classList.remove('hidden');
-                    successText.textContent = `✅ Import successful! ${data.imported} records imported.`;
+                    successText.textContent = `Import berhasil! ${data.imported} records di-import.`;
                     document.getElementById('submitBtn').disabled = false;
                 }
             }

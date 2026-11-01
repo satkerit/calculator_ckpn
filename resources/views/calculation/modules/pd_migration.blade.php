@@ -23,16 +23,16 @@
                 <input type="hidden" name="assessment_period_id" value="{{ $period->id }}">
                 <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">▶ Hitung PD Migration</button>
             </form>
-            <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">⬇ Export XLSX</a>
+            <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Export XLSX</a>
         </div>
     </div>
 
     @if (! empty($pdStale))
         {{-- Hasil tidak valid: konfigurasi (segmentasi/window/metode PD) berubah setelah run terakhir --}}
         <div class="mt-6 p-4 rounded-xl border border-red-200 bg-red-50 flex items-start gap-3">
-            <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold shrink-0">⚠</div>
+            <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold shrink-0"><svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg></div>
             <div>
-                <p class="text-sm font-semibold text-red-900">Hasil PD Migration TIDAK VALID — konfigurasi berubah</p>
+                <p class="text-sm font-semibold text-red-900">Hasil PD Migration TIDAK VALID - konfigurasi berubah</p>
                 <p class="text-xs text-red-700 mt-1">Segmentasi (kombinasi dimensi), historical window, atau metode PD berubah setelah perhitungan terakhir, sehingga matriks triwulan &amp; PD per rating di bawah ini tidak lagi akurat. Klik <strong>Hitung PD Migration</strong> untuk memperbarui sebelum melanjutkan ke modul LGD / CKPN.</p>
             </div>
         </div>
@@ -66,7 +66,7 @@
         </div>
         <div class="flex gap-2 shrink-0">
             <button type="button" id="pmig-toggle-all" onclick="pmigToggleAll()" class="inline-flex items-center px-3 py-2 border border-gray-300 text-xs font-semibold rounded-lg text-gray-700 hover:bg-gray-50">Tampilkan Semua Matriks</button>
-            <a href="{{ route('calculation.export.pd_migration_matrix.period', $period->id) }}" class="inline-flex items-center px-3 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700">⬇ Export Detail Matriks</a>
+            <a href="{{ route('calculation.export.pd_migration_matrix.period', $period->id) }}" class="inline-flex items-center px-3 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700">Export Detail Matriks</a>
         </div>
     </div>
     <div class="overflow-x-auto">
@@ -95,13 +95,13 @@
                         <td class="px-3 py-2 text-right font-semibold">{{ number_format((float) $r->pd_calculated * 100, 2, ',', '.') }}%</td>
                         <td class="px-3 py-2 text-right">{{ (int) $r->periods_analyzed }}</td>
                         @foreach ([1,2,3,4,5] as $rr)
-                            <td class="px-3 py-2 text-right text-gray-700">{{ isset($r->rating_pd[$rr]) ? number_format((float) $r->rating_pd[$rr] * 100, 2, ',', '.') . '%' : '—' }}</td>
+                            <td class="px-3 py-2 text-right text-gray-700">{{ isset($r->rating_pd[$rr]) ? number_format((float) $r->rating_pd[$rr] * 100, 2, ',', '.') . '%' : '-' }}</td>
                         @endforeach
                         <td class="px-3 py-2 text-center">
                             @if ($hasMatrix)
                                 <button type="button" onclick="document.getElementById('{{ $rowId }}').classList.toggle('hidden')" class="px-2 py-1 text-xs font-semibold rounded border border-gray-300 text-gray-700 hover:bg-gray-100">Lihat Matriks</button>
                             @else
-                                <span class="text-gray-400">—</span>
+                                <span class="text-gray-500">-</span>
                             @endif
                         </td>
                     </tr>
@@ -146,7 +146,7 @@
                                                             <td class="px-2 py-1 text-right font-mono border border-gray-300 bg-white">{{ number_format((float) ($s['saldo_awal'][$src] ?? 0), 0, ',', '.') }}</td>
                                                             @for ($tgt = 1; $tgt <= 7; $tgt++)
                                                                 @php $v = (float) ($s['matrix'][$src][$tgt] ?? 0); @endphp
-                                                                <td class="px-2 py-1 text-right font-mono border border-gray-300 {{ $v > 0 ? 'bg-white text-gray-900' : 'bg-white text-gray-400' }}">{{ number_format($v, 0, ',', '.') }}</td>
+                                                                <td class="px-2 py-1 text-right font-mono border border-gray-300 {{ $v > 0 ? 'bg-white text-gray-900' : 'bg-white text-gray-500' }}">{{ number_format($v, 0, ',', '.') }}</td>
                                                             @endfor
                                                             <td class="px-2 py-1 text-right font-mono font-semibold border border-gray-300 bg-white">{{ number_format((float) ($s['row_total'][$src] ?? 0), 0, ',', '.') }}</td>
                                                         </tr>
@@ -190,7 +190,7 @@
                                                             <td class="px-2 py-1 text-right font-mono border border-gray-300 bg-white">{{ number_format($baseRow, 0, ',', '.') }}</td>
                                                             @for ($tgt = 1; $tgt <= 7; $tgt++)
                                                                 @php $rv = (float) ($s['rate'][$src][$tgt] ?? 0); @endphp
-                                                                <td class="px-2 py-1 text-right font-mono border border-gray-300 {{ $rv > 0 ? 'bg-white text-gray-900' : 'bg-white text-gray-400' }}">{{ number_format($rv * 100, 1, ',', '.') }}%</td>
+                                                                <td class="px-2 py-1 text-right font-mono border border-gray-300 {{ $rv > 0 ? 'bg-white text-gray-900' : 'bg-white text-gray-500' }}">{{ number_format($rv * 100, 1, ',', '.') }}%</td>
                                                             @endfor
                                                             <td class="px-2 py-1 text-right font-mono font-bold border border-gray-300 bg-white">{{ number_format($pdRow * 100, 1, ',', '.') }}%</td>
                                                         </tr>
@@ -238,7 +238,7 @@
                                                         <td class="px-2 py-1 font-semibold text-gray-700">Rating {{ $src }}</td>
                                                         @for ($tgt = 1; $tgt <= 7; $tgt++)
                                                             @php $v = (float) ($r->matrix[$src][$tgt] ?? 0); @endphp
-                                                            <td class="px-2 py-1 text-right font-mono {{ $v > 0 ? 'text-gray-900' : 'text-gray-300' }}">{{ number_format($v * 100, 2, ',', '.') }}%</td>
+                                                            <td class="px-2 py-1 text-right font-mono {{ $v > 0 ? 'text-gray-900' : 'text-gray-500' }}">{{ number_format($v * 100, 2, ',', '.') }}%</td>
                                                         @endfor
                                                     </tr>
                                                 @endfor

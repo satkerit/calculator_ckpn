@@ -1,10 +1,12 @@
 @extends('layouts.app')
 
+@section('title', 'PD Net Flow Detail - CKPN Calculator')
+
 @section('content')
 <div class="px-6 py-4">
     <div class="mb-6 flex justify-between items-center">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">PD Net Flow Detail</h1>
+            <h2 class="text-2xl font-bold text-gray-900">PD Net Flow Detail</h2>
             <p class="text-gray-600 mt-1">Period: <span class="font-semibold">Assessment {{ $assessmentPeriodId }}</span></p>
         </div>
         <a href="{{ route('calculation.module.pd_netflow', ['assessment_period_id' => $assessmentPeriodId]) }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">

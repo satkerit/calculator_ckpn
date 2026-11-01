@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'PD Netflow Bucket Config - CKPN Calculator')
 
@@ -13,17 +13,6 @@
         Tambah Bucket
     </a>
 </div>
-
-@if(session('success'))
-    <div class="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg text-green-800 text-sm">
-        {{ session('success') }}
-    </div>
-@endif
-@if(session('error'))
-    <div class="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg text-red-800 text-sm">
-        {{ session('error') }}
-    </div>
-@endif
 
 <form id="bulk-delete-form" method="POST" action="{{ route('bucket.bulk-destroy') }}" style="display:none;">
     @csrf @method('DELETE')
@@ -73,13 +62,13 @@
 </div>
 
 <!-- Tabs -->
-<div class="mb-4 flex items-center gap-1 border-b border-gray-200">
-    <button type="button" onclick="switchTab('active')" id="tab-btn-active"
+<div class="mb-4 flex items-center gap-1 border-b border-gray-200" role="tablist">
+    <button type="button" onclick="switchTab('active')" id="tab-btn-active" role="tab" aria-selected="true" aria-controls="tab-active"
         class="px-4 py-2.5 text-sm font-medium border-b-2 border-blue-600 text-blue-600 transition-colors">
         Aktif
         <span class="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">{{ $activeCount }}</span>
     </button>
-    <button type="button" onclick="switchTab('inactive')" id="tab-btn-inactive"
+    <button type="button" onclick="switchTab('inactive')" id="tab-btn-inactive" role="tab" aria-selected="false" aria-controls="tab-inactive"
         class="px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-colors">
         Nonaktif
         <span class="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{{ $inactiveCount }}</span>
@@ -87,26 +76,26 @@
 </div>
 
 <!-- Active Table -->
-<div id="tab-active" class="bg-white rounded-lg shadow-md overflow-hidden">
+<div id="tab-active" class="bg-white rounded-lg shadow-md overflow-hidden" role="tabpanel" aria-labelledby="tab-btn-active">
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 border-b border-gray-200">
                 <tr>
                     <th class="px-4 py-3 text-center w-12">
-                        <input type="checkbox" id="select-all" class="rounded border-gray-300" onchange="toggleSelectAll(this)">
+                        <input type="checkbox" id="select-all" aria-label="Pilih semua baris" class="rounded border-gray-300" onchange="toggleSelectAll(this)">
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-20">Urutan</th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Kode</th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Deskripsi</th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Rentang Hari</th>
-                    <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                    <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Aksi</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
                 @forelse ($activeBuckets as $bucket)
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-4 py-4 text-center">
-                            <input type="checkbox" class="row-checkbox rounded border-gray-300" value="{{ $bucket->id }}" onchange="updateBulkActions()">
+                            <input type="checkbox" aria-label="Pilih baris ini" class="row-checkbox rounded border-gray-300" value="{{ $bucket->id }}" onchange="updateBulkActions()">
                         </td>
                         <td class="px-6 py-4">
                             <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-700 font-semibold text-xs">{{ $bucket->urutan }}</span>
@@ -127,14 +116,14 @@
                             @endif
                         </td>
                         <td class="px-6 py-4 space-x-1 text-right whitespace-nowrap">
-                            <a href="{{ route('bucket.edit', $bucket) }}" class="inline-flex items-center gap-1 px-3 py-1.5 text-green-600 hover:bg-green-50 rounded transition-colors font-medium">
+                            <a href="{{ route('bucket.edit', $bucket) }}" class="inline-flex items-center gap-1 px-3 py-2 min-h-[44px] text-green-600 hover:bg-green-50 rounded transition-colors font-medium">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 Edit
                             </a>
                             <form method="POST" action="{{ route('bucket.destroy', $bucket) }}" class="inline-block" id="deactivate-form-{{ $bucket->id }}">
                                 @csrf @method('DELETE')
                             </form>
-                            <button type="button" onclick="confirmDeactivate({{ $bucket->id }}, '{{ $bucket->kode_bucket }}')" class="inline-flex items-center gap-1 px-3 py-1.5 text-red-600 hover:bg-red-50 rounded transition-colors font-medium">
+                            <button type="button" onclick="confirmDeactivate({{ $bucket->id }}, '{{ $bucket->kode_bucket }}')" class="inline-flex items-center gap-1 px-3 py-2 min-h-[44px] text-red-600 hover:bg-red-50 rounded transition-colors font-medium">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                 Nonaktifkan
                             </button>
@@ -176,26 +165,26 @@
     </div>
 </div>
 
-<div id="tab-inactive" class="bg-white rounded-lg shadow-md overflow-hidden hidden">
+<div id="tab-inactive" class="bg-white rounded-lg shadow-md overflow-hidden hidden" role="tabpanel" aria-labelledby="tab-btn-inactive">
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 border-b border-gray-200">
                 <tr>
                     <th class="px-4 py-3 text-center w-12">
-                        <input type="checkbox" id="select-all-inactive" class="rounded border-gray-300" onchange="toggleSelectAllInactive(this)">
+                        <input type="checkbox" id="select-all-inactive" aria-label="Pilih semua baris nonaktif" class="rounded border-gray-300" onchange="toggleSelectAllInactive(this)">
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-20">Urutan</th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Kode</th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Deskripsi</th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Rentang Hari</th>
-                    <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                    <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Aksi</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
                 @forelse ($inactiveBuckets as $bucket)
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-4 py-4 text-center">
-                            <input type="checkbox" class="row-checkbox-inactive rounded border-gray-300" value="{{ $bucket->id }}" onchange="updateBulkRestore()">
+                            <input type="checkbox" aria-label="Pilih baris ini" class="row-checkbox-inactive rounded border-gray-300" value="{{ $bucket->id }}" onchange="updateBulkRestore()">
                         </td>
                         <td class="px-6 py-4">
                             <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-400 font-semibold text-xs">{{ $bucket->urutan }}</span>
@@ -213,7 +202,7 @@
                             <form method="POST" action="{{ route('bucket.restore', $bucket) }}" class="inline-block" id="restore-form-{{ $bucket->id }}">
                                 @csrf
                             </form>
-                            <button type="button" onclick="confirmRestore({{ $bucket->id }}, '{{ $bucket->kode_bucket }}')" class="inline-flex items-center gap-1 px-3 py-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition-colors font-medium">
+                            <button type="button" onclick="confirmRestore({{ $bucket->id }}, '{{ $bucket->kode_bucket }}')" class="inline-flex items-center gap-1 px-3 py-2 min-h-[44px] text-emerald-600 hover:bg-emerald-50 rounded transition-colors font-medium">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                                 Aktifkan
                             </button>
@@ -244,6 +233,8 @@ function switchTab(tab) {
     document.getElementById('tab-btn-inactive').classList.toggle('text-blue-600', !isActive);
     document.getElementById('tab-btn-inactive').classList.toggle('border-transparent', isActive);
     document.getElementById('tab-btn-inactive').classList.toggle('text-gray-500', isActive);
+    document.getElementById('tab-btn-active').setAttribute('aria-selected', isActive ? 'true' : 'false');
+    document.getElementById('tab-btn-inactive').setAttribute('aria-selected', isActive ? 'false' : 'true');
     if (isActive) document.getElementById('bulk-restore-bar').classList.add('hidden');
 }
 

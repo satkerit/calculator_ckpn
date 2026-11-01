@@ -1,4 +1,4 @@
-@php
+﻿@php
     $isEdit = isset($bucket) && $bucket !== null;
     $oldKode = old('kode_bucket', $bucket->kode_bucket ?? '');
     $oldDeskripsi = old('deskripsi_hari', $bucket->deskripsi_hari ?? '');
@@ -68,7 +68,7 @@
                 Tanpa batas
             </label>
         </div>
-        <p class="mt-1.5 text-xs text-gray-500">Centang "Tanpa batas" untuk bucket terakhir (misal: <strong>&ge; 360 hari</strong>) — tidak ada batas atas hari tunggakan</p>
+        <p class="mt-1.5 text-xs text-gray-500">Centang "Tanpa batas" untuk bucket terakhir (misal: <strong>&ge; 360 hari</strong>) - tidak ada batas atas hari tunggakan</p>
         @error('hari_max') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
     </div>
 </div>

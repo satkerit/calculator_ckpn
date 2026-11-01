@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="w-full max-w-2xl mx-auto">
-    <h1 class="text-2xl font-bold text-gray-900 mb-8">Edit Assessment Period</h1>
+    <h2 class="text-2xl font-bold text-gray-900 mb-8">Edit Assessment Period</h2>
 
     <form method="POST" action="{{ route('assessment.update', $assessmentPeriod) }}" class="bg-white rounded-lg shadow-md p-6 space-y-6">
         @csrf @method('PUT')
@@ -52,12 +52,12 @@
 
         <div class="flex gap-3 pt-4">
             <button type="submit" class="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                Update
+                <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                Simpan
             </button>
             <a href="{{ route('assessment.show', $assessmentPeriod) }}" class="inline-flex items-center gap-2 bg-gray-500 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-gray-600 transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                Cancel
+                <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                Batal
             </a>
         </div>
     </form>

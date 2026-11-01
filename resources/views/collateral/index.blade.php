@@ -20,12 +20,6 @@
     </div>
 </div>
 
-@if(session('success'))
-    <div class="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg text-green-800 text-sm">
-        {{ session('success') }}
-    </div>
-@endif
-
 <form id="bulk-delete-form" method="POST" action="{{ route('collateral.bulk-destroy') }}" style="display:none;">
     @csrf @method('DELETE')
     <input type="hidden" name="ids" id="bulk-delete-ids">
@@ -64,7 +58,7 @@
         <thead class="bg-gray-50 border-b border-gray-200">
             <tr>
                 <th class="px-4 py-3 text-center w-12">
-                    <input type="checkbox" id="select-all" class="rounded border-gray-300" onchange="toggleSelectAll(this)">
+                    <input type="checkbox" id="select-all" aria-label="Pilih semua baris" class="rounded border-gray-300" onchange="toggleSelectAll(this)">
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">No. Rekening (Loan)</th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Kode Agunan</th>
@@ -73,16 +67,16 @@
                 <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Nilai Likuidasi</th>
                 <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Nilai Wajar / Taksasi</th>
                 <th class="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-                <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Aksi</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
             @forelse ($collaterals as $c)
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-4 text-center">
-                        <input type="checkbox" class="row-checkbox rounded border-gray-300" value="{{ $c->id }}" onchange="updateBulkActions()">
+                        <input type="checkbox" aria-label="Pilih baris ini" class="row-checkbox rounded border-gray-300" value="{{ $c->id }}" onchange="updateBulkActions()">
                     </td>
-                    <td class="px-6 py-4 font-mono font-semibold text-blue-600">
+                    <td class="px-6 py-4 font-mono font-semibold text-gray-900">
                         {{ $c->loan_number }}
                     </td>
                     <td class="px-6 py-4 font-mono text-gray-700">{{ $c->collateral_code ?? '-' }}</td>

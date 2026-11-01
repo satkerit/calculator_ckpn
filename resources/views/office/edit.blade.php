@@ -1,10 +1,10 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Edit Office - CKPN Calculator')
 
 @section('content')
 <div class="max-w-2xl mx-auto">
-    <h1 class="text-2xl font-bold text-gray-900 mb-8">Edit Office</h1>
+    <h2 class="text-2xl font-bold text-gray-900 mb-8">Edit Office</h2>
 
     <form method="POST" action="{{ route('office.update', $office) }}" class="bg-white rounded-lg shadow-md p-6 space-y-6">
         @csrf @method('PUT')

@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="mb-6 flex justify-between items-center">
-    <h1 class="text-2xl font-bold text-gray-900">Offices</h1>
+    <h2 class="text-2xl font-bold text-gray-900">Offices</h2>
     <div class="flex items-center gap-2">
         <a href="{{ route('import.office.form') }}" class="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors text-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
@@ -16,12 +16,6 @@
         </a>
     </div>
 </div>
-
-@if(session('success'))
-    <div class="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg text-green-800 text-sm">
-        {{ session('success') }}
-    </div>
-@endif
 
 <form id="bulk-delete-form" method="POST" action="{{ route('office.bulk-destroy') }}" style="display:none;">
     @csrf @method('DELETE')
@@ -52,21 +46,21 @@
         <thead class="bg-gray-50 border-b border-gray-200">
             <tr>
                 <th class="px-4 py-3 text-center w-12">
-                    <input type="checkbox" id="select-all" class="rounded border-gray-300" onchange="toggleSelectAll(this)">
+                    <input type="checkbox" id="select-all" aria-label="Pilih semua baris" class="rounded border-gray-300" onchange="toggleSelectAll(this)">
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Code</th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Name</th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Location</th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Aksi</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
             @forelse ($offices as $office)
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-4 text-center">
-                        <input type="checkbox" class="row-checkbox rounded border-gray-300" value="{{ $office->id }}" onchange="updateBulkActions()">
+                        <input type="checkbox" aria-label="Pilih baris ini" class="row-checkbox rounded border-gray-300" value="{{ $office->id }}" onchange="updateBulkActions()">
                     </td>
                     <td class="px-6 py-4 font-mono text-xs text-gray-900">{{ $office->office_code }}</td>
                     <td class="px-6 py-4 font-semibold text-gray-900">{{ $office->office_name }}</td>
@@ -80,18 +74,18 @@
                         </span>
                     </td>
                     <td class="px-6 py-4 space-x-1 text-sm">
-                        <a href="{{ route('office.show', $office) }}" class="inline-flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors font-medium">
+                        <a href="{{ route('office.show', $office) }}" class="inline-flex items-center gap-1 px-3 py-2 min-h-[44px] text-blue-600 hover:bg-blue-50 rounded transition-colors font-medium">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                             View
                         </a>
-                        <a href="{{ route('office.edit', $office) }}" class="inline-flex items-center gap-1 px-3 py-1.5 text-green-600 hover:bg-green-50 rounded transition-colors font-medium">
+                        <a href="{{ route('office.edit', $office) }}" class="inline-flex items-center gap-1 px-3 py-2 min-h-[44px] text-green-600 hover:bg-green-50 rounded transition-colors font-medium">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                             Edit
                         </a>
                         <form method="POST" action="{{ route('office.destroy', $office) }}" class="inline-block" id="delete-form-{{ $office->id }}">
                             @csrf @method('DELETE')
                         </form>
-                        <button type="button" onclick="confirmDeleteOffice({{ $office->id }}, '{{ $office->office_code }}', '{{ $office->office_name }}')" class="inline-flex items-center gap-1 px-3 py-1.5 text-red-600 hover:bg-red-50 rounded transition-colors font-medium">
+                        <button type="button" onclick="confirmDeleteOffice({{ $office->id }}, '{{ $office->office_code }}', '{{ $office->office_name }}')" class="inline-flex items-center gap-1 px-3 py-2 min-h-[44px] text-red-600 hover:bg-red-50 rounded transition-colors font-medium">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             Delete
                         </button>

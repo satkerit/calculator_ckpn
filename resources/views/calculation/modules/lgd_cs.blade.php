@@ -27,17 +27,17 @@
                 <input type="hidden" name="assessment_period_id" value="{{ $period->id }}">
                 <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">▶ Hitung LGD CS</button>
             </form>
-            <a href="{{ $detailRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">🔍 Detail Debitur</a>
-            <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">⬇ Export XLSX</a>
+            <a href="{{ $detailRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Detail Debitur</a>
+            <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Export XLSX</a>
         </div>
     </div>
 
     @if (! empty($lgdStale))
         {{-- Hasil tidak valid: dimensi segmentasi berubah setelah run terakhir --}}
         <div class="mt-6 p-4 rounded-xl border border-red-200 bg-red-50 flex items-start gap-3">
-            <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold shrink-0">⚠</div>
+            <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold shrink-0"><svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg></div>
             <div>
-                <p class="text-sm font-semibold text-red-900">Hasil LGD TIDAK VALID — segmentasi berubah</p>
+                <p class="text-sm font-semibold text-red-900">Hasil LGD TIDAK VALID - segmentasi berubah</p>
                 <p class="text-xs text-red-700 mt-1">Dimensi segmentasi berubah setelah perhitungan terakhir sehingga group_key LGD tidak lagi cocok. Klik <strong>Hitung LGD CS</strong> untuk memperbarui sebelum Finalize CKPN.</p>
             </div>
         </div>

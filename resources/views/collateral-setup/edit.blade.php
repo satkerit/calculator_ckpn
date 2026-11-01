@@ -10,8 +10,8 @@
         @csrf @method('PUT')
 
         <div>
-            <label class="block text-sm font-semibold text-gray-900 mb-2">Tipe Agunan (Code)</label>
-            <input type="text" disabled value="{{ $collateral->collateral_type }}" class="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-600 cursor-not-allowed">
+            <label for="collateral_type" class="block text-sm font-semibold text-gray-900 mb-2">Tipe Agunan (Code)</label>
+            <input type="text" id="collateral_type" disabled value="{{ $collateral->collateral_type }}" class="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-600 cursor-not-allowed">
             <p class="text-xs text-gray-500 mt-1">Kode tipe agunan adalah primary key dan tidak dapat diubah.</p>
         </div>
 

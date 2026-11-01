@@ -1,4 +1,4 @@
-{{--
+﻿{{--
     Global SweetAlert2 Confirmation + Loading Layer
     - Konfirmasi otomatis untuk SEMUA form POST non-import (kecuali di-opt-out via data-no-confirm).
     - Efek loading persisten lintas redirect (LocalStorage flag + sebelum submit).
@@ -6,7 +6,7 @@
         data-confirm-title, data-confirm-message, data-confirm-detail,
         data-confirm-type, data-confirm-button, data-loading-message, data-no-confirm, data-no-loading
 --}}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.25/dist/sweetalert2.all.min.js" integrity="sha384-nLoOnA/BDh8A/jxqtckg4DumuCGOBYUnNJLZdQz/zfYNp3wcjGSoWTAzgko06G/2" crossorigin="anonymous"></script>
 <style>
     .ckpn-swal-popup {
         border-radius: 1rem !important;
@@ -340,7 +340,7 @@
                 hidden.remove();
                 localStorage.removeItem(LS_KEY);
                 resetProgress();
-                showError('Koneksi terputus saat proses berjalan. Muat ulang halaman untuk melihat status terkini — jangan jalankan ulang proses sebelum memastikan.');
+                showError('Koneksi terputus saat proses berjalan. Muat ulang halaman untuk melihat status terkini - jangan jalankan ulang proses sebelum memastikan.');
             });
     }
 

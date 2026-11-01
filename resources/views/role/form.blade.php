@@ -1,6 +1,6 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
-@section('title', '{{ isset($role) ? "Edit Role" : "Tambah Role" }} - CKPN Calculator')
+@section('title', (isset($role) ? 'Edit Role' : 'Tambah Role') . ' - CKPN Calculator')
 
 @section('content')
 <div class="mb-6">
@@ -11,7 +11,7 @@
 </div>
 
 <div class="bg-white rounded-lg shadow-md p-8 max-w-2xl">
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">{{ isset($role) ? 'Edit Role: ' . $role->nama_role : 'Tambah Role Baru' }}</h1>
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">{{ isset($role) ? 'Edit Role: ' . $role->nama_role : 'Tambah Role Baru' }}</h2>
 
     @if($errors->any())
         <div class="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded text-red-800 text-sm">
@@ -65,7 +65,7 @@
         </div>
 
         <div class="mb-8">
-            <label class="block text-sm font-semibold text-gray-700 mb-4">Permissions</label>
+            <span class="block text-sm font-semibold text-gray-700 mb-4">Hak Akses</span>
             
             @php
                 $groupedPermissions = [];

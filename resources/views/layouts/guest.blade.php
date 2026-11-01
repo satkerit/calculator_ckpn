@@ -18,28 +18,13 @@
             body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
             .fade-in { animation: fadeIn 0.3s ease-in; }
             @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @media (prefers-reduced-motion: reduce) { .fade-in { animation: none; } }
         </style>
     </head>
     <body class="bg-white antialiased">
         <div class="min-h-screen flex overflow-hidden fade-in">
             <!-- Left Side - Hero Section (Hidden on mobile, visible on lg+) -->
-            <div class="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 relative overflow-hidden items-center justify-center p-8 xl:p-12">
-                <!-- Background Pattern -->
-                <div class="absolute inset-0 opacity-10">
-                    <svg class="absolute w-full h-full" xmlns="http://www.w3.org/2000/svg">
-                        <defs>
-                            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="0.5"/>
-                            </pattern>
-                        </defs>
-                        <rect width="100%" height="100%" fill="url(#grid)" />
-                    </svg>
-                </div>
-
-                <!-- Animated Gradient Orbs -->
-                <div class="absolute top-0 -left-40 w-60 h-60 md:w-80 md:h-80 bg-blue-400 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse"></div>
-                <div class="absolute bottom-0 -right-40 w-60 h-60 md:w-80 md:h-80 bg-indigo-400 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse" style="animation-delay: 2s;"></div>
-
+            <div class="hidden lg:flex lg:w-1/2 bg-blue-700 relative overflow-hidden items-center justify-center p-8 xl:p-12">
                 <!-- Content -->
                 <div class="relative z-10 max-w-md text-white text-center px-4">
                     <!-- Icon -->
@@ -47,8 +32,8 @@
                         <div class="relative">
                             <div class="absolute inset-0 bg-white opacity-20 rounded-3xl blur-2xl"></div>
                             <div class="relative bg-white/10 backdrop-blur-xl rounded-3xl p-6 border border-white/20">
-                                <svg class="h-24 w-24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                <svg class="h-24 w-24" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                 </svg>
                             </div>
                         </div>
@@ -86,14 +71,12 @@
                         </div>
                     </div>
 
-                    <!-- Footer Text -->
-                    <div class="mt-16 pt-8 border-t border-white/20">
-                        <p class="text-sm text-blue-200">Trusted by BPRS institutions for credit risk assessment</p>
-                    </div>
+                    <!-- Footer Text removed: unverified trust claim (audit #7) -->
                 </div>
             </div>
 
             <!-- Right Side - Content Area -->
+            <div class="absolute inset-0 bg-gray-50"></div>
             <div class="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-6 md:p-8 lg:p-12 min-h-screen overflow-auto">
                 <div class="w-full max-w-sm">
                     {{ $slot }}

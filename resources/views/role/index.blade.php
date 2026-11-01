@@ -1,11 +1,11 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Role Management - CKPN Calculator')
 
 @section('content')
 <div class="mb-6 flex justify-between items-center">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Role Management</h1>
+        <h2 class="text-2xl font-bold text-gray-900">Role Management</h2>
         <p class="text-sm text-gray-600 mt-1">Kelola role dan hak akses pengguna</p>
     </div>
     <a href="{{ route('role.create') }}" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
@@ -13,12 +13,6 @@
         Tambah Role
     </a>
 </div>
-
-@if(session('success'))
-    <div class="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg text-green-800 text-sm">
-        {{ session('success') }}
-    </div>
-@endif
 
 @if($errors->any())
     <div class="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg text-red-800 text-sm">
@@ -48,7 +42,7 @@
         <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
             <div class="flex items-start justify-between mb-4">
                 @if($role->users()->count() === 0)
-                    <input type="checkbox" class="row-checkbox mt-1" value="{{ $role->id }}" onchange="updateBulkActionsBar()">
+                    <input type="checkbox" aria-label="Pilih baris ini" class="row-checkbox mt-1" value="{{ $role->id }}" onchange="updateBulkActionsBar()">
                 @else
                     <div class="w-4"></div>
                 @endif
@@ -93,17 +87,17 @@
                         Hapus
                     </button>
                 @else
-                    <button type="button" disabled class="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-gray-100 text-gray-400 rounded text-sm font-medium cursor-not-allowed" title="Cannot delete role with users">
+                    <button type="button" disabled class="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-gray-100 text-gray-500 rounded text-sm font-medium cursor-not-allowed" title="Cannot delete role with users">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         Hapus
                     </button>
                 @endif
             </div>
-            <p class="text-xs text-gray-400 mt-3 text-center">{{ $role->users()->count() }} user(s)</p>
+            <p class="text-xs text-gray-500 mt-3 text-center">{{ $role->users()->count() }} user(s)</p>
         </div>
     @empty
         <div class="col-span-full text-center py-12">
-            <svg class="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+            <svg class="w-12 h-12 text-gray-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
             <p class="text-gray-500 font-medium">Belum ada role</p>
         </div>
     @endforelse

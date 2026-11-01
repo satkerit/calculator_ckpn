@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Setup Collateral - CKPN Calculator')
 
@@ -20,12 +20,6 @@
     </div>
 </div>
 
-@if(session('success'))
-    <div class="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg text-green-800 text-sm">
-        {{ session('success') }}
-    </div>
-@endif
-
 <!-- Bulk Actions Bar -->
 <div id="bulk-actions-bar" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 hidden">
     <div class="flex items-center justify-between">
@@ -40,23 +34,24 @@
 </div>
 
 <div class="bg-white rounded-lg shadow-md overflow-hidden">
+    <div class="overflow-x-auto">
     <table class="w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">
             <tr>
                 <th class="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-12">
-                    <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)">
+                    <input type="checkbox" id="select-all" aria-label="Pilih semua data agunan" onchange="toggleSelectAll(this)">
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Tipe Agunan (Code)</th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Keterangan Agunan</th>
                 <th class="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-                <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Aksi</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
             @forelse ($collaterals as $setup)
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-6 py-4 text-center">
-                        <input type="checkbox" class="row-checkbox" value="{{ $setup->collateral_type }}" onchange="updateBulkActionsBar()">
+                        <input type="checkbox" aria-label="Pilih baris ini" class="row-checkbox" value="{{ $setup->collateral_type }}" onchange="updateBulkActionsBar()">
                     </td>
                     <td class="px-6 py-4 font-mono font-semibold text-gray-900">{{ $setup->collateral_type }}</td>
                     <td class="px-6 py-4 text-gray-800 font-medium">{{ $setup->collateral_ket }}</td>
@@ -83,6 +78,7 @@
             @endforelse
         </tbody>
     </table>
+    </div>
 </div>
 
 <div class="mt-6">

@@ -22,35 +22,35 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-blue-600">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Nomor Pembiayaan (Loan Number)</p>
             <p class="text-lg font-mono font-bold text-gray-900">{{ $collateral->loan_number }}</p>
         </div>
-        <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-indigo-600">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Kode / No. Urut Agunan</p>
             <p class="text-lg font-mono font-bold text-gray-900">{{ $collateral->collateral_code ?: '-' }} <span class="text-sm font-normal text-gray-500">(Urutan: {{ $collateral->collateral_order }})</span></p>
         </div>
-        <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-cyan-600">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Tipe / Jenis Agunan</p>
             <p class="text-lg font-bold text-gray-900">{{ $collateral->collateral_type }} - {{ $collateral->collateralSetup->collateral_ket ?? 'N/A' }}</p>
         </div>
-        <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-purple-600">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Status Agunan</p>
             <p class="text-lg">
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $collateral->active_flag ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                    {{ $collateral->active_flag ? 'Active' : 'Inactive' }}
+                    {{ $collateral->active_flag ? 'Aktif' : 'Nonaktif' }}
                 </span>
             </p>
         </div>
-        <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-green-600">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Nilai Pasar / Taksasi (Estimated Value)</p>
-            <p class="text-xl font-bold text-green-700">Rp {{ number_format($collateral->estimated_value, 2, ',', '.') }}</p>
+            <p class="text-xl font-mono font-bold text-gray-900">Rp {{ number_format($collateral->estimated_value, 2, ',', '.') }}</p>
         </div>
-        <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-emerald-600">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Nilai Likuidasi (Liquidity Value)</p>
-            <p class="text-xl font-bold text-emerald-800">Rp {{ number_format($collateral->liquidity_value, 2, ',', '.') }}</p>
+            <p class="text-xl font-mono font-bold text-gray-900">Rp {{ number_format($collateral->liquidity_value, 2, ',', '.') }}</p>
         </div>
-        <div class="col-span-1 md:col-span-2 bg-white rounded-lg shadow-md p-6 border-t-4 border-gray-400">
+        <div class="col-span-1 md:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Tanggal Valuasi / Penilaian</p>
             <p class="text-gray-900 font-medium">{{ $collateral->valuation_date ? date('d F Y', strtotime($collateral->valuation_date)) : 'Belum diisi' }}</p>
         </div>

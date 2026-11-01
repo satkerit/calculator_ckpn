@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AssessmentPeriodController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\OfficeController;
 use App\Http\Controllers\CollateralController;
 use App\Http\Controllers\CollateralSetupController;
@@ -33,13 +34,21 @@ Route::get('/', function () {
     return auth()->check() ? redirect()->route('dashboard') : redirect()->route('login');
 });
 
+// Profile (Breeze default)
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
 Route::middleware(['auth'])->group(function () {
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Assessment Periods
-    Route::resource('assessment', AssessmentPeriodController::class);
-    Route::delete('/assessment-bulk-destroy', [AssessmentPeriodController::class, 'bulkDestroy'])->name('assessment.bulk-destroy');
+    // Assessment Periods (akses mengikuti domain kalkulasi CKPN)
+    Route::resource('assessment', AssessmentPeriodController::class)->middleware('permission:calculation.view');
+    Route::delete('/assessment-bulk-destroy', [AssessmentPeriodController::class, 'bulkDestroy'])
+        ->middleware('permission:calculation.run')->name('assessment.bulk-destroy');
 
     // Offices
     Route::resource('office', OfficeController::class)->middleware('permission:office.view');
@@ -55,9 +64,12 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('permission:collateral.delete')->name('collateral-setup.bulk-destroy');
 
     // Snapshot History
-    Route::get('/snapshot-history', [SnapshotHistoryController::class, 'index'])->name('snapshot-history.index');
-    Route::get('/snapshot-history/{id}', [SnapshotHistoryController::class, 'show'])->name('snapshot-history.show');
-    Route::post('/snapshot-history/export', [SnapshotHistoryController::class, 'export'])->name('snapshot-history.export');
+    Route::get('/snapshot-history', [SnapshotHistoryController::class, 'index'])
+        ->middleware('permission:financing.view')->name('snapshot-history.index');
+    Route::get('/snapshot-history/{id}', [SnapshotHistoryController::class, 'show'])
+        ->middleware('permission:financing.view')->name('snapshot-history.show');
+    Route::post('/snapshot-history/export', [SnapshotHistoryController::class, 'export'])
+        ->middleware('permission:reporting.export')->name('snapshot-history.export');
 
     // User Management Routes (read = user.view, tulis per-aksi)
     Route::get('/user', [UserController::class, 'index'])->middleware('permission:user.view')->name('user.index');
@@ -108,7 +120,8 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('product-akad', ProductAkadMappingController::class)->middleware('permission:financing.view');
     Route::delete('/product-akad-bulk-destroy', [ProductAkadMappingController::class, 'bulkDestroy'])
         ->middleware('permission:financing.delete')->name('product-akad.bulk-destroy');
-    Route::get('/api/product-akad/resolve', [ProductAkadMappingController::class, 'resolve'])->name('product-akad.resolve');
+    Route::get('/api/product-akad/resolve', [ProductAkadMappingController::class, 'resolve'])
+        ->middleware('permission:financing.view')->name('product-akad.resolve');
     Route::get('/import/product-akad', [ProductAkadMappingController::class, 'importForm'])
         ->middleware('permission:financing.import')->name('import.product-akad.form');
     Route::post('/import/product-akad', [ProductAkadMappingController::class, 'uploadImport'])
@@ -222,7 +235,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/import/collateral-setup', [DataImportController::class, 'uploadCollateralSetup'])
             ->middleware('throttle:10,1')->name('import.collateral_setup.upload');
     });
-    Route::get('/template/download/{type}', [DataImportController::class, 'downloadTemplate'])->name('template.download');
+    Route::get('/template/download/{type}', [DataImportController::class, 'downloadTemplate'])
+        ->middleware('permission:financing.import')->name('template.download');
 });
 
 require __DIR__.'/auth.php';

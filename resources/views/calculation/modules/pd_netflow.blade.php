@@ -73,9 +73,9 @@
         @if (! empty($pdStale) && $hasHistory)
             {{-- Hasil tidak valid: konfigurasi (segmentasi/window/metode PD) berubah setelah run terakhir --}}
             <div class="mt-6 p-4 rounded-xl border border-red-200 bg-red-50 flex items-start gap-3">
-                <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold shrink-0">⚠</div>
+                <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold shrink-0"><svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg></div>
                 <div>
-                    <p class="text-sm font-semibold text-red-900">Hasil PD Net Flow TIDAK VALID — konfigurasi berubah</p>
+                    <p class="text-sm font-semibold text-red-900">Hasil PD Net Flow TIDAK VALID - konfigurasi berubah</p>
                     <p class="text-xs text-red-700 mt-1">Segmentasi (kombinasi dimensi), historical window, atau metode PD berubah setelah perhitungan terakhir, sehingga hasil di bawah ini tidak lagi akurat. Klik <strong>Rekalkulasi</strong> untuk memperbarui sebelum melanjutkan ke modul LGD / CKPN.</p>
                 </div>
             </div>
@@ -85,7 +85,7 @@
             {{-- Info riwayat tersedia, muncul sebelum data ditampilkan --}}
             <div x-show="!showData" x-cloak class="mt-6 p-4 rounded-xl border border-blue-100 bg-blue-50/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold">ℹ</div>
+                    <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold"><svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg></div>
                     <div>
                         <p class="text-sm font-semibold text-blue-900">Riwayat perhitungan PD Net Flow ditemukan</p>
                         <p class="text-xs text-blue-700">Terdapat {{ $results['count'] }} grup segmentasi yang telah dihitung pada periode ini. Klik tombol <strong>Tampilkan PD</strong> untuk melihat hasil.</p>

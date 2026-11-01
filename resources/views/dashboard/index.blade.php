@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Dashboard - CKPN Calculator')
 @section('page-title', 'Dashboard')
@@ -115,7 +115,7 @@
             <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
                 <div>
                     <h2 class="text-sm font-semibold text-gray-900">Assessment Terbaru</h2>
-                    <p class="text-xs text-gray-400">Periode perhitungan terakhir</p>
+                    <p class="text-xs text-gray-500">Periode perhitungan terakhir</p>
                 </div>
                 <a href="{{ route('assessment.index') }}" class="text-xs font-medium text-blue-600 hover:text-blue-700">Lihat semua &rarr;</a>
             </div>
@@ -125,7 +125,7 @@
                     <div class="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors">
                         <div class="min-w-0 pr-4">
                             <p class="text-sm font-medium text-gray-900 truncate">{{ $assessment->period_name }}</p>
-                            <p class="text-xs text-gray-400 mt-0.5">{{ $assessment->assessment_date->format('d M Y') }}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">{{ $assessment->assessment_date->format('d M Y') }}</p>
                         </div>
                         <div class="flex items-center gap-2.5 shrink-0">
                             @php
@@ -139,13 +139,13 @@
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border {{ $badgeColor }}">
                                 {{ $assessment->status }}
                             </span>
-                            <a href="{{ route('assessment.show', $assessment) }}" class="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                            <a href="{{ route('assessment.show', $assessment) }}" class="p-1 rounded text-gray-500 hover:text-gray-600 hover:bg-gray-100 transition-colors">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                             </a>
                         </div>
                     </div>
                 @empty
-                    <div class="px-5 py-8 text-center text-xs text-gray-400">
+                    <div class="px-5 py-8 text-center text-xs text-gray-500">
                         Belum ada data assessment. <a href="{{ route('assessment.create') }}" class="text-blue-600 hover:underline">Buat baru</a>
                     </div>
                 @endforelse
@@ -156,7 +156,7 @@
         <div class="bg-white rounded-xl border border-gray-200/80 p-5 flex flex-col justify-between">
             <div>
                 <h2 class="text-sm font-semibold text-gray-900">Kelengkapan Data</h2>
-                <p class="text-xs text-gray-400 mt-0.5">Kualitas atribut pembiayaan snapshot</p>
+                <p class="text-xs text-gray-500 mt-0.5">Kualitas atribut pembiayaan snapshot</p>
 
                 <div class="mt-5 space-y-4">
                     @php
@@ -168,7 +168,7 @@
                     <div>
                         <div class="flex justify-between items-center text-xs mb-1.5">
                             <span class="text-gray-600">Dengan Usage Type</span>
-                            <span class="font-semibold text-gray-900">{{ number_format($withUsage) }} <span class="text-gray-400 font-normal">({{ $pctUsage }}%)</span></span>
+                            <span class="font-semibold text-gray-900">{{ number_format($withUsage) }} <span class="text-gray-500 font-normal">({{ $pctUsage }}%)</span></span>
                         </div>
                         <div class="w-full bg-gray-100 rounded-full h-1.5">
                             <div class="bg-blue-600 h-1.5 rounded-full" style="width: {{ $pctUsage }}%"></div>
@@ -201,7 +201,7 @@
         <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
             <div>
                 <h2 class="text-sm font-semibold text-gray-900">Snapshot Pembiayaan Terakhir</h2>
-                <p class="text-xs text-gray-400">Sampel data staging pembiayaan</p>
+                <p class="text-xs text-gray-500">Sampel data staging pembiayaan</p>
             </div>
             <a href="{{ route('snapshot-history.index') }}" class="text-xs font-medium text-blue-600 hover:text-blue-700">Lihat semua &rarr;</a>
         </div>
@@ -228,7 +228,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-5 py-8 text-center text-gray-400">Belum ada data snapshot</td>
+                            <td colspan="5" class="px-5 py-8 text-center text-gray-500">Belum ada data snapshot</td>
                         </tr>
                     @endforelse
                 </tbody>

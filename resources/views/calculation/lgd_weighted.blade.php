@@ -1,10 +1,12 @@
 @extends('layouts.app')
 
+@section('title', 'LGD Weighted - CKPN Calculator')
+
 @section('content')
 <div class="container mx-auto px-4 py-6">
     <div class="flex justify-between items-center mb-6">
         <div>
-            <h1 class="text-2xl font-bold text-gray-800">LGD Weighted</h1>
+            <h2 class="text-2xl font-bold text-gray-800">LGD Weighted</h2>
             <p class="text-sm text-gray-600 mt-1">Kombinasi LGD ER + LGD CS per Segmentasi</p>
         </div>
         <div class="flex gap-2">
@@ -35,7 +37,7 @@
 
     @if ($emptyNotice)
         <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
-            <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center font-bold shrink-0">⚠</div>
+            <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center font-bold shrink-0"><svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg></div>
             <p class="text-sm text-amber-900">{{ $emptyNotice }}</p>
         </div>
     @endif

@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'CKPN Kolektif')
 @section('page-title', 'CKPN Kolektif')
@@ -14,7 +14,7 @@
             <h2 class="text-base font-bold text-gray-900">CKPN Kolektif</h2>
             <p class="text-sm text-gray-600 mt-1">Daftar debitur kolektif per rekening dengan rate PD &amp; LGD sesuai segmentasi dan bucket-nya (EAD &times; PD &times; LGD).</p>
         </div>
-        <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">⬇ Export XLSX</a>
+        <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Export XLSX</a>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">

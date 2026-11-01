@@ -1,10 +1,10 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Create Assessment - CKPN Calculator')
 
 @section('content')
 <div class="w-full max-w-2xl mx-auto">
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">Create New Assessment Period</h1>
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Create New Assessment Period</h2>
 
     <form method="POST" action="{{ route('assessment.store') }}" class="bg-white rounded-lg shadow-md p-8 space-y-6">
         @csrf

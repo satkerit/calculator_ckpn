@@ -17,14 +17,18 @@ class ReportingController extends Controller
 
         $reports = $assessments->map(function ($assessment) {
             $cached = CalculationResults::forPeriod($assessment->id);
+            $individualCkpn = $cached['individual_ckpn']['total_ckpn_individual'] ?? 0;
+            $collectiveCkpn = $cached['collective_ckpn']['total_ckpn_collective'] ?? 0;
+            $totalEad = $cached['ead']['total_ead'] ?? 0;
+
             return [
                 'assessment' => $assessment,
-                'ead' => $cached['ead']['total_ead'] ?? 0,
+                'ead' => $totalEad,
                 'individual_count' => $cached['ead']['total_count'] ?? 0,
-                'individual_ckpn' => $cached['individual_ckpn']['total_ckpn_individual'] ?? 0,
-                'collective_ckpn' => $cached['collective_ckpn']['total_ckpn_collective'] ?? 0,
-                'total_ckpn' => ($cached['individual_ckpn']['total_ckpn_individual'] ?? 0) + ($cached['collective_ckpn']['total_ckpn_collective'] ?? 0),
-                'coverage_ratio' => ($cached['ead']['total_ead'] ?? 0) > 0 ? (($cached['individual_ckpn']['total_ckpn_individual'] ?? 0 + $cached['collective_ckpn']['total_ckpn_collective'] ?? 0) / ($cached['ead']['total_ead'] ?? 1)) * 100 : 0,
+                'individual_ckpn' => $individualCkpn,
+                'collective_ckpn' => $collectiveCkpn,
+                'total_ckpn' => $individualCkpn + $collectiveCkpn,
+                'coverage_ratio' => $totalEad > 0 ? (($individualCkpn + $collectiveCkpn) / $totalEad) * 100 : 0,
             ];
         });
 

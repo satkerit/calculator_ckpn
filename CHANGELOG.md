@@ -5,6 +5,40 @@ Setiap perubahan kode/konfigurasi signifikan WAJIB dicatat di sini.
 
 ---
 
+## [Unreleased] — 2026-11-01
+
+### Security — Remediasi Audit OWASP Top 10
+- **A01 Broken Access Control:**
+  - `app/Http/Requests/Auth/LoginRequest.php` — login menolak user non-aktif (`active = 1` disertakan pada `Auth::attempt`).
+  - `app/Http/Middleware/CheckPermission.php` — tolak user tanpa role atau non-aktif (defense-in-depth untuk sesi yang sudah terbentuk).
+  - `app/Models/User.php` — implementasi `FilamentUser::canAccessPanel()`; panel `/admin` hanya untuk user aktif dengan `kode_role = ADMIN`.
+  - `routes/web.php` — tambah middleware permission pada rute yang sebelumnya hanya `auth`:
+    - `assessment` resource → `permission:calculation.view`; `assessment.bulk-destroy` → `permission:calculation.run`
+    - `snapshot-history` index/show → `permission:financing.view`; export → `permission:reporting.export`
+    - `api/product-akad/resolve` → `permission:financing.view`
+    - `template/download/{type}` → `permission:financing.import`
+- **A05 Security Misconfiguration:**
+  - `app/Http/Middleware/SetSecurityHeaders.php` — tambah HSTS (`Strict-Transport-Security`, saat koneksi secure) & CSP (aktif di non-local), hapus header `X-XSS-Protection` yang deprecated.
+- **A06 Vulnerable & Outdated Components (supply chain):**
+  - `resources/views/components/sweetalert-global.blade.php` — pin SweetAlert2 ke versi tetap `11.26.25` + SRI `integrity="sha384-…"` + `crossorigin="anonymous"` (hash diverifikasi terhadap file `dist/sweetalert2.all.min.js`).
+
+### Catatan
+- Permission `assessment.*` pada `PermissionSeeder` menulis kolom legacy (`kode_permission`/`nama_permission`) sehingga `permissions.name` bernilai NULL; middleware rute assessment sengaja memakai `calculation.*` yang sudah valid agar tidak mengunci seluruh role, termasuk ADMIN.
+
+### Audit — UI/UX anti-slop (implementasi perbaikan, batch 1)
+- **Fixed** #1 (R-02): em dash diganti `-` di 16 lokasi pada 9 berkas.
+- **Fixed** #2 (R-24): route profile terdaftar (`profile.edit/update/destroy`) → ProfileController; tautan ikon profil tidak lagi mati.
+- **Fixed** #3 (R-26): tag `<script>` bersarang di `user/index.blade.php` ditutup; fungsi bulk delete kembali terdefinisi.
+- **Fixed** #5 (R-17): presedensi operator di `reporting/risk-matrix.blade.php:105` diperbaiki (Total EAD tidak lagi salah 10^9).
+- **Fixed** #6 (R-39): `role/form.blade.php` title dievaluasi dengan benar.
+- **Fixed** #7 (R-36): klaim kepercayaan tanpa bukti di `layouts/guest.blade.php` dihapus.
+- Menjalankan audit `antislop` mode **AFTER** atas seluruh 91 view Blade dengan basis aturan `antislop` (R-01..R-40) + `antislop-ui`.
+- Hasil: `anti-slop/audit-001-2026-11-01.md` (45 temuan bernomor: 19 HIGH / 12 MEDIUM / 14 LOW).
+- Temuan HIGH utama yang terverifikasi: em dash di 7 berkas (R-02), route `profile.edit` tidak terdaftar padahal dipakai di topbar (R-24), `<script>` bersarang yang mematikan aksi hapus di `user/index` (R-26), filter mati di `reporting/ckpn-summary` (R-26), bug presedensi `Total EAD` di `reporting/risk-matrix` (R-17), `<title>` literal di `role/form` (R-39), klaim tanpa bukti di `layouts/guest` (R-36), dua `<h1>` per halaman (R-39), kontras gagal WCAG AA (R-25), tap target <44px & drop zone non-keyboard (R-03/R-32), dan Chart.js render-blocking (R-40).
+- Tidak ada berkas view yang dimodifikasi; perbaikan menunggu persetujuan nomor temuan dari user.
+
+---
+
 ## [Unreleased] — 2026-10-22
 
 ### Changed — Redesign Layout & Navigation

@@ -12,7 +12,8 @@ class CheckPermission
     {
         $user = $request->user();
 
-        if (!$user || !$user->role) {
+        // tolak juga user yang dinonaktifkan setelah sesi terbentuk
+        if (!$user || !$user->role || !$user->active) {
             abort(403, 'Access denied');
         }
 

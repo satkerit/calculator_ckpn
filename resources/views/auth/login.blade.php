@@ -13,6 +13,9 @@
         .animate-slide-left { animation: slideInLeft 0.6s ease-out; }
         .animate-slide-right { animation: slideInRight 0.6s ease-out; }
         .animate-fade { animation: fadeIn 0.4s ease-out; }
+        @media (prefers-reduced-motion: reduce) {
+            .animate-slide-left, .animate-slide-right, .animate-fade { animation: none; }
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -26,7 +29,7 @@
                 <!-- Logo + Headline -->
                 <div>
                     <div class="inline-flex items-center gap-3 mb-12">
-                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                        <div class="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center">
                             <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
@@ -39,7 +42,7 @@
                     
                     <div class="max-w-md">
                         <h2 class="text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
-                            Kelola risiko kredit dengan <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-teal-300">presisi</span>
+                            Kelola risiko kredit dengan <span class="text-emerald-300">presisi</span>
                         </h2>
                         <p class="text-lg text-slate-300 leading-relaxed font-light">
                             Platform perhitungan CKPN berbasis PSAK 414 untuk identifikasi, klasifikasi, dan penilaian risiko kredit secara real-time.
@@ -63,7 +66,7 @@
                     <div class="flex items-start gap-4">
                         <div class="w-10 h-10 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0 mt-1">
                             <svg class="w-5 h-5 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                             </svg>
                         </div>
                         <div>
@@ -112,7 +115,7 @@
                                 </div>
                                 <x-text-input
                                     id="email"
-                                    class="w-full pl-12 pr-4 py-3 border-2 border-slate-200 rounded-lg focus:border-emerald-500 focus:ring-0 focus-visible:outline-none transition-all text-base placeholder:text-slate-400 bg-slate-50 hover:bg-white"
+                                    class="w-full pl-12 pr-4 py-3 border-2 border-slate-200 rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/40 transition-all text-base placeholder:text-slate-400 bg-slate-50 hover:bg-white"
                                     type="email"
                                     name="email"
                                     :value="old('email')"
@@ -138,7 +141,7 @@
                                 </div>
                                 <x-text-input
                                     id="password"
-                                    class="w-full pl-12 pr-12 py-3 border-2 border-slate-200 rounded-lg focus:border-emerald-500 focus:ring-0 focus-visible:outline-none transition-all text-base placeholder:text-slate-400 bg-slate-50 hover:bg-white"
+                                    class="w-full pl-12 pr-14 py-3 border-2 border-slate-200 rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/40 transition-all text-base placeholder:text-slate-400 bg-slate-50 hover:bg-white"
                                     type="password"
                                     name="password"
                                     required
@@ -148,9 +151,9 @@
                                 />
                                 <button
                                     type="button"
-                                    class="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                                    class="absolute inset-y-0 right-0 px-3 inline-flex items-center justify-center min-w-[44px] text-slate-500 hover:text-slate-700 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-colors"
                                     id="toggle-password"
-                                    aria-label="Toggle password visibility"
+                                    aria-label="Tampilkan atau sembunyikan kata sandi"
                                 >
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" id="eye-icon" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />

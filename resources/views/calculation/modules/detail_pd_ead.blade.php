@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Detail PD & EAD')
 @section('page-title', '7. Detail PD & EAD')
@@ -10,7 +10,7 @@
 
 <div class="flex items-center justify-between mb-6">
     <p class="text-sm text-gray-600">Read-only view: distribusi EAD per bucket + PD per grup + loan detail.</p>
-    <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">⬇ Export XLSX</a>
+    <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Export XLSX</a>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Konfigurasi CKPN')
 @section('page-title', '1. Konfigurasi CKPN')
@@ -37,7 +37,7 @@
                 <p class="text-xs text-gray-500 mt-1">Weighted = penjumlahan Loss &amp; Exposure ER + CS sesuai kertas kerja; ER/CS = pakai satu metode saja.</p>
             </div>
             <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Historical Window — PD (bulan)</label>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Historical Window - PD (bulan)</label>
                 <input type="number" min="12" max="120" name="historical_months" value="{{ $pdWindowMonths }}" class="w-full border-gray-300 rounded-lg text-sm">
                 <p class="text-xs text-gray-500 mt-1">
                     Berlaku untuk <strong>kedua metode PD</strong>:
@@ -60,7 +60,7 @@
                 <p class="text-xs text-gray-500 mt-1">Ambil N debitur NPL dengan outstanding terbesar.</p>
             </div>
             <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">NPL — Kualitas (Kolektibilitas)</label>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">NPL - Kualitas (Kolektibilitas)</label>
                 <div class="flex items-center gap-4">
                     @foreach ([3, 4, 5] as $q)
                         <label class="inline-flex items-center gap-2 text-sm text-gray-700">
@@ -90,7 +90,7 @@
 
         <div class="flex items-center gap-3 pt-2">
             <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">Simpan Konfigurasi</button>
-            <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">⬇ Export XLSX</a>
+            <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Export XLSX</a>
         </div>
     </form>
 </div>
@@ -98,6 +98,6 @@
 <div class="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-900">
     <p class="font-semibold mb-1">Periode aktif: {{ $period->assessment_date?->format('Y-m-d') ?? '-' }} (ID: {{ $period->id }})</p>
     <p>Konfigurasi ini akan dipakai oleh Modul 2–8. Segmentasi menentukan group_key kolektif.</p>
-    <p class="mt-2"><strong>Perhatian:</strong> perubahan segmentasi membatalkan hasil PD, LGD &amp; CKPN Kolektif; perubahan metode PD membatalkan hasil PD &amp; CKPN Kolektif. Historical window PD berlaku untuk <em>kedua</em> metode — <em>Net Flow</em> (bucket tunggakan) maupun <em>Migration</em> (kualitas/Kol) — sehingga mengubahnya membatalkan hasil PD metode aktif dan CKPN Kolektif. Hasil yang dibatalkan otomatis ditandai <em>tidak valid</em> dan wajib dihitung ulang sebelum Finalize CKPN.</p>
+    <p class="mt-2"><strong>Perhatian:</strong> perubahan segmentasi membatalkan hasil PD, LGD &amp; CKPN Kolektif; perubahan metode PD membatalkan hasil PD &amp; CKPN Kolektif. Historical window PD berlaku untuk <em>kedua</em> metode - <em>Net Flow</em> (bucket tunggakan) maupun <em>Migration</em> (kualitas/Kol) - sehingga mengubahnya membatalkan hasil PD metode aktif dan CKPN Kolektif. Hasil yang dibatalkan otomatis ditandai <em>tidak valid</em> dan wajib dihitung ulang sebelum Finalize CKPN.</p>
 </div>
 @endsection

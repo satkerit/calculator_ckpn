@@ -1,4 +1,6 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
+
+@section('title', 'Pemetaan Produk Akad - CKPN Calculator')
 
 @section('content')
 <div class="container mx-auto px-4 py-8">
@@ -12,10 +14,6 @@
             <a href="{{ route('product-akad.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium">+ Tambah</a>
         </div>
     </div>
-
-    @if(session('success'))
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">{{ session('success') }}</div>
-    @endif
 
     <form id="bulk-delete-form" method="POST" action="{{ route('product-akad.bulk-destroy') }}" style="display:none;">
         @csrf @method('DELETE')
@@ -45,7 +43,7 @@
             <thead class="bg-gray-100 border-b">
                 <tr>
                     <th class="px-4 py-3 text-center w-12">
-                        <input type="checkbox" id="select-all" class="rounded border-gray-300" onchange="toggleSelectAll(this)">
+                        <input type="checkbox" id="select-all" aria-label="Pilih semua baris" class="rounded border-gray-300" onchange="toggleSelectAll(this)">
                     </th>
                     <th class="px-4 py-3 text-left">Product Code</th>
                     <th class="px-4 py-3 text-left">Product Name</th>
@@ -59,7 +57,7 @@
                 @forelse($mappings as $mapping)
                     <tr class="border-b hover:bg-gray-50">
                         <td class="px-4 py-3 text-center">
-                            <input type="checkbox" class="row-checkbox rounded border-gray-300" value="{{ $mapping->id }}" onchange="updateBulkActions()">
+                            <input type="checkbox" aria-label="Pilih baris ini" class="row-checkbox rounded border-gray-300" value="{{ $mapping->id }}" onchange="updateBulkActions()">
                         </td>
                         <td class="px-4 py-3 font-mono">{{ $mapping->product_code }}</td>
                         <td class="px-4 py-3">{{ $mapping->product_name }}</td>

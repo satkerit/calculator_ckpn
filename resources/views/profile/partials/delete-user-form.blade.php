@@ -35,7 +35,8 @@
                     name="password"
                     type="password"
                     class="mt-1 block w-3/4"
-                    placeholder="{{ __('Password') }}"
+                    aria-label="{{ __('Kata Sandi') }}"
+                    placeholder="{{ __('Kata Sandi') }}"
                 />
 
                 <x-input-error :messages="$errors->userDeletion->get('password')" class="mt-2" />

@@ -8,25 +8,25 @@
     <p class="text-gray-600 mb-8">Upload Excel file dengan data historis pembiayaan</p>
 
     <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-        <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
-            <p class="text-gray-600 text-sm">Format Required</p>
-            <p class="text-lg font-bold text-blue-600">.xlsx / .xls / .csv</p>
+        <div class="bg-white rounded-lg p-4 border border-gray-200">
+            <p class="text-gray-500 text-sm">Format Required</p>
+            <p class="text-lg font-bold text-gray-900">.xlsx / .xls / .csv</p>
         </div>
-        <div class="bg-indigo-50 rounded-lg p-4 border-l-4 border-indigo-500">
-            <p class="text-gray-600 text-sm">Kolom Baru</p>
-            <p class="text-lg font-bold text-indigo-600">usage_type, tglwo</p>
+        <div class="bg-white rounded-lg p-4 border border-gray-200">
+            <p class="text-gray-500 text-sm">Kolom Baru</p>
+            <p class="text-lg font-bold text-gray-900">usage_type, tglwo</p>
         </div>
-        <div class="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-500">
-            <p class="text-gray-600 text-sm">Format Tglwo</p>
-            <p class="text-lg font-bold text-purple-600">yyyymmdd (20240101)</p>
+        <div class="bg-white rounded-lg p-4 border border-gray-200">
+            <p class="text-gray-500 text-sm">Format Tglwo</p>
+            <p class="text-lg font-bold text-gray-900">yyyymmdd (20240101)</p>
         </div>
-        <div class="bg-amber-50 rounded-lg p-4 border-l-4 border-amber-500">
-            <p class="text-gray-600 text-sm">Write-off Flag</p>
-            <p class="text-lg font-bold text-amber-600">'W' jika Write-off</p>
+        <div class="bg-white rounded-lg p-4 border border-gray-200">
+            <p class="text-gray-500 text-sm">Write-off Flag</p>
+            <p class="text-lg font-bold text-gray-900">'W' jika Write-off</p>
         </div>
-        <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
-            <p class="text-gray-600 text-sm">Processing</p>
-            <p class="text-lg font-bold text-green-600">Realtime SSE</p>
+        <div class="bg-white rounded-lg p-4 border border-gray-200">
+            <p class="text-gray-500 text-sm">Processing</p>
+            <p class="text-lg font-bold text-gray-900">Realtime SSE</p>
         </div>
     </div>
 
@@ -34,7 +34,7 @@
         <form id="uploadForm" class="space-y-6" enctype="multipart/form-data">
             @csrf
 
-            <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all" onclick="document.getElementById('fileInput').click()">
+            <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" role="button" tabindex="0" onclick="document.getElementById('fileInput').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('fileInput').click();}">
                 <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                     <path d="M28 8H12a4 4 0 00-4 4v20a4 4 0 004 4h24a4 4 0 004-4V16a4 4 0 00-4-4zm0-4l8 8M12 24l8-8m0 0l-8-8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
@@ -77,7 +77,7 @@
     <div id="progressContainer" class="hidden mt-8 bg-white rounded-lg shadow-lg p-8">
         <h2 class="text-xl font-bold mb-6">Upload Progress</h2>
 
-        <div class="grid grid-cols-3 gap-4 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             <div class="bg-blue-50 rounded-lg p-4">
                 <p class="text-gray-600 text-sm">Processed</p>
                 <p id="processedCount" class="text-2xl font-bold text-blue-600">0</p>
@@ -99,7 +99,7 @@
 
         <div class="mb-8">
             <div class="relative h-3 bg-gray-200 rounded-full overflow-hidden">
-                <div id="progressBar" class="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+                <div id="progressBar" class="h-full bg-blue-600 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
             </div>
             <div class="flex justify-between text-xs text-gray-500 mt-2">
                 <span>Progress</span>
@@ -156,10 +156,10 @@ function addLog(message, type = 'info') {
         warning: 'text-amber-600'
     };
     const icons = {
-        info: 'ℹ️',
-        success: '✅',
-        error: '❌',
-        warning: '⚠️'
+        info: '[INFO]',
+        success: '[OK]',
+        error: '[ERROR]',
+        warning: '[PERINGATAN]'
     };
     
     if (logContainer.querySelector('.text-gray-400')) {
@@ -309,8 +309,8 @@ uploadForm.addEventListener('submit', async (e) => {
                     
                     successMessage.classList.remove('hidden');
                     successText.textContent = data.failed > 0 
-                        ? `⚠️ Import selesai dengan ${data.failed} error. ${data.imported} records berhasil di-import.`
-                        : `✅ Import berhasil! ${data.imported} snapshot records di-import.`;
+                        ? `Import selesai dengan ${data.failed} error. ${data.imported} records berhasil di-import.`
+                        : `Import berhasil! ${data.imported} snapshot records di-import.`;
                     document.getElementById('submitBtn').disabled = false;
                 } else if (data.status === 'error') {
                     addLog(`ERROR: ${data.message}`, 'error');

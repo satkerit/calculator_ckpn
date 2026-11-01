@@ -6,7 +6,6 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'CKPN Calculator BPRS')</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha256-DiMmxoaAcr7BWSdgxnKQQ8ruopYKK0bO5qIZKqxqv/A=" crossorigin="anonymous"></script>
     <style>
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
         .nav-item-active { background-color: #eff6ff; color: #2563eb; }
@@ -17,6 +16,10 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 99px; }
         ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+        @media (prefers-reduced-motion: reduce) {
+            .fade-in { animation: none; }
+            * { transition-duration: 0.01ms !important; }
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-gray-900 antialiased" x-data="{ sidebarOpen: false }">
@@ -51,11 +54,11 @@
                     </div>
                     <div>
                         <p class="text-sm font-bold text-gray-900 leading-none">CKPN</p>
-                        <p class="text-[10px] text-gray-400 mt-0.5 leading-none">BPRS Calculator</p>
+                        <p class="text-[10px] text-gray-500 mt-0.5 leading-none">BPRS Calculator</p>
                     </div>
                 </div>
-                <button @click="sidebarOpen = false" class="lg:hidden p-1 rounded text-gray-400 hover:text-gray-600">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                <button @click="sidebarOpen = false" aria-label="Tutup menu" class="lg:hidden inline-flex items-center justify-center min-w-[44px] min-h-[44px] -mr-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100">
+                    <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
 
@@ -64,7 +67,7 @@
 
                 {{-- ── MAIN ── --}}
                 <div>
-                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Menu</p>
+                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Menu</p>
                     <ul class="space-y-0.5">
                         <li>
                             <a href="{{ route('dashboard') }}"
@@ -78,7 +81,7 @@
 
                 {{-- ── CKPN WORKFLOW ── --}}
                 <div>
-                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">CKPN</p>
+                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">CKPN</p>
                     <ul class="space-y-0.5">
                         {{-- Assessment Periods --}}
                         <li>
@@ -149,7 +152,7 @@
 
                 {{-- ── DATA & LAPORAN ── --}}
                 <div>
-                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Data & Laporan</p>
+                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Data & Laporan</p>
                     <ul class="space-y-0.5">
                         <li>
                             <a href="{{ route('snapshot-history.index') }}"
@@ -170,7 +173,7 @@
 
                 {{-- ── MASTER DATA ── --}}
                 <div>
-                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Master Data</p>
+                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Master Data</p>
                     <ul class="space-y-0.5">
                         <li>
                             <a href="{{ route('office.index') }}"
@@ -246,7 +249,7 @@
 
                 {{-- ── ADMINISTRASI ── --}}
                 <div>
-                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Administrasi</p>
+                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Administrasi</p>
                     <ul class="space-y-0.5">
                         <li>
                             <a href="{{ route('user.index') }}"
@@ -275,12 +278,12 @@
                     </div>
                     <div class="flex-1 min-w-0">
                         <p class="text-xs font-semibold text-gray-900 truncate">{{ auth()->user()?->name ?? 'Guest' }}</p>
-                        <p class="text-[10px] text-gray-400 truncate">{{ auth()->user()?->email ?? '' }}</p>
+                        <p class="text-[10px] text-gray-500 truncate">{{ auth()->user()?->email ?? '' }}</p>
                     </div>
                     <form method="POST" action="{{ route('logout') }}" data-no-confirm>
                         @csrf
-                        <button type="submit" title="Logout" class="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                        <button type="submit" aria-label="Keluar" class="inline-flex items-center justify-center min-w-[44px] min-h-[44px] -mr-2 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors">
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                         </button>
                     </form>
                 </div>
@@ -295,18 +298,18 @@
                 <div class="flex items-center gap-3">
                     <button
                         @click="sidebarOpen = true"
-                        class="p-1.5 -ml-1 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 lg:hidden"
+                        class="inline-flex items-center justify-center min-w-[44px] min-h-[44px] -ml-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 lg:hidden"
                         aria-label="Buka menu"
                     >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                        <svg class="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                     </button>
                     <h1 class="text-base font-semibold text-gray-900 truncate">@yield('page-title', 'Dashboard')</h1>
                 </div>
 
                 <div class="flex items-center gap-2 text-sm text-gray-500">
                     <span class="hidden sm:inline">{{ auth()->user()?->name }}</span>
-                    <a href="{{ route('profile.edit') }}" class="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" title="Profil">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                    <a href="{{ route('profile.edit') }}" aria-label="Profil saya" class="inline-flex items-center justify-center min-w-[44px] min-h-[44px] -mr-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+                        <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                     </a>
                 </div>
             </header>
@@ -347,12 +350,5 @@
     </div>
 
     @include('components.sweetalert-global')
-
-    <script>
-        // Global confirm dialog listener
-        window.addEventListener('show-confirm', function(e) {
-            Alpine.store('confirmDialog').show(e.detail);
-        });
-    </script>
 </body>
 </html>

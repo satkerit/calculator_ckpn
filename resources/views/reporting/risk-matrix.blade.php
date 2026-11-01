@@ -92,21 +92,21 @@
 
     <!-- Summary Stats -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
-            <p class="text-gray-600 text-sm">Average PD</p>
-            <p class="text-2xl font-bold text-blue-600">{{ number_format(($cached['pd']['average_pd'] ?? 0) * 100, 2) }}%</p>
+        <div class="bg-white rounded-lg p-4 border border-gray-200">
+            <p class="text-gray-500 text-sm">Average PD</p>
+            <p class="text-2xl font-mono font-bold text-gray-900">{{ number_format(($cached['pd']['average_pd'] ?? 0) * 100, 2) }}%</p>
         </div>
-        <div class="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-500">
-            <p class="text-gray-600 text-sm">Average LGD</p>
-            <p class="text-2xl font-bold text-purple-600">{{ number_format(($cached['lgd']['average_lgd'] ?? 0) * 100, 2) }}%</p>
+        <div class="bg-white rounded-lg p-4 border border-gray-200">
+            <p class="text-gray-500 text-sm">Average LGD</p>
+            <p class="text-2xl font-mono font-bold text-gray-900">{{ number_format(($cached['lgd']['average_lgd'] ?? 0) * 100, 2) }}%</p>
         </div>
-        <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
-            <p class="text-gray-600 text-sm">Total EAD</p>
-            <p class="text-2xl font-bold text-green-600">{{ number_format($cached['ead']['total_ead'] ?? 0 / 1_000_000_000, 2) }}B</p>
+        <div class="bg-white rounded-lg p-4 border border-gray-200">
+            <p class="text-gray-500 text-sm">Total EAD</p>
+            <p class="text-2xl font-mono font-bold text-gray-900">{{ number_format(($cached['ead']['total_ead'] ?? 0) / 1_000_000_000, 2) }}B</p>
         </div>
-        <div class="bg-orange-50 rounded-lg p-4 border-l-4 border-orange-500">
-            <p class="text-gray-600 text-sm">Total CKPN</p>
-            <p class="text-2xl font-bold text-orange-600">{{ number_format((($cached['individual_ckpn']['total_ckpn_individual'] ?? 0) + ($cached['collective_ckpn']['total_ckpn_collective'] ?? 0)) / 1_000_000_000, 2) }}B</p>
+        <div class="bg-white rounded-lg p-4 border border-gray-200">
+            <p class="text-gray-500 text-sm">Total CKPN</p>
+            <p class="text-2xl font-mono font-bold text-gray-900">{{ number_format((($cached['individual_ckpn']['total_ckpn_individual'] ?? 0) + ($cached['collective_ckpn']['total_ckpn_collective'] ?? 0)) / 1_000_000_000, 2) }}B</p>
         </div>
     </div>
 

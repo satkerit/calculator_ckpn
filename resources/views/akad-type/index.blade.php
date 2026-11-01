@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Tipe Akad - CKPN Calculator')
 @section('page-title', 'Manajemen Akad')
@@ -6,7 +6,7 @@
 @section('content')
 <div class="mb-6 flex justify-between items-center">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Daftar Tipe Akad</h1>
+        <h2 class="text-2xl font-bold text-gray-900">Daftar Tipe Akad</h2>
         <p class="text-sm text-gray-500 mt-1">Konfigurasi akad syariah dan ketentuan kalkulasi EAD</p>
     </div>
     <div class="flex items-center gap-2">
@@ -50,7 +50,7 @@
             <thead class="bg-gray-50 border-b border-gray-200">
                 <tr>
                     <th class="px-4 py-3 text-center w-12">
-                        <input type="checkbox" id="select-all" class="rounded border-gray-300" onchange="toggleSelectAll(this)">
+                        <input type="checkbox" id="select-all" aria-label="Pilih semua baris" class="rounded border-gray-300" onchange="toggleSelectAll(this)">
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Kode</th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nama Akad</th>
@@ -65,7 +65,7 @@
                 @forelse ($akadTypes as $akad)
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-4 py-4 text-center">
-                            <input type="checkbox" class="row-checkbox rounded border-gray-300" value="{{ $akad->id }}" onchange="updateBulkActions()">
+                            <input type="checkbox" aria-label="Pilih baris ini" class="row-checkbox rounded border-gray-300" value="{{ $akad->id }}" onchange="updateBulkActions()">
                         </td>
                         <td class="px-6 py-4 font-mono font-semibold text-xs text-blue-600">{{ $akad->kode_akad }}</td>
                         <td class="px-6 py-4 font-medium text-gray-900">{{ $akad->nama_akad }}</td>
@@ -90,10 +90,10 @@
                             </span>
                         </td>
                         <td class="px-6 py-4 text-right space-x-1">
-                            <a href="{{ route('akad-type.edit', $akad) }}" class="inline-flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors font-medium text-xs">
+                            <a href="{{ route('akad-type.edit', $akad) }}" class="inline-flex items-center gap-1 px-3 py-2 min-h-[44px] text-blue-600 hover:bg-blue-50 rounded transition-colors font-medium text-xs">
                                 Edit
                             </a>
-                            <button type="button" onclick="confirmDelete({{ $akad->id }}, '{{ $akad->kode_akad }}', '{{ $akad->nama_akad }}')" class="inline-flex items-center gap-1 px-3 py-1.5 text-red-600 hover:bg-red-50 rounded transition-colors font-medium text-xs">
+                            <button type="button" onclick="confirmDelete({{ $akad->id }}, '{{ $akad->kode_akad }}', '{{ $akad->nama_akad }}')" class="inline-flex items-center gap-1 px-3 py-2 min-h-[44px] text-red-600 hover:bg-red-50 rounded transition-colors font-medium text-xs">
                                 Hapus
                             </button>
                             <form method="POST" action="{{ route('akad-type.destroy', $akad) }}" class="hidden" id="delete-form-{{ $akad->id }}">

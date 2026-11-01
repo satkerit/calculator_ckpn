@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Snapshot Detail - CKPN Calculator')
 @section('page-title', 'Snapshot Detail')
@@ -9,7 +9,7 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         Back to List
     </a>
-    <h1 class="text-2xl font-bold text-gray-900">Snapshot Detail</h1>
+    <h2 class="text-2xl font-bold text-gray-900">Snapshot Detail</h2>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">

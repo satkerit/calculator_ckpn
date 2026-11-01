@@ -26,7 +26,7 @@
                 </p>
                 <p class="text-xs text-gray-500 mt-1">
                     @if ($method === 'ER')
-                        Data kredit dihapusbuku — penyelesaian cash. Populasi: WO tanpa agunan bernilai.
+                        Data kredit dihapusbuku - penyelesaian cash. Populasi: WO tanpa agunan bernilai.
                     @else
                         Data kredit dihapusbuku dengan agunan / kol 5 aktif. Net Likuidasi = Nilai Agunan × (1 − {{ number_format($saleCostPct * 100, 2) }}%).
                     @endif
@@ -47,7 +47,7 @@
 
         @if ($emptyNotice)
             <div class="mt-5 p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-3">
-                <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center font-bold shrink-0">⚠</div>
+                <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center font-bold shrink-0"><svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg></div>
                 <p class="text-sm text-amber-900">{{ $emptyNotice }}</p>
             </div>
         @endif
@@ -322,10 +322,10 @@
                                 </td>
                                 <td class="px-2 py-1 border border-gray-300 text-right font-semibold">{{ $fmt($r->exposure) }}</td>
                                 <td class="px-2 py-1 border border-gray-300 text-right">{{ $fmt($r->liquidity_value) }}</td>
-                                <td class="px-2 py-1 border border-gray-300 text-center">{{ $r->is_write_off ? $r->wo_year : '—' }}</td>
-                                <td class="px-2 py-1 border border-gray-300 text-center text-gray-400">—</td>
+                                <td class="px-2 py-1 border border-gray-300 text-center">{{ $r->is_write_off ? $r->wo_year : '-' }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-center text-gray-400">-</td>
                                 <td class="px-2 py-1 border border-gray-300 text-right text-emerald-700">{{ $fmt($r->net_recovery) }}</td>
-                                <td class="px-2 py-1 border border-gray-300 text-right text-blue-700">{{ $r->is_write_off ? $fmt($r->cash_recovery) : '—' }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-right text-blue-700">{{ $r->is_write_off ? $fmt($r->cash_recovery) : '-' }}</td>
                                 <td class="px-2 py-1 border border-gray-300 text-right font-semibold {{ (float) $r->shortfall > 0 ? 'text-red-700' : 'text-gray-500' }}">{{ $fmt($r->shortfall) }}</td>
                             </tr>
                         @endforeach

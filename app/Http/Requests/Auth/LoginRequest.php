@@ -43,7 +43,8 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        // user non-aktif (users.active = 0) ditolak walaupun kredensial benar
+        if (! Auth::attempt($this->only('email', 'password') + ['active' => 1], $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
             Log::warning('Failed login attempt', [

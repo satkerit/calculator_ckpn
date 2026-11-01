@@ -1,10 +1,10 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
-@section('title', 'Create Office - CKPN Calculator')
+@section('title', 'Tambah Kantor - CKPN Calculator')
 
 @section('content')
 <div class="max-w-2xl mx-auto">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">Create New Office</h2>
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Tambah Kantor Baru</h2>
 
     <form method="POST" action="{{ route('office.store') }}" class="bg-white rounded-lg shadow-md p-8 space-y-6">
         @csrf
@@ -47,17 +47,16 @@
 
         <div class="flex items-center gap-3">
             <input type="checkbox" id="active" name="active" value="1" checked class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500">
-            <label for="active" class="text-sm font-medium text-gray-900">Active</label>
+            <label for="active" class="text-sm font-medium text-gray-900">Aktif</label>
         </div>
 
         <div class="flex gap-3 pt-4">
             <button type="submit" class="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                Create
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                Simpan
             </button>
             <a href="{{ route('office.index') }}" class="inline-flex items-center gap-2 bg-gray-200 text-gray-800 px-6 py-2.5 rounded-lg font-semibold hover:bg-gray-300 transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                Cancel
+                Batal
             </a>
         </div>
     </form>

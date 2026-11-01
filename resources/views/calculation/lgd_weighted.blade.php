@@ -77,7 +77,7 @@
                         <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($g->shortfall_cs) }}</td>
                         <td class="px-3 py-2 border border-gray-300 text-right font-bold">{{ $fmt($g->total_wo) }}</td>
                         <td class="px-3 py-2 border border-gray-300 text-right font-bold">{{ $fmt($g->total_lgd) }}</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right font-bold text-indigo-700">{{ $pct($g->lgd_weighted_rate) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-bold text-blue-700">{{ $pct($g->lgd_weighted_rate) }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -127,9 +127,9 @@
                         <td class="px-3 py-2 border border-gray-300 font-bold">Total LGD (Loss ER + Shortfall CS)</td>
                         <td class="px-3 py-2 border border-gray-300 text-right font-bold">{{ $fmt($totalSummary->total_lgd) }}</td>
                     </tr>
-                    <tr class="bg-indigo-100">
+                    <tr class="bg-blue-100">
                         <td class="px-3 py-2 border border-gray-300 font-bold">LGD Weighted Rate</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right font-bold text-indigo-700 text-lg">{{ $pct($totalSummary->lgd_weighted_rate) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-bold text-blue-700 text-lg">{{ $pct($totalSummary->lgd_weighted_rate) }}</td>
                     </tr>
                 </tbody>
             </table>

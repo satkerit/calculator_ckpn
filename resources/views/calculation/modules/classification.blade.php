@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Klasifikasi & Segmentasi')
 @section('page-title', '2. Klasifikasi & Segmentasi')
@@ -45,9 +45,9 @@
             <p class="text-lg font-bold text-amber-900 mt-1">{{ $counts['COLLECTIVE'] ?? 0 }}</p>
             <p class="text-xs text-amber-600 mt-2">EAD: {{ number_format($counts['COLLECTIVE_EAD'] ?? 0, 0, ',', '.') }}</p>
         </div>
-        <div class="rounded-xl border border-purple-200 bg-purple-50 p-4">
-            <p class="text-xs font-semibold text-purple-700 uppercase">Total EAD</p>
-            <p class="text-2xl font-bold text-purple-900 mt-1">{{ number_format($counts['TOTAL_EAD'] ?? 0, 0, ',', '.') }}</p>
+        <div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <p class="text-xs font-semibold text-blue-700 uppercase">Total EAD</p>
+            <p class="text-2xl font-bold text-blue-900 mt-1 font-mono">{{ number_format($counts['TOTAL_EAD'] ?? 0, 0, ',', '.') }}</p>
         </div>
     </div>
 </div>

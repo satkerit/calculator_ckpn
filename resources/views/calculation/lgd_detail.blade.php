@@ -74,7 +74,7 @@
                             <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($g->total_wo) }}</td>
                             <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($g->total_recovery) }}</td>
                             <td class="px-3 py-2 border border-gray-300 text-right">{{ $pct($g->recovery_rate) }}</td>
-                            <td class="px-3 py-2 border border-gray-300 text-right font-bold text-indigo-700">{{ $pct($g->lgd_rate) }}</td>
+                            <td class="px-3 py-2 border border-gray-300 text-right font-bold text-blue-700">{{ $pct($g->lgd_rate) }}</td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -125,7 +125,7 @@
                     </tr>
                     <tr>
                         <td class="px-3 py-2 border border-gray-300 font-semibold bg-gray-50">LGD ER Rate</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right font-bold text-indigo-700">{{ $pct($lgdRate) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-bold text-blue-700">{{ $pct($lgdRate) }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -167,8 +167,8 @@
                         @php $no = 0; @endphp
                         @foreach ($erCohorts as $cohort)
                             {{-- Header kohort --}}
-                            <tr class="bg-indigo-100">
-                                <td colspan="{{ count($allYears) + 6 }}" class="px-2 py-1.5 border border-gray-300 font-bold text-indigo-900">
+                            <tr class="bg-gray-100">
+                                <td colspan="{{ count($allYears) + 6 }}" class="px-2 py-1.5 border border-gray-300 font-bold text-gray-900">
                                     Tahun hapus buku {{ $cohort->year }}
                                 </td>
                             </tr>
@@ -229,7 +229,7 @@
 
                         {{-- Total combine --}}
                         @if ($erTotalCombine)
-                        <tr class="bg-indigo-200 font-bold text-indigo-900">
+                        <tr class="bg-gray-200 font-bold text-gray-900">
                             <td class="px-2 py-1.5 border border-gray-300"></td>
                             <td class="px-2 py-1.5 border border-gray-300">Total combine</td>
                             <td class="px-2 py-1.5 border border-gray-300"></td>
@@ -240,7 +240,7 @@
                             <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($erTotalCombine->total_recovery) }}</td>
                             <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $pct($erTotalCombine->recovery_rate) }}</td>
                         </tr>
-                        <tr class="bg-indigo-200">
+                        <tr class="bg-gray-200">
                             <td class="px-2 py-1.5 border border-gray-300"></td>
                             <td class="px-2 py-1.5 border border-gray-300 text-gray-700 italic pl-6">recovery</td>
                             <td class="px-2 py-1.5 border border-gray-300"></td>

@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', (isset($role) ? 'Edit Role' : 'Tambah Role') . ' - CKPN Calculator')
 
@@ -102,7 +102,7 @@
 
         <div class="flex gap-3 pt-6 border-t border-gray-200">
             <button type="submit" class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
-                {{ isset($role) ? 'Update Role' : 'Simpan Role' }}
+                {{ isset($role) ? 'Perbarui Role' : 'Simpan Role' }}
             </button>
             <a href="{{ route('role.index') }}" class="flex-1 bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors text-center">
                 Batal

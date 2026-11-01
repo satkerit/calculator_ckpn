@@ -63,9 +63,9 @@
                         <td class="px-6 py-4 text-gray-600">{{ $user->office?->office_name ?? '-' }}</td>
                         <td class="px-6 py-4 text-center">
                             @if ($user->active)
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Active</span>
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Aktif</span>
                             @else
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Inactive</span>
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Nonaktif</span>
                             @endif
                         </td>
                         <td class="px-6 py-4 text-center flex gap-1 justify-center">

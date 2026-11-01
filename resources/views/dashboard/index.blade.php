@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Dashboard - CKPN Calculator')
 @section('page-title', 'Dashboard')
@@ -28,14 +28,14 @@
         <div class="bg-white rounded-xl border border-gray-200/80 p-4 sm:p-5 flex flex-col justify-between">
             <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Loan (Snapshot)</p>
-                <div class="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                <div class="w-7 h-7 rounded-lg bg-slate-50 text-slate-600 flex items-center justify-center">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                 </div>
             </div>
             <div class="mt-3">
                 <p class="text-2xl font-bold text-gray-900 tracking-tight">{{ number_format($snapshotCount) }}</p>
                 <p class="text-xs text-gray-500 mt-0.5">
-                    <span class="font-medium text-purple-600">{{ number_format($classificationStats['with_usage_type']) }}</span> dg usage type
+                    <span class="font-medium text-gray-700">{{ number_format($classificationStats['with_usage_type']) }}</span> dg usage type
                 </p>
             </div>
         </div>
@@ -72,7 +72,7 @@
         <div class="col-span-2 lg:col-span-1 bg-white rounded-xl border border-gray-200/80 p-4 sm:p-5 flex flex-col justify-between">
             <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Pengguna</p>
-                <div class="w-7 h-7 rounded-lg bg-slate-50 text-slate-600 flex items-center justify-center">
+                <div class="w-7 h-7 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 12H9m6 0a6 6 0 11-12 0 6 6 0 0112 0z"/></svg>
                 </div>
             </div>

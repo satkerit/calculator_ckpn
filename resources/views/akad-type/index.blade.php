@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Tipe Akad - CKPN Calculator')
 @section('page-title', 'Manajemen Akad')
@@ -12,7 +12,7 @@
     <div class="flex items-center gap-2">
         <a href="{{ route('import.akad-type.form') }}" class="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors text-sm shadow-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-            Import Excel
+            Impor Excel
         </a>
         <a href="{{ route('akad-type.create') }}" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm shadow-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
@@ -67,10 +67,10 @@
                         <td class="px-4 py-4 text-center">
                             <input type="checkbox" aria-label="Pilih baris ini" class="row-checkbox rounded border-gray-300" value="{{ $akad->id }}" onchange="updateBulkActions()">
                         </td>
-                        <td class="px-6 py-4 font-mono font-semibold text-xs text-blue-600">{{ $akad->kode_akad }}</td>
+                        <td class="px-6 py-4 font-mono font-semibold text-xs text-gray-900">{{ $akad->kode_akad }}</td>
                         <td class="px-6 py-4 font-medium text-gray-900">{{ $akad->nama_akad }}</td>
                         <td class="px-6 py-4">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                                 {{ ucfirst(str_replace('_', ' ', $akad->kategori)) }}
                             </span>
                         </td>

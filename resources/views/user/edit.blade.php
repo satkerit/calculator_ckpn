@@ -73,16 +73,16 @@
             <!-- Active -->
             <div class="flex items-center">
                 <input type="checkbox" id="active" name="active" value="1" @checked(old('active', $user->active)) class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
-                <label for="active" class="ml-2 text-sm font-medium text-gray-700">Active</label>
+                <label for="active" class="ml-2 text-sm font-medium text-gray-700">Aktif</label>
             </div>
 
             <!-- Buttons -->
             <div class="flex gap-3 pt-4">
                 <button type="submit" class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    Update User
+                    Perbarui Pengguna
                 </button>
-                <a href="{{ route('user.index') }}" class="flex-1 bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-600 transition-colors text-center">Cancel</a>
+                <a href="{{ route('user.index') }}" class="flex-1 bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-600 transition-colors text-center">Batal</a>
             </div>
         </form>
     </div>

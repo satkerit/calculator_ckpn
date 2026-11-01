@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'Create User - CKPN Calculator')
+@section('title', 'Tambah Pengguna - CKPN Calculator')
 
-@section('page-title', 'Create User')
+@section('page-title', 'Tambah Pengguna')
 
 @section('content')
 <div class="max-w-2xl mx-auto">
     <div class="bg-white rounded-lg shadow-lg p-8">
-        <h2 class="text-2xl font-bold mb-6">Create New User</h2>
+        <h2 class="text-2xl font-bold mb-6">Tambah Pengguna Baru</h2>
 
         <form action="{{ route('user.store') }}" method="POST" class="space-y-6">
             @csrf
@@ -73,16 +73,16 @@
             <!-- Active -->
             <div class="flex items-center">
                 <input type="checkbox" id="active" name="active" value="1" checked class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
-                <label for="active" class="ml-2 text-sm font-medium text-gray-700">Active</label>
+                <label for="active" class="ml-2 text-sm font-medium text-gray-700">Aktif</label>
             </div>
 
             <!-- Buttons -->
             <div class="flex gap-3 pt-4">
                 <button type="submit" class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    Create User
+                    Tambah Pengguna
                 </button>
-                <a href="{{ route('user.index') }}" class="flex-1 bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-600 transition-colors text-center">Cancel</a>
+                <a href="{{ route('user.index') }}" class="flex-1 bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-600 transition-colors text-center">Batal</a>
             </div>
         </form>
     </div>

@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Pemetaan Produk Akad - CKPN Calculator')
 
@@ -9,7 +9,7 @@
         <div class="flex items-center gap-2">
             <a href="{{ route('import.product-akad.form') }}" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors shadow-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-                Import Excel
+                Impor Excel
             </a>
             <a href="{{ route('product-akad.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium">+ Tambah</a>
         </div>
@@ -71,7 +71,7 @@
                             @endif
                         </td>
                         <td class="px-4 py-3 text-center text-sm">
-                            <a href="{{ route('product-akad.edit', $mapping) }}" class="text-blue-600 hover:underline">Edit</a> |
+                            <a href="{{ route('product-akad.edit', $mapping) }}" class="text-blue-600 hover:underline">Ubah</a> |
                             <form action="{{ route('product-akad.destroy', $mapping) }}" method="POST" class="inline-block" id="delete-form-{{ $mapping->id }}">
                                 @csrf @method('DELETE')
                             </form>

@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Setup Collateral - CKPN Calculator')
 
@@ -11,7 +11,7 @@
     <div class="flex items-center gap-2">
         <a href="{{ route('import.collateral_setup.form') }}" class="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-            Import Excel
+            Impor Excel
         </a>
         <a href="{{ route('collateral-setup.create') }}" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
@@ -62,7 +62,7 @@
                     </td>
                     <td class="px-6 py-4 text-right space-x-2">
                         <a href="{{ route('collateral-setup.show', $setup->collateral_type) }}" class="text-blue-600 hover:text-blue-800 font-medium">Detail</a>
-                        <a href="{{ route('collateral-setup.edit', $setup->collateral_type) }}" class="text-green-600 hover:text-green-800 font-medium">Edit</a>
+                        <a href="{{ route('collateral-setup.edit', $setup->collateral_type) }}" class="text-green-600 hover:text-green-800 font-medium">Ubah</a>
                         <button type="button" onclick="confirmDeleteCollateralSetup({{ json_encode($setup->collateral_type) }}, {{ json_encode($setup->collateral_type) }})" class="text-red-600 hover:text-red-800 font-medium">
                             Hapus
                         </button>

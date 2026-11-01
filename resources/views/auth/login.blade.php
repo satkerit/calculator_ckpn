@@ -7,25 +7,16 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-        @keyframes slideInLeft { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
-        @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .animate-slide-left { animation: slideInLeft 0.6s ease-out; }
-        .animate-slide-right { animation: slideInRight 0.6s ease-out; }
-        .animate-fade { animation: fadeIn 0.4s ease-out; }
-        @media (prefers-reduced-motion: reduce) {
-            .animate-slide-left, .animate-slide-right, .animate-fade { animation: none; }
-        }
     </style>
 </head>
-<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+<body class="bg-slate-900">
 <div class="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
     <!-- ===== Main Container ===== -->
     <div class="w-full max-w-6xl">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
             
             <!-- ===== Left Panel: Brand / Hero ===== -->
-            <div class="hidden lg:flex flex-col justify-between animate-slide-left">
+            <div class="hidden lg:flex flex-col justify-between">
                 <!-- Logo + Headline -->
                 <div>
                     <div class="inline-flex items-center gap-3 mb-12">
@@ -36,7 +27,7 @@
                         </div>
                         <div>
                             <h1 class="text-2xl font-bold text-white tracking-tight">CKPN<span class="text-emerald-400">BPRS</span></h1>
-                            <p class="text-xs text-slate-400 font-medium">Credit Risk Management</p>
+                            <p class="text-xs text-slate-400 font-medium">Manajemen Risiko Kredit</p>
                         </div>
                     </div>
                     
@@ -59,7 +50,7 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="text-sm font-semibold text-white">PSAK 414 Compliant</p>
+                            <p class="text-sm font-semibold text-white">Sesuai PSAK 414</p>
                             <p class="text-xs text-slate-400 mt-1">Sesuai standar regulasi Bank Indonesia</p>
                         </div>
                     </div>
@@ -70,7 +61,7 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="text-sm font-semibold text-white">Dual PD & LGD</p>
+                            <p class="text-sm font-semibold text-white">Kalkulasi PD & LGD</p>
                             <p class="text-xs text-slate-400 mt-1">Kalkulasi probabilitas dan kerugian</p>
                         </div>
                     </div>
@@ -81,7 +72,7 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="text-sm font-semibold text-white">Real-time Analysis</p>
+                            <p class="text-sm font-semibold text-white">Analisis Real-time</p>
                             <p class="text-xs text-slate-400 mt-1">Monitoring & pelaporan instan</p>
                         </div>
                     </div>
@@ -185,11 +176,10 @@
                         <!-- Submit Button -->
                         <button
                             type="submit"
-                            class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold py-3 rounded-lg shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-300 flex items-center justify-center gap-2 group mt-8 animate-fade"
-                            style="animation-delay: 0.4s"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg shadow-sm transition-colors duration-200 flex items-center justify-center gap-2 mt-8"
                         >
                             <span>Masuk ke Portal</span>
-                            <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" aria-hidden="true">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                             </svg>
                         </button>

@@ -90,7 +90,7 @@
 
         <div class="flex items-center">
             <input type="checkbox" id="active_flag" name="active_flag" value="1" @checked(old('active_flag', true)) class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500">
-            <label for="active_flag" class="ml-3 text-sm font-semibold text-gray-900">Active</label>
+            <label for="active_flag" class="ml-3 text-sm font-semibold text-gray-900">Aktif</label>
         </div>
 
         <div class="flex gap-3 pt-4">

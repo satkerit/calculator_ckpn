@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Detail Akad - CKPN Calculator')
 @section('page-title', 'Detail Tipe Akad')
@@ -30,7 +30,7 @@
             <div class="grid grid-cols-3 gap-4 py-3 border-b border-gray-100">
                 <dt class="text-sm font-semibold text-gray-500">Kategori</dt>
                 <dd class="col-span-2">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                         {{ ucfirst(str_replace('_', ' ', $akadType->kategori)) }}
                     </span>
                 </dd>

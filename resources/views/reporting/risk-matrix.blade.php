@@ -11,18 +11,18 @@
         <div class="flex justify-between items-start">
             <div>
                 <h2 class="text-2xl font-bold text-gray-800">{{ $assessment->period_name }}</h2>
-                <p class="text-gray-600 mt-1">Assessment Date: {{ $assessment->assessment_date->format('d M Y') }}</p>
+                <p class="text-gray-600 mt-1">Tanggal Assessment: {{ $assessment->assessment_date->format('d M Y') }}</p>
             </div>
             <a href="{{ route('reporting.export-report', ['type' => 'risk-matrix', 'assessment_id' => $assessment->id]) }}" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Export
+                Ekspor
             </a>
         </div>
     </div>
 
     <!-- Risk Matrix Grid -->
     <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-bold mb-6">PD × LGD Risk Matrix (10% buckets)</h3>
+        <h3 class="text-lg font-bold mb-6">Matriks Risiko PD &times; LGD (interval 10%)</h3>
         
         <div class="overflow-x-auto">
             <table class="w-full text-sm border-collapse">
@@ -54,7 +54,7 @@
                                     $key = "{$pd}-{$lgd}";
                                     $value = $matrix[$key] ?? 0;
                                     $intensity = min(100, ($value / 100_000_000) * 100);
-                                    $bgColor = $intensity < 20 ? 'bg-green-50' : ($intensity < 40 ? 'bg-yellow-50' : ($intensity < 60 ? 'bg-orange-50' : 'bg-red-50'));
+                                    $bgColor = $intensity < 20 ? 'bg-emerald-50' : ($intensity < 40 ? 'bg-amber-50' : ($intensity < 60 ? 'bg-red-50' : 'bg-red-100'));
                                 @endphp
                                 <td class="border border-gray-300 px-4 py-2 text-center text-xs {{ $bgColor }}">
                                     @if ($value > 0)
@@ -72,20 +72,20 @@
 
         <div class="mt-6 flex gap-4 items-center">
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-green-100 border border-gray-300 rounded"></div>
-                <span class="text-sm">Low Risk</span>
+                <div class="w-4 h-4 bg-emerald-100 border border-gray-300 rounded"></div>
+                <span class="text-sm">Risiko Rendah</span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-yellow-100 border border-gray-300 rounded"></div>
-                <span class="text-sm">Moderate Risk</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-orange-100 border border-gray-300 rounded"></div>
-                <span class="text-sm">High Risk</span>
+                <div class="w-4 h-4 bg-amber-100 border border-gray-300 rounded"></div>
+                <span class="text-sm">Risiko Sedang</span>
             </div>
             <div class="flex items-center gap-2">
                 <div class="w-4 h-4 bg-red-100 border border-gray-300 rounded"></div>
-                <span class="text-sm">Very High Risk</span>
+                <span class="text-sm">Risiko Tinggi</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 bg-red-200 border border-gray-300 rounded"></div>
+                <span class="text-sm">Risiko Sangat Tinggi</span>
             </div>
         </div>
     </div>
@@ -112,7 +112,7 @@
 
     <!-- Back Button -->
     <div class="flex gap-3">
-        <a href="{{ route('reporting.ckpn-summary') }}" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">← Back</a>
+        <a href="{{ route('reporting.ckpn-summary') }}" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">&larr; Kembali</a>
     </div>
 </div>
 @endsection

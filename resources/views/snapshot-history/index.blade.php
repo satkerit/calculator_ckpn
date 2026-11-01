@@ -54,8 +54,8 @@
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         <div class="flex items-end gap-2">
-            <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Search</button>
-            <a href="{{ route('snapshot-history.index') }}" class="flex-1 px-4 py-2 bg-gray-400 text-white rounded-lg text-sm font-medium hover:bg-gray-500 transition-colors text-center">Reset</a>
+            <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Cari</button>
+            <a href="{{ route('snapshot-history.index') }}" class="flex-1 px-4 py-2 bg-gray-400 text-white rounded-lg text-sm font-medium hover:bg-gray-500 transition-colors text-center">Atur Ulang</a>
         </div>
     </form>
 </div>
@@ -71,7 +71,7 @@
                     <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Outstanding Balance</th>
                     <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Principal Arrears</th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Period</th>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Created</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Dibuat</th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Aksi</th>
                 </tr>
             </thead>
@@ -87,7 +87,7 @@
                             <td class="px-6 py-4 text-sm text-gray-600">{{ $snapshot->created_at->format('d M Y H:i') }}</td>
                             <td class="px-6 py-4 text-sm space-x-1">
                                 @if($snapshot->id)
-                                    <a href="{{ route('snapshot-history.show', $snapshot->id) }}" class="text-blue-600 hover:text-blue-900 font-medium">View</a>
+                                    <a href="{{ route('snapshot-history.show', $snapshot->id) }}" class="text-blue-600 hover:text-blue-900 font-medium">Lihat</a>
                                 @endif
                             </td>
                         </tr>

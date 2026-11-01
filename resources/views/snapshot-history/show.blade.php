@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Snapshot Detail - CKPN Calculator')
 @section('page-title', 'Snapshot Detail')
@@ -50,12 +50,12 @@
                 </div>
             @endif
             <div class="flex justify-between border-b pb-2">
-                <span class="text-gray-600 font-medium">Created At</span>
+                <span class="text-gray-600 font-medium">Dibuat</span>
                 <span class="text-gray-900">{{ $snapshot->created_at->format('d M Y H:i:s') }}</span>
             </div>
             @if($snapshot->updated_at)
                 <div class="flex justify-between">
-                    <span class="text-gray-600 font-medium">Updated At</span>
+                    <span class="text-gray-600 font-medium">Diubah</span>
                     <span class="text-gray-900">{{ $snapshot->updated_at->format('d M Y H:i:s') }}</span>
                 </div>
             @endif
@@ -80,11 +80,5 @@
             </div>
         </div>
     </div>
-</div>
-
-<!-- Raw Data -->
-<div class="mt-6 bg-white rounded-lg shadow-md p-6">
-    <h2 class="text-lg font-semibold text-gray-900 mb-4">Raw Data (JSON)</h2>
-    <pre class="bg-gray-50 p-4 rounded-lg overflow-x-auto text-xs">{{ json_encode($snapshot->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
 </div>
 @endsection

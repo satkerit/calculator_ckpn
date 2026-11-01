@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Detail PD & EAD')
 @section('page-title', '7. Detail PD & EAD')
@@ -10,7 +10,7 @@
 
 <div class="flex items-center justify-between mb-6">
     <p class="text-sm text-gray-600">Read-only view: distribusi EAD per bucket + PD per grup + loan detail.</p>
-    <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Export XLSX</a>
+    <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Ekspor XLSX</a>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -18,7 +18,7 @@
         <h3 class="text-sm font-bold text-gray-900 mb-3">Distribusi Klasifikasi</h3>
         <table class="min-w-full text-xs">
             <thead class="bg-gray-50 text-gray-600 uppercase">
-                <tr><th class="px-3 py-2 text-left">Tipe</th><th class="px-3 py-2 text-right">Count</th><th class="px-3 py-2 text-right">Total EAD</th></tr>
+                <tr><th class="px-3 py-2 text-left">Tipe</th><th class="px-3 py-2 text-right">Jumlah</th><th class="px-3 py-2 text-right">Total EAD</th></tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 @foreach (['INDIVIDUAL' => 'bg-emerald-50', 'COLLECTIVE' => 'bg-amber-50'] as $k => $cls)
@@ -60,7 +60,7 @@
     <div class="overflow-x-auto">
         <table class="min-w-full text-xs">
             <thead class="bg-gray-50 text-gray-600 uppercase">
-                <tr><th class="px-3 py-2 text-left">Group Key</th><th class="px-3 py-2 text-left">Method</th><th class="px-3 py-2 text-right">PD</th><th class="px-3 py-2 text-right">Periods</th></tr>
+                <tr><th class="px-3 py-2 text-left">Group Key</th><th class="px-3 py-2 text-left">Metode</th><th class="px-3 py-2 text-right">PD</th><th class="px-3 py-2 text-right">Periode</th></tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 @forelse ($pdResults as $r)
@@ -88,12 +88,12 @@
                 <tr>
                     <th class="px-3 py-2 text-left">Loan</th>
                     <th class="px-3 py-2 text-left">Class</th>
-                    <th class="px-3 py-2 text-left">Office</th>
+                    <th class="px-3 py-2 text-left">Kantor</th>
                     <th class="px-3 py-2 text-left">Akad</th>
                     <th class="px-3 py-2 text-left">Usage</th>
                     <th class="px-3 py-2 text-right">EAD</th>
                     <th class="px-3 py-2 text-right">PD</th>
-                    <th class="px-3 py-2 text-left">Method</th>
+                    <th class="px-3 py-2 text-left">Metode</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">

@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Daftar Collateral - CKPN Calculator')
+@section('title', 'Daftar Agunan - CKPN Calculator')
 
 @section('content')
 <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Daftar Collateral</h1>
+        <h1 class="text-2xl font-bold text-gray-900">Daftar Agunan</h1>
         <p class="text-sm text-gray-600 mt-1">Daftar jaminan/agunan per fasilitas pembiayaan</p>
     </div>
     <div class="flex items-center gap-2">
@@ -15,7 +15,7 @@
         </a>
         <a href="{{ route('collateral.create') }}" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            Tambah Collateral
+            Tambah Agunan
         </a>
     </div>
 </div>
@@ -27,7 +27,7 @@
 
 <div class="mb-4 bg-white p-4 rounded-lg shadow-sm">
     <form method="GET" action="{{ route('collateral.index') }}" class="flex gap-2">
-        <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari Loan Number, Kode Agunan, atau Tipe..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari Nomor Pembiayaan, Kode Agunan, atau Tipe..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
         <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">Cari</button>
         @if(request('search'))
             <a href="{{ route('collateral.index') }}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300">Atur Ulang</a>
@@ -60,7 +60,7 @@
                 <th class="px-4 py-3 text-center w-12">
                     <input type="checkbox" id="select-all" aria-label="Pilih semua baris" class="rounded border-gray-300" onchange="toggleSelectAll(this)">
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">No. Rekening (Loan)</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">No. Rekening</th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Kode Agunan</th>
                 <th class="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Urutan</th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Tipe Agunan</th>
@@ -94,14 +94,14 @@
                         Rp {{ number_format($c->estimated_value, 2, ',', '.') }}
                     </td>
                     <td class="px-6 py-4 text-center">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $c->active_flag ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                            {{ $c->active_flag ? 'Active' : 'Inactive' }}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $c->active_flag ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800' }}">
+                            {{ $c->active_flag ? 'Aktif' : 'Nonaktif' }}
                         </span>
                     </td>
                     <td class="px-6 py-4 text-right space-x-2">
                         @if($c && $c->id)
                             <a href="{{ route('collateral.show', $c->id) }}" class="text-blue-600 hover:text-blue-800 font-medium">Detail</a>
-                            <a href="{{ route('collateral.edit', $c->id) }}" class="text-green-600 hover:text-green-800 font-medium">Ubah</a>
+                            <a href="{{ route('collateral.edit', $c->id) }}" class="text-emerald-600 hover:text-emerald-800 font-medium">Ubah</a>
                             <form method="POST" action="{{ route('collateral.destroy', $c->id) }}" class="inline-block" id="delete-form-{{ $c->id }}">
                                 @csrf @method('DELETE')
                             </form>
@@ -155,7 +155,7 @@ function bulkDelete() {
     window.showConfirmDialog({
         title: `Hapus ${ids.length} Data Agunan?`,
         message: 'Semua data agunan/collateral yang dipilih akan dihapus secara permanen dari sistem.',
-        detail: `Total: ${ids.length} item(s)`,
+        detail: `Total: ${ids.length} item`,
         type: 'danger',
         confirmText: 'Ya, Hapus Semua',
         cancelText: 'Batal',
@@ -186,7 +186,7 @@ function confirmDeleteCollateral(id, loanNumber, collateralCode) {
     window.showConfirmDialog({
         title: 'Hapus Data Agunan?',
         message: `Agunan untuk pembiayaan <strong>${loanNumber}</strong> akan dihapus secara permanen.`,
-        detail: `Collateral Code: ${collateralCode || 'N/A'}`,
+        detail: `Kode Agunan: ${collateralCode || 'N/A'}`,
         type: 'danger',
         confirmText: 'Ya, Hapus',
         cancelText: 'Batal',

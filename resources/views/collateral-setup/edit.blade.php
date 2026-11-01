@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
-@section('title', 'Edit Setup Agunan - CKPN Calculator')
+@section('title', 'Ubah Setup Agunan - CKPN Calculator')
 
 @section('content')
 <div class="max-w-2xl mx-auto">
-    <h1 class="text-2xl font-bold text-gray-900 mb-8">Edit Setup Agunan</h1>
+    <h1 class="text-2xl font-bold text-gray-900 mb-8">Ubah Setup Agunan</h1>
 
     <form method="POST" action="{{ route('collateral-setup.update', $collateral) }}" class="bg-white rounded-lg shadow-md p-6 space-y-6">
         @csrf @method('PUT')

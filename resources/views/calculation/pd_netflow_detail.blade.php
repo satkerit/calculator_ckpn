@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'PD Net Flow Detail - CKPN Calculator')
+@section('title', 'Detail PD Net Flow - CKPN Calculator')
 
 @section('content')
 <div class="px-6 py-4">
     <div class="mb-6 flex justify-between items-center">
         <div>
-            <h2 class="text-2xl font-bold text-gray-900">PD Net Flow Detail</h2>
-            <p class="text-gray-600 mt-1">Period: <span class="font-semibold">Assessment {{ $assessmentPeriodId }}</span></p>
+            <h2 class="text-2xl font-bold text-gray-900">Detail PD Net Flow</h2>
+            <p class="text-gray-600 mt-1">Periode: <span class="font-semibold">Assessment {{ $assessmentPeriodId }}</span></p>
         </div>
         <a href="{{ route('calculation.module.pd_netflow', ['assessment_period_id' => $assessmentPeriodId]) }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
             &larr; Kembali
@@ -29,7 +29,7 @@
             <div class="mb-8 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-100 bg-blue-50">
                     <h3 class="text-lg font-bold text-gray-900">Tabel 1: Min. Bucket</h3>
-                    <p class="text-xs text-gray-600 mt-1">Outstanding Balance per Bucket per Periode (Rupiah)</p>
+                    <p class="text-xs text-gray-600 mt-1">Baki Debet per Bucket per Periode (Rupiah)</p>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -47,7 +47,7 @@
                         </thead>
                         <tbody class="divide-y divide-gray-300">
                             @foreach ($data['buckets'] as $bucket)
-                                <tr class="border-b border-gray-300 @if($bucket['bucket_no'] == 14) bg-yellow-50 @endif hover:bg-gray-50">
+                                <tr class="border-b border-gray-300 @if($bucket['bucket_no'] == 14) bg-amber-50 @endif hover:bg-gray-50">
                                     <td class="px-3 py-2 text-center font-bold text-gray-900 border-r border-gray-300 bg-blue-50">
                                         {{ $bucket['bucket_no'] }}
                                     </td>

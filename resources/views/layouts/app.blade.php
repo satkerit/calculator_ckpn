@@ -54,7 +54,7 @@
                     </div>
                     <div>
                         <p class="text-sm font-bold text-gray-900 leading-none">CKPN</p>
-                        <p class="text-[10px] text-gray-500 mt-0.5 leading-none">BPRS Calculator</p>
+                        <p class="text-[10px] text-gray-600 mt-0.5 leading-none">BPRS Calculator</p>
                     </div>
                 </div>
                 <button @click="sidebarOpen = false" aria-label="Tutup menu" class="lg:hidden inline-flex items-center justify-center min-w-[44px] min-h-[44px] -mr-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100">
@@ -67,7 +67,7 @@
 
                 {{-- ── MAIN ── --}}
                 <div>
-                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Menu</p>
+                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Menu</p>
                     <ul class="space-y-0.5">
                         <li>
                             <a href="{{ route('dashboard') }}"
@@ -81,14 +81,14 @@
 
                 {{-- ── CKPN WORKFLOW ── --}}
                 <div>
-                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">CKPN</p>
+                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-600 uppercase tracking-wider">CKPN</p>
                     <ul class="space-y-0.5">
-                        {{-- Assessment Periods --}}
+                        {{-- Periode Assessment --}}
                         <li>
                             <a href="{{ route('assessment.index') }}"
                                class="flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors {{ request()->routeIs('assessment.*') ? 'nav-item-active' : '' }}">
                                 <svg class="w-4 h-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                <span>Assessment Periods</span>
+                                <span>Periode Assessment</span>
                             </a>
                         </li>
 
@@ -124,7 +124,7 @@
                                 <li>
                                     <a href="{{ route($item['route']) }}"
                                        class="flex items-center px-2 py-1.5 rounded-md text-xs font-medium transition-colors
-                                              {{ request()->routeIs($item['route']) ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }}">
+                                              {{ request()->routeIs($item['route']) ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50' }}">
                                         {{ $item['label'] }}
                                     </a>
                                 </li>
@@ -152,7 +152,7 @@
 
                 {{-- ── DATA & LAPORAN ── --}}
                 <div>
-                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Data & Laporan</p>
+                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Data & Laporan</p>
                     <ul class="space-y-0.5">
                         <li>
                             <a href="{{ route('snapshot-history.index') }}"
@@ -173,7 +173,7 @@
 
                 {{-- ── MASTER DATA ── --}}
                 <div>
-                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Master Data</p>
+                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Master Data</p>
                     <ul class="space-y-0.5">
                         <li>
                             <a href="{{ route('office.index') }}"
@@ -197,13 +197,13 @@
                             <ul x-show="open" x-collapse class="mt-0.5 ml-6 pl-2.5 border-l border-gray-100 space-y-0.5">
                                 <li>
                                     <a href="{{ route('akad-type.index') }}"
-                                       class="flex items-center px-2 py-1.5 rounded-md text-xs font-medium transition-colors {{ request()->routeIs('akad-type.*') ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }}">
+                                       class="flex items-center px-2 py-1.5 rounded-md text-xs font-medium transition-colors {{ request()->routeIs('akad-type.*') ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50' }}">
                                         Tipe Akad
                                     </a>
                                 </li>
                                 <li>
                                     <a href="{{ route('product-akad.index') }}"
-                                       class="flex items-center px-2 py-1.5 rounded-md text-xs font-medium transition-colors {{ request()->routeIs('product-akad.*') ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }}">
+                                       class="flex items-center px-2 py-1.5 rounded-md text-xs font-medium transition-colors {{ request()->routeIs('product-akad.*') ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50' }}">
                                         Mapping Produk Akad
                                     </a>
                                 </li>
@@ -224,13 +224,13 @@
                             <ul x-show="open" x-collapse class="mt-0.5 ml-6 pl-2.5 border-l border-gray-100 space-y-0.5">
                                 <li>
                                     <a href="{{ route('collateral.index') }}"
-                                       class="flex items-center px-2 py-1.5 rounded-md text-xs font-medium transition-colors {{ request()->routeIs('collateral.index') || request()->routeIs('collateral.show') || request()->routeIs('collateral.create') || request()->routeIs('collateral.edit') ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }}">
+                                       class="flex items-center px-2 py-1.5 rounded-md text-xs font-medium transition-colors {{ request()->routeIs('collateral.index') || request()->routeIs('collateral.show') || request()->routeIs('collateral.create') || request()->routeIs('collateral.edit') ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50' }}">
                                         Daftar Agunan
                                     </a>
                                 </li>
                                 <li>
                                     <a href="{{ route('collateral-setup.index') }}"
-                                       class="flex items-center px-2 py-1.5 rounded-md text-xs font-medium transition-colors {{ request()->routeIs('collateral-setup.*') ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50' }}">
+                                       class="flex items-center px-2 py-1.5 rounded-md text-xs font-medium transition-colors {{ request()->routeIs('collateral-setup.*') ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50' }}">
                                         Setup Agunan
                                     </a>
                                 </li>
@@ -249,7 +249,7 @@
 
                 {{-- ── ADMINISTRASI ── --}}
                 <div>
-                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Administrasi</p>
+                    <p class="px-2 mb-1 text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Administrasi</p>
                     <ul class="space-y-0.5">
                         <li>
                             <a href="{{ route('user.index') }}"
@@ -278,7 +278,7 @@
                     </div>
                     <div class="flex-1 min-w-0">
                         <p class="text-xs font-semibold text-gray-900 truncate">{{ auth()->user()?->name ?? 'Guest' }}</p>
-                        <p class="text-[10px] text-gray-500 truncate">{{ auth()->user()?->email ?? '' }}</p>
+                        <p class="text-[10px] text-gray-600 truncate">{{ auth()->user()?->email ?? '' }}</p>
                     </div>
                     <form method="POST" action="{{ route('logout') }}" data-no-confirm>
                         @csrf
@@ -337,9 +337,9 @@
                     @endif
 
                     @if (session('success'))
-                        <div class="mb-5 bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-                            <svg class="w-4.5 h-4.5 text-green-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                            <p class="text-sm text-green-700">{{ session('success') }}</p>
+                        <div class="mb-5 bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-start gap-3">
+                            <svg class="w-4.5 h-4.5 text-emerald-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                            <p class="text-sm text-emerald-700">{{ session('success') }}</p>
                         </div>
                     @endif
 

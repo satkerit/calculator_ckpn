@@ -310,7 +310,7 @@
                         @php $no = 0; @endphp
                         @foreach ($debtorRows as $r)
                             @php $no++; @endphp
-                            <tr class="hover:bg-gray-50 {{ $r->is_write_off ? '' : 'bg-yellow-50/40' }}">
+                            <tr class="hover:bg-gray-50 {{ $r->is_write_off ? '' : 'bg-amber-50/40' }}">
                                 <td class="px-2 py-1 border border-gray-300 text-center">{{ $no }}</td>
                                 <td class="px-2 py-1 border border-gray-300 font-medium">{{ $r->loan_number }}</td>
                                 <td class="px-2 py-1 border border-gray-300 text-center">

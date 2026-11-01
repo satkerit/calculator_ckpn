@@ -1,8 +1,8 @@
 @extends('layouts.app')
 
-@section('title', 'View User - CKPN Calculator')
+@section('title', 'Lihat Pengguna - CKPN Calculator')
 
-@section('page-title', 'User Details')
+@section('page-title', 'Detail Pengguna')
 
 @section('content')
 <div class="max-w-2xl mx-auto">
@@ -43,7 +43,7 @@
                 <p class="text-xs uppercase font-semibold text-gray-500 mb-1">Status</p>
                 <div class="flex items-center gap-2 mt-1">
                     @if ($user->active)
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 text-emerald-700">
                             Aktif
                         </span>
                     @else
@@ -71,7 +71,7 @@
         <div class="flex gap-3 mt-8 pt-6 border-t">
             <a href="{{ route('user.edit', $user) }}" class="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors text-center flex items-center justify-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                Edit User
+                Ubah Pengguna
             </a>
             @if (auth()->id() !== $user->id)
                 <form action="{{ route('user.destroy', $user) }}" method="POST" class="flex-1" id="delete-form-{{ $user->id }}">

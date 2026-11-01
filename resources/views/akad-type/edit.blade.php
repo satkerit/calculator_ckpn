@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Edit Akad - CKPN Calculator')
-@section('page-title', 'Edit Tipe Akad')
+@section('title', 'Ubah Akad - CKPN Calculator')
+@section('page-title', 'Ubah Tipe Akad')
 
 @section('content')
 <div class="max-w-2xl mx-auto">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">Edit Tipe Akad: {{ $akadType->nama_akad }}</h2>
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Ubah Tipe Akad: {{ $akadType->nama_akad }}</h2>
 
     <form method="POST" action="{{ route('akad-type.update', $akadType) }}" class="bg-white rounded-lg shadow-md p-8 space-y-6">
         @csrf

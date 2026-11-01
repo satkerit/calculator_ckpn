@@ -1,11 +1,11 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
-@section('title', 'PD Netflow Bucket Config - CKPN Calculator')
+@section('title', 'Konfigurasi Bucket PD Netflow - CKPN Calculator')
 
 @section('content')
 <div class="mb-6 flex flex-wrap justify-between items-center gap-3">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">PD Netflow Bucket Config</h1>
+        <h1 class="text-2xl font-bold text-gray-900">Konfigurasi Bucket PD Netflow</h1>
         <p class="text-sm text-gray-500 mt-1">Kelola definisi bucket untuk klasifikasi Days Past Due (DPD) pada kalkulasi PD Netflow</p>
     </div>
     <a href="{{ route('bucket.create') }}" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm">
@@ -106,7 +106,7 @@
                         <td class="px-6 py-4 text-gray-900">{{ $bucket->deskripsi_hari }}</td>
                         <td class="px-6 py-4">
                             @if ($bucket->hari_min == 0 && $bucket->hari_max == 0)
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Lancar (0 hari)</span>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Lancar (0 hari)</span>
                             @elseif ($bucket->hari_max === null)
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">&ge; {{ $bucket->hari_min }} hari (tanpa batas)</span>
                             @elseif ($bucket->hari_max >= 360)
@@ -116,9 +116,9 @@
                             @endif
                         </td>
                         <td class="px-6 py-4 space-x-1 text-right whitespace-nowrap">
-                            <a href="{{ route('bucket.edit', $bucket) }}" class="inline-flex items-center gap-1 px-3 py-2 min-h-[44px] text-green-600 hover:bg-green-50 rounded transition-colors font-medium">
+                            <a href="{{ route('bucket.edit', $bucket) }}" class="inline-flex items-center gap-1 px-3 py-2 min-h-[44px] text-emerald-600 hover:bg-emerald-50 rounded transition-colors font-medium">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                Edit
+                                Ubah
                             </a>
                             <form method="POST" action="{{ route('bucket.destroy', $bucket) }}" class="inline-block" id="deactivate-form-{{ $bucket->id }}">
                                 @csrf @method('DELETE')
@@ -278,7 +278,7 @@ function bulkDelete() {
     window.showConfirmDialog({
         title: `Nonaktifkan ${ids.length} Bucket?`,
         message: 'Semua bucket yang dipilih akan dinonaktifkan dan tidak digunakan dalam kalkulasi PD Netflow.',
-        detail: `Total: ${ids.length} item(s)`,
+        detail: `Total: ${ids.length} item`,
         type: 'danger',
         confirmText: 'Ya, Nonaktifkan Semua',
         cancelText: 'Batal',
@@ -346,7 +346,7 @@ function bulkRestore() {
     window.showConfirmDialog({
         title: `Aktifkan ${ids.length} Bucket?`,
         message: 'Semua bucket yang dipilih akan diaktifkan kembali dan digunakan dalam kalkulasi PD Netflow.',
-        detail: `Total: ${ids.length} item(s)`,
+        detail: `Total: ${ids.length} item`,
         type: 'info',
         confirmText: 'Ya, Aktifkan Semua',
         cancelText: 'Batal',

@@ -38,8 +38,8 @@
                 <input type="hidden" name="assessment_period_id" value="{{ $period->id }}">
                 <button type="submit" class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700">▶ Hitung Ulang CKPN</button>
             </form>
-            <a href="{{ $exportRoute }}" class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Export Ringkas</a>
-            <a href="{{ route('calculation.export.full.period', $period->id) }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm" title="Download seluruh hasil perhitungan dalam 1 file Excel multi-sheet (9 Sheet) untuk audit & backtesting manual">Export Lengkap (9 Sheet)</a>
+            <a href="{{ $exportRoute }}" class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Ekspor Ringkas</a>
+            <a href="{{ route('calculation.export.full.period', $period->id) }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm" title="Download seluruh hasil perhitungan dalam 1 file Excel multi-sheet (9 Sheet) untuk audit & backtesting manual">Ekspor Lengkap (9 Sheet)</a>
         </div>
     </div>
 
@@ -77,7 +77,7 @@
         <div class="overflow-x-auto max-h-[500px]">
             <table class="min-w-full text-xs">
                 <thead class="bg-gray-50 text-gray-600 uppercase sticky top-0">
-                    <tr><th class="px-3 py-2 text-left">Loan</th><th class="px-3 py-2 text-right">Nilai Tercatat</th><th class="px-3 py-2 text-right">Nilai Agunan</th><th class="px-3 py-2 text-right">Biaya Penjualan</th><th class="px-3 py-2 text-right">Recovery</th><th class="px-3 py-2 text-right">CKPN</th><th class="px-3 py-2 text-left">Method</th></tr>
+                    <tr><th class="px-3 py-2 text-left">Loan</th><th class="px-3 py-2 text-right">Nilai Tercatat</th><th class="px-3 py-2 text-right">Nilai Agunan</th><th class="px-3 py-2 text-right">Biaya Penjualan</th><th class="px-3 py-2 text-right">Recovery</th><th class="px-3 py-2 text-right">CKPN</th><th class="px-3 py-2 text-left">Metode</th></tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse ($individuals as $r)

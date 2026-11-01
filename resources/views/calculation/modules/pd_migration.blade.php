@@ -23,7 +23,7 @@
                 <input type="hidden" name="assessment_period_id" value="{{ $period->id }}">
                 <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">▶ Hitung PD Migration</button>
             </form>
-            <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Export XLSX</a>
+            <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Ekspor XLSX</a>
         </div>
     </div>
 
@@ -66,7 +66,7 @@
         </div>
         <div class="flex gap-2 shrink-0">
             <button type="button" id="pmig-toggle-all" onclick="pmigToggleAll()" class="inline-flex items-center px-3 py-2 border border-gray-300 text-xs font-semibold rounded-lg text-gray-700 hover:bg-gray-50">Tampilkan Semua Matriks</button>
-            <a href="{{ route('calculation.export.pd_migration_matrix.period', $period->id) }}" class="inline-flex items-center px-3 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700">Export Detail Matriks</a>
+            <a href="{{ route('calculation.export.pd_migration_matrix.period', $period->id) }}" class="inline-flex items-center px-3 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700">Ekspor Detail Matriks</a>
         </div>
     </div>
     <div class="overflow-x-auto">

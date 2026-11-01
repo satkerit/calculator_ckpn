@@ -1,21 +1,21 @@
 @extends('layouts.app')
 
-@section('title', 'CKPN Summary Report - CKPN Calculator')
+@section('title', 'Laporan Ringkasan CKPN - CKPN Calculator')
 
-@section('page-title', 'CKPN Summary Report')
+@section('page-title', 'Laporan Ringkasan CKPN')
 
 @section('content')
 <div class="space-y-6">
     <!-- Summary Table -->
     <div class="bg-white rounded-lg shadow overflow-hidden">
         <div class="px-6 py-4 bg-gray-50 border-b">
-            <h3 class="font-bold text-gray-800">Assessment CKPN Summary</h3>
+            <h3 class="font-bold text-gray-800">Ringkasan CKPN Assessment</h3>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-gray-100 border-b">
                     <tr>
-                        <th class="px-6 py-3 text-left font-semibold text-gray-700">Assessment Period</th>
+                        <th class="px-6 py-3 text-left font-semibold text-gray-700">Periode Assessment</th>
                         <th class="px-6 py-3 text-left font-semibold text-gray-700">Date</th>
                         <th class="px-6 py-3 text-right font-semibold text-gray-700">Total EAD</th>
                         <th class="px-6 py-3 text-right font-semibold text-gray-700">Individual CKPN</th>
@@ -31,7 +31,7 @@
                             <td class="px-6 py-4 font-medium text-gray-900">{{ $report['assessment']->period_name }}</td>
                             <td class="px-6 py-4 text-gray-600">{{ $report['assessment']->assessment_date->format('d M Y') }}</td>
                             <td class="px-6 py-4 text-right font-semibold">{{ number_format($report['ead'] / 1_000_000_000, 2) }}B</td>
-                            <td class="px-6 py-4 text-right text-green-600 font-semibold">{{ number_format($report['individual_ckpn'] / 1_000_000_000, 2) }}B</td>
+                            <td class="px-6 py-4 text-right text-emerald-600 font-semibold">{{ number_format($report['individual_ckpn'] / 1_000_000_000, 2) }}B</td>
                             <td class="px-6 py-4 text-right text-gray-900 font-mono font-semibold">{{ number_format($report['collective_ckpn'] / 1_000_000_000, 2) }}B</td>
                             <td class="px-6 py-4 text-right text-blue-600 font-bold text-lg">{{ number_format($report['total_ckpn'] / 1_000_000_000, 2) }}B</td>
                             <td class="px-6 py-4 text-right">

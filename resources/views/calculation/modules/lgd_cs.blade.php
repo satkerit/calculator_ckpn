@@ -28,7 +28,7 @@
                 <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">▶ Hitung LGD CS</button>
             </form>
             <a href="{{ $detailRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Detail Debitur</a>
-            <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Export XLSX</a>
+            <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Ekspor XLSX</a>
         </div>
     </div>
 
@@ -53,7 +53,7 @@
             <p class="text-2xl font-bold text-gray-900 mt-1">{{ number_format((float) ($rows['avg_lgd'] ?? 0), 4, ',', '.') }}</p>
         </div>
         <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
-            <p class="text-xs font-semibold text-gray-600 uppercase">Method</p>
+            <p class="text-xs font-semibold text-gray-600 uppercase">Metode</p>
             <p class="text-2xl font-bold text-gray-900 mt-1">CS</p>
         </div>
     </div>

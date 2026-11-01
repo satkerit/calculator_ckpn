@@ -1,17 +1,17 @@
 @extends('layouts.app')
 
-@section('title', 'Users - CKPN Calculator')
+@section('title', 'Pengguna - CKPN Calculator')
 
-@section('page-title', 'User Management')
+@section('page-title', 'Manajemen Pengguna')
 
 @section('content')
 <div class="w-full">
     <!-- Header -->
     <div class="flex justify-between items-center mb-8">
-        <h2 class="text-2xl font-bold text-gray-800">Users</h2>
+        <h2 class="text-2xl font-bold text-gray-800">Pengguna</h2>
         <a href="{{ route('user.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            Add User
+            Tambah Pengguna
         </a>
     </div>
 
@@ -37,10 +37,10 @@
                     <th class="px-6 py-3 text-center font-semibold text-gray-700 w-12">
                         <input type="checkbox" id="select-all" aria-label="Pilih semua pengguna" onchange="toggleSelectAll(this)">
                     </th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-700">Name</th>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-700">Nama</th>
                     <th class="px-6 py-3 text-left font-semibold text-gray-700">Email</th>
                     <th class="px-6 py-3 text-left font-semibold text-gray-700">Role</th>
-                    <th class="px-6 py-3 text-left font-semibold text-gray-700">Office</th>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-700">Kantor</th>
                     <th class="px-6 py-3 text-center font-semibold text-gray-700">Status</th>
                     <th class="px-6 py-3 text-center font-semibold text-gray-700">Aksi</th>
                 </tr>
@@ -63,7 +63,7 @@
                         <td class="px-6 py-4 text-gray-600">{{ $user->office?->office_name ?? '-' }}</td>
                         <td class="px-6 py-4 text-center">
                             @if ($user->active)
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Aktif</span>
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Aktif</span>
                             @else
                                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Nonaktif</span>
                             @endif

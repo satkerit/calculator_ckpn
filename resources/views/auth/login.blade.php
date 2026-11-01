@@ -194,8 +194,8 @@
                             </p>
                             <div class="space-y-2 text-xs text-emerald-800">
                                 <p><span class="font-medium">Admin:</span> <code class="font-mono bg-white px-2 py-1 rounded">admin@bprs.local</code></p>
-                                <p><span class="font-medium">Analyst:</span> <code class="font-mono bg-white px-2 py-1 rounded">analyst@bprs.local</code></p>
-                                <p class="text-emerald-700 text-xs">Password: <code class="font-mono bg-white px-2 py-1 rounded">password</code></p>
+                                <p><span class="font-medium">Analis:</span> <code class="font-mono bg-white px-2 py-1 rounded">analyst@bprs.local</code></p>
+                                <p class="text-emerald-700 text-xs">Kata Sandi: <code class="font-mono bg-white px-2 py-1 rounded">password</code></p>
                             </div>
                         </div>
                     @endif

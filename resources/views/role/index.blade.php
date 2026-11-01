@@ -1,11 +1,11 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
-@section('title', 'Role Management - CKPN Calculator')
+@section('title', 'Manajemen Role - CKPN Calculator')
 
 @section('content')
 <div class="mb-6 flex justify-between items-center">
     <div>
-        <h2 class="text-2xl font-bold text-gray-900">Role Management</h2>
+        <h2 class="text-2xl font-bold text-gray-900">Manajemen Role</h2>
         <p class="text-sm text-gray-600 mt-1">Kelola role dan hak akses pengguna</p>
     </div>
     <a href="{{ route('role.create') }}" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
@@ -50,8 +50,8 @@
                     <h3 class="text-lg font-semibold text-gray-900">{{ $role->nama_role }}</h3>
                     <p class="text-xs text-gray-500 font-mono">{{ $role->kode_role }}</p>
                 </div>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $role->active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600' }}">
-                    {{ $role->active ? 'Active' : 'Inactive' }}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $role->active ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600' }}">
+                    {{ $role->active ? 'Aktif' : 'Nonaktif' }}
                 </span>
             </div>
 
@@ -60,7 +60,7 @@
             @endif
 
             <div class="mb-4">
-                <p class="text-xs font-semibold text-gray-700 uppercase mb-2">Permissions ({{ $role->permissions()->count() }})</p>
+                <p class="text-xs font-semibold text-gray-700 uppercase mb-2">Hak Akses ({{ $role->permissions()->count() }})</p>
                 <div class="flex flex-wrap gap-1">
                     @forelse($role->permissions()->limit(5)->get() as $perm)
                         <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ $perm->display_name }}</span>
@@ -76,7 +76,7 @@
             <div class="flex gap-2 pt-4 border-t border-gray-200">
                 <a href="{{ route('role.edit', $role) }}" class="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded text-sm font-medium transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                    Edit
+                    Ubah
                 </a>
                 @if($role->users()->count() === 0)
                     <form method="POST" action="{{ route('role.destroy', $role) }}" class="flex-1" id="delete-form-{{ $role->id }}">
@@ -87,13 +87,13 @@
                         Hapus
                     </button>
                 @else
-                    <button type="button" disabled class="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-gray-100 text-gray-500 rounded text-sm font-medium cursor-not-allowed" title="Cannot delete role with users">
+                    <button type="button" disabled class="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 bg-gray-100 text-gray-500 rounded text-sm font-medium cursor-not-allowed" title="Tidak dapat menghapus role yang masih memiliki pengguna">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         Hapus
                     </button>
                 @endif
             </div>
-            <p class="text-xs text-gray-500 mt-3 text-center">{{ $role->users()->count() }} user(s)</p>
+            <p class="text-xs text-gray-500 mt-3 text-center">{{ $role->users()->count() }} pengguna</p>
         </div>
     @empty
         <div class="col-span-full text-center py-12">

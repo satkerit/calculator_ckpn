@@ -24,7 +24,7 @@
                 <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">▶ Hitung LGD ER</button>
             </form>
             <a href="{{ $detailRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Detail Debitur</a>
-            <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Export XLSX</a>
+            <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Ekspor XLSX</a>
         </div>
     </div>
 
@@ -60,7 +60,7 @@
             <thead class="bg-gray-50 text-gray-600 uppercase">
                 <tr>
                     <th class="px-3 py-2 text-left">Group Key</th>
-                    <th class="px-3 py-2 text-left">Office</th>
+                    <th class="px-3 py-2 text-left">Kantor</th>
                     <th class="px-3 py-2 text-left">Akad</th>
                     <th class="px-3 py-2 text-left">Usage</th>
                     <th class="px-3 py-2 text-right">Recovery Rate</th>

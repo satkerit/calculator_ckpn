@@ -11,7 +11,7 @@
         </div>
         <div class="inline-flex gap-2">
             <a href="{{ route('collateral-setup.edit', $collateral) }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
-                Edit
+                Ubah
             </a>
             <a href="{{ route('collateral-setup.index') }}" class="bg-gray-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-600 transition-colors">
                 Kembali
@@ -30,8 +30,8 @@
         </div>
         <div>
             <p class="text-xs font-semibold text-gray-500 uppercase">Status</p>
-            <span class="inline-flex items-center px-3 py-1 mt-1 rounded-full text-xs font-semibold {{ $collateral->active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                {{ $collateral->active ? 'Active' : 'Inactive' }}
+            <span class="inline-flex items-center px-3 py-1 mt-1 rounded-full text-xs font-semibold {{ $collateral->active ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800' }}">
+                {{ $collateral->active ? 'Aktif' : 'Nonaktif' }}
             </span>
         </div>
     </div>

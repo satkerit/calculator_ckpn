@@ -85,13 +85,13 @@
                             @endif
                         </td>
                         <td class="px-6 py-4 text-center">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $akad->active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $akad->active ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800' }}">
                                 {{ $akad->active ? 'Aktif' : 'Non-aktif' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 text-right space-x-1">
                             <a href="{{ route('akad-type.edit', $akad) }}" class="inline-flex items-center gap-1 px-3 py-2 min-h-[44px] text-blue-600 hover:bg-blue-50 rounded transition-colors font-medium text-xs">
-                                Edit
+                                Ubah
                             </a>
                             <button type="button" onclick="confirmDelete({{ $akad->id }}, '{{ $akad->kode_akad }}', '{{ $akad->nama_akad }}')" class="inline-flex items-center gap-1 px-3 py-2 min-h-[44px] text-red-600 hover:bg-red-50 rounded transition-colors font-medium text-xs">
                                 Hapus

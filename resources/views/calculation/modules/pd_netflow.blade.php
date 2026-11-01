@@ -62,12 +62,12 @@
                 @endif
                 <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-sm font-semibold text-gray-700 rounded-lg hover:bg-gray-50 shadow-sm transition-colors duration-200">
                     <svg class="w-4 h-4 mr-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                    Export XLSX
+                    Ekspor XLSX
                 </a>
                 @if ($hasHistory)
-                    <a href="{{ $backtestRoute }}" data-confirm-title="Export PD Net Flow Detail" data-confirm-message="Export akan memproses seluruh data matriks detail PD Net Flow (Tabel 1 Min. Bucket, Tabel 2 Perpindahan Bucket, Tabel 3 Compound Flow to Loss) ke file XLSX. Lanjutkan?" data-confirm-type="info" data-confirm-button="Ya, Export" class="inline-flex items-center px-4 py-2 bg-emerald-600 border border-transparent text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 shadow-sm transition-colors duration-200">
+                    <a href="{{ $backtestRoute }}" data-confirm-title="Ekspor Detail PD Net Flow" data-confirm-message="Ekspor akan memproses seluruh data matriks detail PD Net Flow (Tabel 1 Min. Bucket, Tabel 2 Perpindahan Bucket, Tabel 3 Compound Flow to Loss) ke file XLSX. Lanjutkan?" data-confirm-type="info" data-confirm-button="Ya, Ekspor" class="inline-flex items-center px-4 py-2 bg-emerald-600 border border-transparent text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 shadow-sm transition-colors duration-200">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        Export Detail
+                        Ekspor Detail
                     </a>
                 @endif
             </div>
@@ -139,7 +139,7 @@
                         <th class="px-3 py-2 text-left">Group Key</th>
                         <th class="px-3 py-2 text-right">Bucket</th>
                         <th class="px-3 py-2 text-right">PD</th>
-                        <th class="px-3 py-2 text-right">Periods</th>
+                        <th class="px-3 py-2 text-right">Periode</th>
                         <th class="px-3 py-2 text-left">Detail</th>
                         <th class="px-3 py-2 text-center">Aksi</th>
                     </tr>
@@ -167,8 +167,8 @@
                                     <a href="{{ route('calculation.module.pd_netflow.detail', ['assessmentPeriod' => $period->id, 'group_key' => $r->group_key]) }}" class="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-xs font-semibold">
                                         Lihat Matriks
                                     </a>
-                                    <a href="{{ $backtestRoute }}?group_key={{ urlencode($r->group_key) }}" class="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded text-xs font-semibold" title="Export backtesting grup ini (Bucket Snapshot, Transisi, Compound Flow)">
-                                        Export
+                                    <a href="{{ $backtestRoute }}?group_key={{ urlencode($r->group_key) }}" class="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded text-xs font-semibold" title="Ekspor backtesting grup ini (Bucket Snapshot, Transisi, Compound Flow)">
+                                        Ekspor
                                     </a>
                                 </div>
                             </td>

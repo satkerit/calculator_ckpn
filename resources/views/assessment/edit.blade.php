@@ -1,17 +1,17 @@
 @extends('layouts.app')
 
-@section('title', 'Edit Assessment - CKPN Calculator')
+@section('title', 'Ubah Assessment - CKPN Calculator')
 
 @section('content')
 <div class="w-full max-w-2xl mx-auto">
-    <h2 class="text-2xl font-bold text-gray-900 mb-8">Edit Assessment Period</h2>
+    <h2 class="text-2xl font-bold text-gray-900 mb-8">Ubah Periode Assessment</h2>
 
     <form method="POST" action="{{ route('assessment.update', $assessmentPeriod) }}" class="bg-white rounded-lg shadow-md p-6 space-y-6">
         @csrf @method('PUT')
 
         <div>
             <label for="period_name" class="block text-sm font-semibold text-gray-900 mb-2">
-                Period Name <span class="text-red-500">*</span>
+                Nama Periode <span class="text-red-500">*</span>
             </label>
             <input type="text" id="period_name" name="period_name" required value="{{ old('period_name', $assessmentPeriod->period_name) }}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
             @error('period_name')
@@ -22,7 +22,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label for="fiscal_month" class="block text-sm font-semibold text-gray-900 mb-2">
-                    Month <span class="text-red-500">*</span>
+                    Bulan <span class="text-red-500">*</span>
                 </label>
                 <input type="number" id="fiscal_month" name="fiscal_month" required min="1" max="12" value="{{ old('fiscal_month', $assessmentPeriod->fiscal_month) }}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 @error('fiscal_month')
@@ -31,7 +31,7 @@
             </div>
             <div>
                 <label for="fiscal_year" class="block text-sm font-semibold text-gray-900 mb-2">
-                    Year <span class="text-red-500">*</span>
+                    Tahun <span class="text-red-500">*</span>
                 </label>
                 <input type="number" id="fiscal_year" name="fiscal_year" required min="2000" value="{{ old('fiscal_year', $assessmentPeriod->fiscal_year) }}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 @error('fiscal_year')
@@ -42,7 +42,7 @@
 
         <div>
             <label for="assessment_date" class="block text-sm font-semibold text-gray-900 mb-2">
-                Assessment Date <span class="text-red-500">*</span>
+                Tanggal Assessment <span class="text-red-500">*</span>
             </label>
             <input type="date" id="assessment_date" name="assessment_date" required value="{{ old('assessment_date', $assessmentPeriod->assessment_date->format('Y-m-d')) }}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
             @error('assessment_date')

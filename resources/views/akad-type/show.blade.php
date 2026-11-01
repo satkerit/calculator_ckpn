@@ -9,7 +9,7 @@
         <h2 class="text-2xl font-bold text-gray-900">{{ $akadType->nama_akad }}</h2>
         <div class="flex gap-2">
             <a href="{{ route('akad-type.edit', $akadType) }}" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm">
-                Edit
+                Ubah
             </a>
             <a href="{{ route('akad-type.index') }}" class="inline-flex items-center gap-2 bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors text-sm">
                 Kembali
@@ -52,7 +52,7 @@
             <div class="grid grid-cols-3 gap-4 py-3">
                 <dt class="text-sm font-semibold text-gray-500">Status</dt>
                 <dd class="col-span-2">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $akadType->active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $akadType->active ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800' }}">
                         {{ $akadType->active ? 'Aktif' : 'Non-aktif' }}
                     </span>
                 </dd>

@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Setup Collateral - CKPN Calculator')
+@section('title', 'Setup Agunan - CKPN Calculator')
 
 @section('content')
 <div class="mb-6 flex justify-between items-center">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Setup Collateral</h1>
+        <h1 class="text-2xl font-bold text-gray-900">Setup Agunan</h1>
         <p class="text-sm text-gray-600 mt-1">Daftar jenis dan parameter tipe agunan</p>
     </div>
     <div class="flex items-center gap-2">
@@ -56,13 +56,13 @@
                     <td class="px-6 py-4 font-mono font-semibold text-gray-900">{{ $setup->collateral_type }}</td>
                     <td class="px-6 py-4 text-gray-800 font-medium">{{ $setup->collateral_ket }}</td>
                     <td class="px-6 py-4 text-center">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $setup->active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                            {{ $setup->active ? 'Active' : 'Inactive' }}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $setup->active ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800' }}">
+                            {{ $setup->active ? 'Aktif' : 'Nonaktif' }}
                         </span>
                     </td>
                     <td class="px-6 py-4 text-right space-x-2">
                         <a href="{{ route('collateral-setup.show', $setup->collateral_type) }}" class="text-blue-600 hover:text-blue-800 font-medium">Detail</a>
-                        <a href="{{ route('collateral-setup.edit', $setup->collateral_type) }}" class="text-green-600 hover:text-green-800 font-medium">Ubah</a>
+                        <a href="{{ route('collateral-setup.edit', $setup->collateral_type) }}" class="text-emerald-600 hover:text-emerald-800 font-medium">Ubah</a>
                         <button type="button" onclick="confirmDeleteCollateralSetup({{ json_encode($setup->collateral_type) }}, {{ json_encode($setup->collateral_type) }})" class="text-red-600 hover:text-red-800 font-medium">
                             Hapus
                         </button>
@@ -156,7 +156,7 @@ function confirmDeleteCollateralSetup(collateralType, displayName) {
     window.showConfirmDialog({
         title: 'Hapus Setup Agunan?',
         message: 'Setup agunan tipe <strong>' + displayName + '</strong> akan dihapus secara permanen.',
-        detail: 'Collateral Type: ' + displayName,
+        detail: 'Tipe Agunan: ' + displayName,
         type: 'danger',
         confirmText: 'Ya, Hapus',
         cancelText: 'Batal',

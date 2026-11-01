@@ -1,17 +1,17 @@
 @extends('layouts.app')
 
-@section('title', 'Tambah Collateral - CKPN Calculator')
+@section('title', 'Tambah Agunan - CKPN Calculator')
 
 @section('content')
 <div class="max-w-2xl mx-auto">
-    <h1 class="text-2xl font-bold text-gray-900 mb-8">Tambah Collateral</h1>
+    <h1 class="text-2xl font-bold text-gray-900 mb-8">Tambah Agunan</h1>
 
     <form method="POST" action="{{ route('collateral.store') }}" class="bg-white rounded-lg shadow-md p-6 space-y-6">
         @csrf
 
         <div>
             <label for="loan_number" class="block text-sm font-semibold text-gray-900 mb-2">
-                Nomor Rekening Pembiayaan (Loan Number) <span class="text-red-500">*</span>
+                Nomor Rekening Pembiayaan <span class="text-red-500">*</span>
             </label>
             <input type="text" id="loan_number" name="loan_number" required value="{{ old('loan_number') }}" placeholder="Contoh: L001" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
             @error('loan_number')
@@ -42,7 +42,7 @@
 
         <div>
             <label for="collateral_type" class="block text-sm font-semibold text-gray-900 mb-2">
-                Tipe Agunan (Collateral Setup) <span class="text-red-500">*</span>
+                Tipe Agunan <span class="text-red-500">*</span>
             </label>
             <select id="collateral_type" name="collateral_type" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 <option value="">-- Pilih Tipe Agunan --</option>

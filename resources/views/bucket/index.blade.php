@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
 @section('title', 'Konfigurasi Bucket PD Netflow - CKPN Calculator')
+@section('page-title', 'Konfigurasi Bucket PD Netflow')
 
 @section('content')
 <div class="mb-6 flex flex-wrap justify-between items-center gap-3">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Konfigurasi Bucket PD Netflow</h1>
         <p class="text-sm text-gray-500 mt-1">Kelola definisi bucket untuk klasifikasi Days Past Due (DPD) pada kalkulasi PD Netflow</p>
     </div>
     <a href="{{ route('bucket.create') }}" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm">

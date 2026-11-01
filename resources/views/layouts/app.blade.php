@@ -48,7 +48,7 @@
             <div class="h-14 flex items-center justify-between px-4 border-b border-gray-100 shrink-0">
                 <div class="flex items-center gap-2.5">
                     <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-                        <svg class="w-4.5 h-4.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg aria-hidden="true" class="w-4.5 h-4.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
                     </div>
@@ -94,7 +94,7 @@
 
                         {{-- CKPN Calculation (accordion) --}}
                         <li x-data="{ open: {{ request()->routeIs('calculation.module.*') || request()->routeIs('calculation.export.*') || request()->routeIs('calculation.ckpn.*') ? 'true' : 'false' }} }">
-                            <button @click="open = !open"
+                            <button @click="open = !open" :aria-expanded="open.toString()"
                                     class="w-full flex items-center justify-between gap-2.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors
                                            {{ request()->routeIs('calculation.*') ? 'text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600' }}">
                                 <div class="flex items-center gap-2.5">
@@ -185,7 +185,7 @@
 
                         {{-- Akad & Produk (accordion) --}}
                         <li x-data="{ open: {{ request()->routeIs('akad-type.*') || request()->routeIs('product-akad.*') ? 'true' : 'false' }} }">
-                            <button @click="open = !open"
+                            <button @click="open = !open" :aria-expanded="open.toString()"
                                     class="w-full flex items-center justify-between gap-2.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors
                                            {{ request()->routeIs('akad-type.*') || request()->routeIs('product-akad.*') ? 'text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600' }}">
                                 <div class="flex items-center gap-2.5">
@@ -212,7 +212,7 @@
 
                         {{-- Agunan (accordion) --}}
                         <li x-data="{ open: {{ request()->routeIs('collateral.*') || request()->routeIs('collateral-setup.*') ? 'true' : 'false' }} }">
-                            <button @click="open = !open"
+                            <button @click="open = !open" :aria-expanded="open.toString()"
                                     class="w-full flex items-center justify-between gap-2.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors
                                            {{ request()->routeIs('collateral.*') || request()->routeIs('collateral-setup.*') ? 'text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600' }}">
                                 <div class="flex items-center gap-2.5">

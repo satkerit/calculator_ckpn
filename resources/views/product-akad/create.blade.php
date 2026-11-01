@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
 @section('title', 'Tambah Pemetaan Akad - CKPN Calculator')
+@section('page-title', 'Tambah Pemetaan Akad Produk')
 
 @section('content')
 <div class="container mx-auto px-4 py-8">
-    <h1 class="text-3xl font-bold mb-6">Tambah Pemetaan Akad Produk</h1>
 
     <div class="bg-white rounded shadow p-6 max-w-2xl">
         <form action="{{ route('product-akad.store') }}" method="POST">

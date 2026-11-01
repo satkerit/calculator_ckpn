@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
 @section('title', 'Detail Agunan - CKPN Calculator')
+@section('page-title', 'Detail Agunan')
 
 @section('content')
 <div class="max-w-4xl mx-auto">
     <div class="mb-8 flex justify-between items-center">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">Detail Agunan</h1>
             <p class="text-sm text-gray-500 font-mono">No. Rekening: {{ $collateral->loan_number }} | Agunan ke-{{ $collateral->collateral_order }}</p>
         </div>
         <div class="inline-flex gap-2">

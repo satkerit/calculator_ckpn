@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
 @section('title', 'Ubah Data Agunan - CKPN Calculator')
+@section('page-title', 'Ubah Data Agunan')
 
 @section('content')
 <div class="max-w-2xl mx-auto">
     <div class="mb-6 flex justify-between items-center">
-        <h1 class="text-2xl font-bold text-gray-900">Ubah Data Agunan</h1>
         <a href="{{ route('collateral.index') }}" class="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 text-sm font-semibold">
             ← Kembali ke Daftar
         </a>

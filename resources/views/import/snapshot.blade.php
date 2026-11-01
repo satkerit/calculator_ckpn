@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
 @section('title', 'Impor Snapshot Data - CKPN Calculator')
+@section('page-title', 'Impor Snapshot Historis')
 
 @section('content')
 <div class="max-w-4xl mx-auto">
-    <h1 class="text-3xl font-bold mb-2">Impor Snapshot Historis</h1>
     <p class="text-gray-600 mb-8">Unggah file Excel dengan data historis pembiayaan</p>
 
     <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">

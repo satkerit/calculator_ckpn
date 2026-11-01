@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
 @section('title', 'Tambah Setup Agunan - CKPN Calculator')
+@section('page-title', 'Tambah Setup Agunan')
 
 @section('content')
 <div class="max-w-2xl mx-auto">
-    <h1 class="text-2xl font-bold text-gray-900 mb-8">Tambah Setup Agunan</h1>
 
     <form method="POST" action="{{ route('collateral-setup.store') }}" class="bg-white rounded-lg shadow-md p-6 space-y-6">
         @csrf

@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
 @section('title', 'Impor Pemetaan Akad Produk - CKPN Calculator')
+@section('page-title', 'Impor Pemetaan Akad Produk')
 
 @section('content')
 <div class="max-w-4xl mx-auto">
-    <h1 class="text-3xl font-bold mb-2">Impor Pemetaan Akad Produk</h1>
     <p class="text-gray-600 mb-8">Unggah file dengan data pemetaan produk ke akad pembiayaan</p>
 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">

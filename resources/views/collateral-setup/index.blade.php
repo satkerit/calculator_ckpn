@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
 @section('title', 'Setup Agunan - CKPN Calculator')
+@section('page-title', 'Setup Agunan')
 
 @section('content')
 <div class="mb-6 flex justify-between items-center">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Setup Agunan</h1>
         <p class="text-sm text-gray-600 mt-1">Daftar jenis dan parameter tipe agunan</p>
     </div>
     <div class="flex items-center gap-2">

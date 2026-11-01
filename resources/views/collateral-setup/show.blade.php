@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
 @section('title', 'Detail Setup Agunan - ' . $collateral->collateral_type)
+@section('page-title', $collateral->collateral_type . ' - ' . $collateral->collateral_ket)
 
 @section('content')
 <div class="max-w-3xl">
     <div class="mb-8 flex justify-between items-center">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">{{ $collateral->collateral_type }} - {{ $collateral->collateral_ket }}</h1>
             <p class="text-sm text-gray-600 mt-1">Detail konfigurasi tipe agunan</p>
         </div>
         <div class="inline-flex gap-2">

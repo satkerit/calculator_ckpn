@@ -43,18 +43,34 @@
         </div>
     @endif
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-        <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
-            <p class="text-xs font-semibold text-gray-600 uppercase">Groups</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">{{ $rows['count'] ?? 0 }}</p>
+    <!-- KPI Metric Cards (Visual Hierarchy: Average LGD as Primary Stat) -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+        <div class="md:col-span-2 rounded-xl border-2 border-blue-300/80 p-5 bg-gradient-to-br from-blue-50/60 to-white shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 uppercase">Metrik Utama</span>
+                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mt-1">Average LGD (Collateral Shortfall)</p>
+                </div>
+                <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                </div>
+            </div>
+            <div class="mt-3">
+                <p class="text-3xl font-extrabold text-gray-900 tracking-tight font-mono">{{ number_format((float) ($rows['avg_lgd'] ?? 0), 4, ',', '.') }}</p>
+                <p class="text-xs text-gray-500 mt-1">Rata-rata LGD shortfall agunan (WO beragunan &amp; Kol 5 aktif)</p>
+            </div>
         </div>
-        <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
-            <p class="text-xs font-semibold text-gray-600 uppercase">Average LGD</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">{{ number_format((float) ($rows['avg_lgd'] ?? 0), 4, ',', '.') }}</p>
+
+        <div class="rounded-xl border border-gray-200 p-4 bg-white flex flex-col justify-between">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Jumlah Groups</p>
+            <p class="text-2xl font-bold text-gray-900 mt-2 font-mono">{{ $rows['count'] ?? 0 }}</p>
+            <p class="text-xs text-gray-500 mt-1">Grup segmentasi terhitung</p>
         </div>
-        <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
-            <p class="text-xs font-semibold text-gray-600 uppercase">Metode</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">CS</p>
+
+        <div class="rounded-xl border border-gray-200 p-4 bg-white flex flex-col justify-between">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Metode</p>
+            <p class="text-2xl font-bold text-gray-900 mt-2 font-mono">CS</p>
+            <p class="text-xs text-gray-500 mt-1">Collateral Shortfall</p>
         </div>
     </div>
 </div>
@@ -76,12 +92,12 @@
             </thead>
             <tbody class="divide-y divide-gray-100">
                 @forelse ($rows['rows'] ?? [] as $r)
-                    <tr>
-                        <td class="px-3 py-2 font-mono">{{ $r->group_key }}</td>
-                        <td class="px-3 py-2 text-right">{{ number_format((float) ($r->total_exposure_wo ?? 0), 0, ',', '.') }}</td>
-                        <td class="px-3 py-2 text-right">{{ number_format((float) ($r->total_shortfall ?? 0), 0, ',', '.') }}</td>
-                        <td class="px-3 py-2 text-right">{{ number_format((float) ($r->collateral_coverage ?? 0), 6, ',', '.') }}</td>
-                        <td class="px-3 py-2 text-right font-semibold">{{ number_format((float) $r->lgd_calculated * 100, 2, ',', '.') }}%</td>
+                    <tr class="hover:bg-gray-50/70">
+                        <td class="px-3 py-2 font-mono text-gray-900">{{ $r->group_key }}</td>
+                        <td class="px-3 py-2 text-right font-mono text-gray-900">Rp {{ number_format((float) ($r->total_exposure_wo ?? 0), 0, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right font-mono text-gray-900">Rp {{ number_format((float) ($r->total_shortfall ?? 0), 0, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right font-mono text-gray-900">{{ number_format((float) ($r->collateral_coverage ?? 0), 4, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right font-mono font-bold text-gray-900">{{ number_format((float) $r->lgd_calculated * 100, 2, ',', '.') }}%</td>
                     </tr>
                 @empty
                     <tr><td colspan="5" class="px-3 py-6 text-center text-gray-500">Belum ada hasil LGD CS.</td></tr>

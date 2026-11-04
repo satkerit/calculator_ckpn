@@ -7,6 +7,15 @@ Setiap perubahan kode/konfigurasi signifikan WAJIB dicatat di sini.
 
 ## [Unreleased] — 2026-11-04
 
+### Changed — Anti-Slop UI Remediation: Hierarki Stat Card (#27) & Format Tabel Monospace (#34)
+- **Modul LGD ER & CS (`calculation/modules/lgd_er.blade.php`, `calculation/modules/lgd_cs.blade.php`)**:
+  - Menerapkan hierarki visual kartu KPI (#27) dengan *Average LGD* sebagai kartu utama (hero stat card span 2 kolom) beraksen biru lembut dan border kontras, serta kartu sekunder untuk jumlah grup dan metode.
+  - Memperbaiki kolom numerik dan nominal keuangan pada tabel hasil LGD ER dan LGD CS menggunakan `font-mono` rata kanan dengan prefix `Rp` (#34).
+- **Modul CKPN Individual & Kolektif (`calculation/modules/detail_ckpn.blade.php`, `calculation/modules/ckpn_individual.blade.php`, `calculation/modules/ckpn_collective.blade.php`)**:
+  - Menyelaraskan seluruh angka finansial (Nilai Tercatat, Agunan, Pengurangan, Recovery, CKPN, EAD) dengan `font-mono`, perataan kanan, serta penambahan prefix `Rp` untuk keterbacaan data audit perbankan (#34).
+- **Laporan Ringkasan CKPN (`reporting/ckpn-summary.blade.php`)**:
+  - Menambahkan prefix `Rp` pada kolom nominal monospaced (EAD, Individual CKPN, Collective CKPN, Total CKPN).
+
 ### Changed — Format Tabel Compound Flow to Loss pada PD Net Flow Detail
 - Menyesuaikan header dan label baris pada tabel **Compound Flow to Loss** di `resources/views/calculation/pd_netflow_detail.blade.php`:
   - Judul tabel disederhanakan menjadi `Compound Flow to Loss`.

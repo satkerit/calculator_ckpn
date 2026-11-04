@@ -63,19 +63,19 @@
             </thead>
             <tbody class="divide-y divide-gray-100">
                 @forelse ($rows as $r)
-                    <tr>
-                        <td class="px-3 py-2 font-mono">{{ $r->loan_number }}</td>
-                        <td class="px-3 py-2 font-mono">{{ $r->group_key }}</td>
+                    <tr class="hover:bg-gray-50/70">
+                        <td class="px-3 py-2 font-mono text-gray-900">{{ $r->loan_number }}</td>
+                        <td class="px-3 py-2 font-mono text-gray-900">{{ $r->group_key }}</td>
                         <td class="px-3 py-2">
                             <span class="inline-flex items-center gap-1">
-                                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 text-gray-700 font-semibold">{{ (int) $r->dim_no }}</span>
-                                <span class="text-gray-600">{{ $r->dim_label }}</span>
+                                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 text-gray-700 font-semibold text-[11px]">{{ (int) $r->dim_no }}</span>
+                                <span class="text-gray-700">{{ $r->dim_label }}</span>
                             </span>
                         </td>
-                        <td class="px-3 py-2 text-right font-mono">{{ number_format((float) $r->ead_amount, 0, ',', '.') }}</td>
-                        <td class="px-3 py-2 text-right font-mono">{{ $r->pd !== null ? number_format((float) $r->pd * 100, 2, ',', '.').'%' : '-' }}</td>
-                        <td class="px-3 py-2 text-right font-mono">{{ $r->lgd !== null ? number_format((float) $r->lgd * 100, 2, ',', '.').'%' : '-' }}</td>
-                        <td class="px-3 py-2 text-right font-semibold font-mono">{{ number_format((float) $r->ckpn_debitur, 0, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right font-mono text-gray-900">Rp {{ number_format((float) $r->ead_amount, 0, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right font-mono text-gray-900">{{ $r->pd !== null ? number_format((float) $r->pd * 100, 2, ',', '.').'%' : '-' }}</td>
+                        <td class="px-3 py-2 text-right font-mono text-gray-900">{{ $r->lgd !== null ? number_format((float) $r->lgd * 100, 2, ',', '.').'%' : '-' }}</td>
+                        <td class="px-3 py-2 text-right font-mono font-bold text-gray-900">Rp {{ number_format((float) $r->ckpn_debitur, 0, ',', '.') }}</td>
                     </tr>
                 @empty
                     <tr><td colspan="7" class="px-3 py-6 text-center text-gray-500">Belum ada debitur kolektif untuk periode ini.</td></tr>

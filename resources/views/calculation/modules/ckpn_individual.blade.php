@@ -65,14 +65,14 @@
             </thead>
             <tbody class="divide-y divide-gray-100">
                 @forelse ($rows as $r)
-                    <tr>
-                        <td class="px-3 py-2 font-mono">{{ $r->loan_number }}</td>
-                        <td class="px-3 py-2 text-right font-mono">{{ number_format((float) $r->nilai_tercatat, 0, ',', '.') }}</td>
-                        <td class="px-3 py-2 text-right font-mono">{{ number_format((float) $r->liquidity_value, 0, ',', '.') }}</td>
-                        <td class="px-3 py-2 text-right font-mono">{{ number_format((float) $r->sale_cost, 0, ',', '.') }}</td>
-                        <td class="px-3 py-2 text-right font-mono">{{ number_format((float) $r->estimated_recovery, 0, ',', '.') }}</td>
-                        <td class="px-3 py-2 text-right font-semibold font-mono">{{ number_format((float) $r->ckpn_individual, 0, ',', '.') }}</td>
-                        <td class="px-3 py-2">{{ $r->recovery_method ?? '-' }}</td>
+                    <tr class="hover:bg-gray-50/70">
+                        <td class="px-3 py-2 font-mono text-gray-900">{{ $r->loan_number }}</td>
+                        <td class="px-3 py-2 text-right font-mono text-gray-900">Rp {{ number_format((float) $r->nilai_tercatat, 0, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right font-mono text-gray-900">Rp {{ number_format((float) $r->liquidity_value, 0, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right font-mono text-red-600">-Rp {{ number_format((float) $r->sale_cost, 0, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right font-mono text-gray-900">Rp {{ number_format((float) $r->estimated_recovery, 0, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right font-mono font-bold text-gray-900">Rp {{ number_format((float) $r->ckpn_individual, 0, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-gray-700">{{ $r->recovery_method ?? '-' }}</td>
                     </tr>
                 @empty
                     <tr><td colspan="7" class="px-3 py-6 text-center text-gray-500">Belum ada CKPN individual untuk periode ini.</td></tr>

@@ -33,7 +33,7 @@ class DataImportController extends Controller
     }
 
     /**
-     * Upload historical snapshot dengan SSE realtime progress (Mendukung .csv, .xlsx, .xls)
+     * Upload historical snapshot dengan SSE realtime progress (Mendukung .csv, .xlsx)
      */
     public function uploadSnapshot(Request $request): StreamedResponse
     {
@@ -105,7 +105,7 @@ class DataImportController extends Controller
                         $currentRow = $totalProcessed;
 
                         $loanNumber = trim((string) ($rowData['loan_number'] ?? ''));
-                        $periode = trim((string) ($rowData['periode_snapshot'] ?? ''));
+                        $periode = $this->normalizePeriod((string) ($rowData['periode_snapshot'] ?? ''));
                         $officeCode = trim((string) ($rowData['office_code'] ?? ''));
 
                         if ($loanNumber === '' || $periode === '' || $officeCode === '') {
@@ -273,11 +273,41 @@ class DataImportController extends Controller
                 \Log::error("Snapshot upload error: " . $e->getMessage());
                 $this->sse(['status' => 'error', 'message' => 'Error: ' . $e->getMessage()]);
             }
-        }, $this->sseHeaders());
+        }, 200, $this->sseHeaders());
     }
 
     /**
-     * Upload collateral data dengan SSE realtime progress (Mendukung .csv, .xlsx, .xls)
+     * Normalisasi periode_snapshot ke format kanonik YYYYMM.
+     *
+     * Menerima YYYYMM, YYYY-MM-DD, YYYY-MM, dan YYYYMMDD agar nilai berformat
+     * tanggal tidak lolos ke DB (query periode memakai kesamaan persis YYYYMM).
+     * Nilai yang tidak dikenali dikembalikan apa adanya.
+     */
+    private function normalizePeriod(string $value): string
+    {
+        $value = trim($value);
+
+        if ($value === '' || preg_match('/^[0-9]{6}$/', $value) === 1) {
+            return $value;
+        }
+
+        if (preg_match('/^([0-9]{4})-([0-9]{1,2})(?:-[0-9]{1,2})?$/', $value, $m) === 1) {
+            $month = (int) $m[2];
+
+            return $month >= 1 && $month <= 12 ? $m[1].str_pad((string) $month, 2, '0', STR_PAD_LEFT) : $value;
+        }
+
+        if (preg_match('/^([0-9]{4})([0-9]{2})[0-9]{2}$/', $value, $m) === 1) {
+            $month = (int) $m[2];
+
+            return $month >= 1 && $month <= 12 ? $m[1].$m[2] : $value;
+        }
+
+        return $value;
+    }
+
+    /**
+     * Upload collateral data dengan SSE realtime progress (Mendukung .csv, .xlsx)
      */
     public function uploadCollateral(Request $request): StreamedResponse
     {
@@ -323,7 +353,7 @@ class DataImportController extends Controller
     }
 
     /**
-     * Upload office data dengan SSE realtime progress (Mendukung .csv, .xlsx, .xls)
+     * Upload office data dengan SSE realtime progress (Mendukung .csv, .xlsx)
      */
     public function uploadOffice(Request $request): StreamedResponse
     {
@@ -362,7 +392,7 @@ class DataImportController extends Controller
     }
 
     /**
-     * Upload collateral setup data dengan SSE realtime progress (Mendukung .csv, .xlsx, .xls)
+     * Upload collateral setup data dengan SSE realtime progress (Mendukung .csv, .xlsx)
      */
     public function uploadCollateralSetup(Request $request): StreamedResponse
     {
@@ -434,7 +464,7 @@ class DataImportController extends Controller
                 \Log::error("Import error: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
                 $this->sse(['status' => 'error', 'message' => 'Error: ' . $e->getMessage()]);
             }
-        }, $this->sseHeaders());
+        }, 200, $this->sseHeaders());
     }
 
     /**
@@ -443,6 +473,14 @@ class DataImportController extends Controller
      */
     private function runImport(string $fullPath, string $extension, array $fields, \Closure $batchUpsert): array
     {
+        // OpenSpout v4 tidak bisa membaca .xls (Excel 97-2003). Tanpa guard ini file .xls
+        // lolos validasi mimes tetapi berakhir sebagai import 0 baris tanpa penjelasan.
+        if ($extension === 'xls') {
+            throw new \RuntimeException(
+                'Format .xls (Excel 97-2003) tidak didukung. Simpan file sebagai .xlsx atau .csv lalu unggah ulang.'
+            );
+        }
+
         if (in_array($extension, ['csv', 'txt'], true)) {
             return SpoutImportService::importCsv($fullPath, $fields, $batchUpsert, null, 1000);
         }
@@ -546,8 +584,16 @@ class DataImportController extends Controller
      */
     private function sse(array $payload): void
     {
-        echo 'data: ' . json_encode($payload) . "\n\n";
-        ob_flush();
+        // JSON_INVALID_UTF8_SUBSTITUTE: baris Excel/CSV non-UTF8 tidak boleh membuat
+        // json_encode() gagal (payload jadi kosong & JSON.parse di client error).
+        echo 'data: ' . json_encode($payload, JSON_INVALID_UTF8_SUBSTITUTE) . "\n\n";
+
+        // ob_flush() tanpa buffer aktif melempar warning yang dikonversi Laravel menjadi
+        // ErrorException dan memutus stream di tengah proses import.
+        if (ob_get_level() > 0) {
+            ob_flush();
+        }
+
         flush();
     }
 

@@ -5,7 +5,45 @@ Setiap perubahan kode/konfigurasi signifikan WAJIB dicatat di sini.
 
 ---
 
+## [Unreleased] — 2026-11-04
+
+### Changed — Format Tabel Compound Flow to Loss pada PD Net Flow Detail
+- Menyesuaikan header dan label baris pada tabel **Compound Flow to Loss** di `resources/views/calculation/pd_netflow_detail.blade.php`:
+  - Judul tabel disederhanakan menjadi `Compound Flow to Loss`.
+  - Menggabungkan kolom `Bucket` dan `Label` menjadi satu kolom header `Bucket` dengan format perpindahan antar-bucket (`1 to 2`, `2 to 3`, ..., `13 to 14`) sesuai spesifikasi visual PSAK 414 / matriks perpindahan compound loss.
+
+### Audit — Verifikasi Fungsi & Logika (tanpa perubahan kode)
+- **Metode:** boot aplikasi + refleksi seluruh route action, pemindaian `route()/view()/DB::table()` di 298 berkas, cek indeks/isi DB live, dan `php artisan test`.
+- **Hasil statis:** 0 view hilang, 0 nama route tak terdefinisi, seluruh route action resolve kecuali `role.show`, `product-akad.show`, `bucket.show` (method belum ada pada controller).
+- **Temuan HIGH (terverifikasi):**
+  - `snapshot` tidak memiliki unique index `(loan_number, periode_snapshot)` → `upsert()` saat import berperilaku INSERT (duplikat periode menggelembungkan EAD/CKPN). Data saat ini 0 duplikat.
+  - Tabel `audit_logs` belum pernah dibuat (tidak ada migrasi) sehingga `BaseCalculationController::audit()` selalu no-op → audit trail CALCULATE/FINALIZE tidak tercatat (AGENTS.md #14 & README menyatakan tabel ini ada).
+  - `routes/api.php` memakai `permission:assessment.create|assessment.view` yang tidak ada di `permissions.name` (7 baris legacy ber-`name` kosong) → API v1 selalu 403, ditambah guard `auth` (session) pada rute API.
+  - `ComprehensiveExportController` dead code: mereferensikan model `App\Models\SystemConfiguration` (tidak ada) dan 6 tabel `stage_*` yang tidak pernah dibuat; tidak terdaftar di route.
+  - Ambiguitas identitas bucket: `snapshot.bucket_no`/label memakai `bucket_definitions.urutan`, sedangkan PD Netflow (`PdNetflowCalculator`, `PdNetflowService::getActiveBucketIds()`) memakai `bucket_definitions.id`. Nilainya sama (1–14) saat ini sehingga belum terlihat, tetapi menambah/mengurutkan ulang bucket memutus join PD/CKPN.
+  - `snapshot.periode_snapshot` bercampur format di data live: 73 nilai `YYYYMM` (519.387 baris) + 3 nilai tanggal (`2020-12-01`, `2021-01-01`, `2021-02-01`, 150 baris). Pencarian periode memakai kesamaan persis `YYYYMM` di Classification/DetailCkpn/CkpnDetail/PdNetFlow/LgdCS.
+- **Temuan MEDIUM:** `Role::permissionNames()` memakai static cache per role id (risiko stale pada proses panjang/Octane); filter `write_off_flag` di `ClassificationController::run()` membuat cabang NPL write-off tidak pernah tercapai; CKPN Individual memakai `ead_amount` sebagai nilai tercatat (tunggakan pokok tidak masuk basis); `eadGroups()` membaca `request()` saat komputasi; `usage_code` fallback ke `financing_contract_code`; route export `/{module}/{assessmentPeriod}` menutupi `/module/{module}` (route `calculation.export.module` tak terjangkau); command `pd:test` hardcode `periodId = 20` dan menulis ke tabel stage.
+- **Test suite merah:** 19 failed / 1 skipped / 45 passed. 16 kegagalan berupa HTTP 403 pada harness tes (resolusi permission di DB live terbukti benar: pivot `role_permissions` → `calculation.run`, `hasPermission()=true`), 3 kegagalan `PdNetflowTableRulesTest` karena `bucket_definitions` kosong pada DB tes (kode kini config-driven), 2 kegagalan `RegistrationTest` karena registrasi publik memang ditutup.
+- **Tidak ada perubahan kode** pada audit ini; perbaikan menunggu konfirmasi prioritas dari user.
+
+### Paket A — Integritas Data Snapshot & Audit Trail (dieksekusi)
+- **`database/migrations/2026_11_04_000001_create_audit_logs_table.php`**: membuat tabel `audit_logs` (user_id, agent_name, action, module, record_type, record_id, old_value, new_value, reason, ip_address, timestamps + index `(record_type, record_id, action, created_at)`). Tanpa FK ke `users` agar jejak audit tetap utuh bila user dihapus. Dengan ini `BaseCalculationController::audit()` berhenti menjadi no-op.
+- **`database/migrations/2026_11_04_000002_normalize_snapshot_period_format.php`**: menormalkan `snapshot.periode_snapshot` dari `YYYY-MM-DD` / `YYYY-MM` / `YYYYMMDD` menjadi `YYYYMM` (per nilai distinct, tanpa memuat 500k baris ke memori).
+- **`database/migrations/2026_11_04_000003_add_unique_index_to_snapshot_table.php`**: dedupe `(loan_number, periode_snapshot)` — chunk 200 key, simpan baris `updated_at` terbaru per transaksi — lalu menambah unique index `snapshot_loan_period_unique` sehingga `Snapshot::upsert()` benar-benar UPDATE, bukan INSERT.
+- **`app/Http/Controllers/DataImportController.php`**: `normalizePeriod()` menormalkan `periode_snapshot` saat import (YYYYMM kanonik) agar format tanggal tidak masuk lagi lewat upload; pengecekan duplikat dalam batch ikut memakai nilai ternormalisasi.
+- **Verifikasi:** `php artisan migrate --force` sukses; `audit_logs` ada dengan 13 kolom; unique index `snapshot_loan_period_unique(loan_number,periode_snapshot)` aktif; 0 baris `periode_snapshot` non-`YYYYMM`; 0 key duplikat; payload `audit()` berhasil di-insert (rollback); test suite tetap 19 failed / 1 skipped / 45 passed (baseline sama, migrasi tidak merusak tes sqlite).
+- **Catatan data:** 6.870 baris periode `202610` masuk pada 2026-11-04 01:32 (di luar sesi ini — import aplikasi berjalan) dan sudah ikut ternormalisasi/terindeks tanpa duplikat.
+
+---
+
 ## [Unreleased] — 2026-11-01
+
+### Fixed — Import (HTTP 500)
+- **Akar masalah 500:** `DataImportController::uploadSnapshot()` dan `DataImportController::streamImport()` memanggil `response()->stream($closure, $headers)`. Argumen kedua `ResponseFactory::stream()` adalah `$status` (int) dan header ada di argumen ketiga, sehingga array header dikirim sebagai status → `TypeError` dari `StreamedResponse::__construct()` → HTTP 500 (terbukti pada `storage/logs/laravel.log`: `ResponseFactory.php on line 231`).
+  - Diperbaiki menjadi `response()->stream($closure, 200, $this->sseHeaders())`; memulihkan 4 endpoint import: `/import/snapshot`, `/import/collateral`, `/import/office`, `/import/collateral-setup`.
+- `DataImportController::sse()`: `ob_flush()` kini dijaga `ob_get_level() > 0` (warning tanpa buffer dikonversi Laravel menjadi `ErrorException` dan memutus stream di tengah import); seluruh payload SSE (termasuk di `AkadTypeController` & `ProductAkadMappingController`) memakai `JSON_INVALID_UTF8_SUBSTITUTE` agar baris non-UTF8 tidak membuat `json_encode()` gagal dan `JSON.parse` di client error.
+- `.xls` (Excel 97-2003) tidak didukung OpenSpout v4 (hanya CSV/ODS/XLSX), tetapi lolos validasi `mimes:…,xls` dan berakhir "0 imported, 0 failed" tanpa penjelasan. Kini ditolak dengan pesan actionable di `DataImportController::runImport()` (ditangkap handler SSE) serta di `AkadTypeController::uploadImport()` dan `ProductAkadMappingController::uploadImport()` (event `status: error`).
+- **Temuan lanjutan (belum diubah, butuh keputusan skema):** tabel `snapshot` tidak memiliki unique index pada `(loan_number, periode_snapshot)`, sehingga `Snapshot::upsert()` berperilaku sebagai INSERT biasa - upload ulang periode yang sama akan menduplikasi baris dan menggelembungkan EAD/CKPN. Perbaikan memerlukan migrasi unique index + pembersihan duplikat yang sudah ada.
 
 ### Security — Remediasi Audit OWASP Top 10
 - **A01 Broken Access Control:**

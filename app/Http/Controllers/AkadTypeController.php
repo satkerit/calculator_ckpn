@@ -167,6 +167,17 @@ class AkadTypeController extends Controller
         $fullPath = $file->getRealPath();
 
         return new StreamedResponse(function () use ($fullPath, $extension) {
+            // OpenSpout v4 tidak mendukung .xls (Excel 97-2003) — tolak dengan pesan jelas.
+            if ($extension === 'xls') {
+                echo 'data: ' . json_encode([
+                    'status' => 'error',
+                    'message' => 'Format .xls (Excel 97-2003) tidak didukung. Simpan file sebagai .xlsx atau .csv lalu unggah ulang.',
+                ], JSON_INVALID_UTF8_SUBSTITUTE) . "\n\n";
+                flush();
+
+                return;
+            }
+
             $headerFields = ['kode_akad', 'nama_akad', 'kategori', 'ead_rule_type', 'requires_due_date', 'active'];
 
             $batchUpsert = function (array $rows) {
@@ -235,7 +246,7 @@ class AkadTypeController extends Controller
                 'failed' => $result['failed'],
                 'errors' => $result['errors'],
                 'message' => "Import complete: {$result['success']} imported, {$result['failed']} failed",
-            ]) . "\n\n";
+            ], JSON_INVALID_UTF8_SUBSTITUTE) . "\n\n";
             flush();
         }, 200, [
             'Content-Type' => 'text/event-stream',

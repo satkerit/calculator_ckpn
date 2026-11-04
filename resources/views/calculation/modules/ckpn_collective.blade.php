@@ -18,21 +18,33 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-        <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
-            <p class="text-xs font-semibold text-gray-600 uppercase">Debitur</p>
-            <p class="text-xl font-bold text-gray-900 mt-1">{{ number_format($summary['count'] ?? 0, 0, ',', '.') }}</p>
+        <!-- Hero: Total CKPN Kolektif -->
+        <div class="col-span-1 md:col-span-2 rounded-xl border-2 border-amber-300/80 p-5 bg-gradient-to-br from-amber-50/60 to-white shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 uppercase">Metrik Utama</span>
+                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mt-1">Total CKPN Kolektif</p>
+                </div>
+                <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                </div>
+            </div>
+            <div class="mt-3">
+                <p class="text-3xl font-extrabold text-gray-900 tracking-tight font-mono">Rp {{ number_format($summary['total_ckpn'] ?? 0, 0, ',', '.') }}</p>
+                <p class="text-xs text-gray-500 mt-1">Akumulasi estimasi cadangan kerugian portofolio kolektif</p>
+            </div>
         </div>
-        <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
-            <p class="text-xs font-semibold text-gray-600 uppercase">Grup Segmentasi</p>
-            <p class="text-xl font-bold text-gray-900 mt-1">{{ number_format($summary['groups'] ?? 0, 0, ',', '.') }}</p>
+
+        <div class="rounded-xl border border-gray-200 p-4 bg-white flex flex-col justify-between">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total EAD</p>
+            <p class="text-xl font-bold text-gray-900 mt-2 font-mono">Rp {{ number_format($summary['total_ead'] ?? 0, 0, ',', '.') }}</p>
+            <p class="text-xs text-gray-500 mt-1">Eksposur saat default</p>
         </div>
-        <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
-            <p class="text-xs font-semibold text-gray-600 uppercase">Total EAD</p>
-            <p class="text-xl font-bold text-gray-900 mt-1">{{ number_format($summary['total_ead'] ?? 0, 0, ',', '.') }}</p>
-        </div>
-        <div class="rounded-xl border border-amber-200 p-4 bg-amber-50">
-            <p class="text-xs font-semibold text-amber-700 uppercase">Total CKPN</p>
-            <p class="text-xl font-bold text-amber-900 mt-1">{{ number_format($summary['total_ckpn'] ?? 0, 0, ',', '.') }}</p>
+
+        <div class="rounded-xl border border-gray-200 p-4 bg-white flex flex-col justify-between">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Debitur &amp; Segmen</p>
+            <p class="text-xl font-bold text-gray-900 mt-2 font-mono">{{ number_format($summary['count'] ?? 0, 0, ',', '.') }} <span class="text-xs font-normal text-gray-500">deb.</span></p>
+            <p class="text-xs text-gray-500 mt-1">{{ number_format($summary['groups'] ?? 0, 0, ',', '.') }} grup segmentasi aktif</p>
         </div>
     </div>
 
@@ -60,10 +72,10 @@
                                 <span class="text-gray-600">{{ $r->dim_label }}</span>
                             </span>
                         </td>
-                        <td class="px-3 py-2 text-right">{{ number_format((float) $r->ead_amount, 0, ',', '.') }}</td>
-                        <td class="px-3 py-2 text-right">{{ $r->pd !== null ? number_format((float) $r->pd * 100, 2, ',', '.').'%' : '-' }}</td>
-                        <td class="px-3 py-2 text-right">{{ $r->lgd !== null ? number_format((float) $r->lgd * 100, 2, ',', '.').'%' : '-' }}</td>
-                        <td class="px-3 py-2 text-right font-semibold">{{ number_format((float) $r->ckpn_debitur, 0, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right font-mono">{{ number_format((float) $r->ead_amount, 0, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right font-mono">{{ $r->pd !== null ? number_format((float) $r->pd * 100, 2, ',', '.').'%' : '-' }}</td>
+                        <td class="px-3 py-2 text-right font-mono">{{ $r->lgd !== null ? number_format((float) $r->lgd * 100, 2, ',', '.').'%' : '-' }}</td>
+                        <td class="px-3 py-2 text-right font-semibold font-mono">{{ number_format((float) $r->ckpn_debitur, 0, ',', '.') }}</td>
                     </tr>
                 @empty
                     <tr><td colspan="7" class="px-3 py-6 text-center text-gray-500">Belum ada debitur kolektif untuk periode ini.</td></tr>

@@ -24,7 +24,7 @@
             <div class="flex flex-wrap items-center gap-2">
                 @if (!$hasHistory)
                     {{-- Belum ada riwayat: tombol Hitung PD + matriks disabled --}}
-                    <form method="POST" action="{{ $runRoute }}" data-progress>
+                    <form method="POST" action="{{ $runRoute }}" data-progress data-confirm-title="Konfirmasi Perhitungan PD Net Flow" data-confirm-message="Proses perhitungan PD Net Flow akan memakan waktu beberapa saat tergantung ukuran data." data-confirm-type="info" data-confirm-button="Ya, Hitung PD" data-loading-message="Menghitung PD Net Flow, mohon tunggu…">
                         @csrf
                         <input type="hidden" name="assessment_period_id" value="{{ $period->id }}">
                         <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-colors duration-200">
@@ -129,7 +129,7 @@
         <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h3 class="text-sm font-bold text-gray-900">Hasil PD per Segmentasi &times; Bucket</h3>
             <a href="{{ $detailUrl }}" class="text-xs font-semibold text-blue-600 hover:text-blue-800">
-                Lihat Semua Matriks Segmentasi &rarr;
+                Lihat Semua Matriks Segmentasi
             </a>
         </div>
         <div class="overflow-x-auto">

@@ -7,10 +7,10 @@
     <div class="mb-6 flex justify-between items-center">
         <div>
             <h2 class="text-2xl font-bold text-gray-900">Detail PD Net Flow</h2>
-            <p class="text-gray-600 mt-1">Periode: <span class="font-semibold">Assessment {{ $assessmentPeriodId }}</span></p>
+            <p class="text-gray-600 mt-1">Periode: <span class="font-semibold">{{ $periodModel->period_name ?? ('Assessment ' . $assessmentPeriodId) }}</span></p>
         </div>
         <a href="{{ route('calculation.module.pd_netflow', ['assessment_period_id' => $assessmentPeriodId]) }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-            &larr; Kembali
+            Kembali
         </a>
     </div>
 
@@ -20,7 +20,7 @@
     </div>
 
     @forelse ($allData as $gk => $data)
-        <div class="mb-12 border-t-4 border-blue-600 pt-4 bg-gray-50/50 p-4 rounded-xl">
+        <div class="mb-12 border border-gray-200 bg-white p-6 rounded-lg shadow-sm">
             <div class="mb-4 flex items-center justify-between">
                 <h2 class="text-xl font-extrabold text-blue-950">Group Segmentasi: <span class="text-blue-600 font-mono">{{ $gk }}</span></h2>
             </div>
@@ -114,7 +114,7 @@
             <!-- TABEL 3: COMPOUND FLOW TO LOSS (PD Compound) -->
             <div class="mb-6 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-100 bg-blue-50">
-                    <h3 class="text-lg font-bold text-gray-900">Tabel 3: Compound Flow to Loss</h3>
+                    <h3 class="text-lg font-bold text-gray-900">Compound Flow to Loss</h3>
                     <p class="text-xs text-gray-600 mt-1">PD Compound per Source Bucket (Persentase 0-100%)</p>
                 </div>
 
@@ -122,8 +122,7 @@
                     <table class="w-full text-xs border-collapse">
                         <thead class="bg-blue-100">
                             <tr class="border border-gray-300">
-                                <th class="px-3 py-2 text-left font-bold text-gray-900 border-r border-gray-300 w-20">Bucket</th>
-                                <th class="px-3 py-2 text-left font-bold text-gray-900 border-r border-gray-300 w-32">Label</th>
+                                <th class="px-3 py-2 text-left font-bold text-gray-900 border-r border-gray-300 w-28">Bucket</th>
                                 @foreach ($data['compound_periods'] ?? $data['transition_periods'] as $period)
                                     <th class="px-2 py-2 text-center font-bold text-gray-900 border-r border-gray-300 whitespace-nowrap w-24">
                                         {{ \Carbon\Carbon::parse($period)->format('M-y') }}
@@ -135,11 +134,8 @@
                         <tbody class="divide-y divide-gray-300">
                             @foreach ($data['compounds'] as $compound)
                                 <tr class="border-b border-gray-300 hover:bg-gray-50">
-                                    <td class="px-3 py-2 text-center font-bold text-gray-900 border-r border-gray-300 bg-blue-50">
-                                        {{ $compound['source_bucket'] }}
-                                    </td>
-                                    <td class="px-3 py-2 text-gray-700 border-r border-gray-300 font-mono text-xs bg-blue-50">
-                                        {{ $compound['label'] }}
+                                    <td class="px-3 py-2 text-left font-bold text-gray-900 border-r border-gray-300 bg-blue-50">
+                                        {{ $compound['source_bucket'] }} to {{ (int)$compound['source_bucket'] + 1 }}
                                     </td>
                                     @foreach ($data['compound_periods'] ?? $data['transition_periods'] as $period)
                                         <td class="px-2 py-2 text-right text-gray-900 border-r border-gray-300 font-mono">

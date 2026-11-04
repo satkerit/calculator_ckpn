@@ -60,10 +60,10 @@
                             {{ $setup->active ? 'Aktif' : 'Nonaktif' }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-right space-x-2">
-                        <a href="{{ route('collateral-setup.show', $setup->collateral_type) }}" class="text-blue-600 hover:text-blue-800 font-medium">Detail</a>
-                        <a href="{{ route('collateral-setup.edit', $setup->collateral_type) }}" class="text-emerald-600 hover:text-emerald-800 font-medium">Ubah</a>
-                        <button type="button" onclick="confirmDeleteCollateralSetup({{ json_encode($setup->collateral_type) }}, {{ json_encode($setup->collateral_type) }})" class="text-red-600 hover:text-red-800 font-medium">
+                    <td class="px-6 py-4 text-right space-x-1">
+                        <a href="{{ route('collateral-setup.show', $setup->collateral_type) }}" class="inline-flex items-center px-3 py-2 min-h-[44px] text-blue-600 hover:bg-blue-50 rounded transition-colors text-sm font-medium">Detail</a>
+                        <a href="{{ route('collateral-setup.edit', $setup->collateral_type) }}" class="inline-flex items-center px-3 py-2 min-h-[44px] text-emerald-600 hover:bg-emerald-50 rounded transition-colors text-sm font-medium">Ubah</a>
+                        <button type="button" onclick="confirmDeleteCollateralSetup({{ json_encode($setup->collateral_type) }}, {{ json_encode($setup->collateral_type) }})" class="inline-flex items-center px-3 py-2 min-h-[44px] text-red-600 hover:bg-red-50 rounded transition-colors text-sm font-medium">
                             Hapus
                         </button>
                     </td>

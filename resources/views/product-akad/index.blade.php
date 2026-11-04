@@ -70,12 +70,12 @@
                                 <span class="text-red-600">Nonaktif</span>
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-center text-sm">
-                            <a href="{{ route('product-akad.edit', $mapping) }}" class="text-blue-600 hover:underline">Ubah</a> |
+                        <td class="px-4 py-3 text-center text-sm space-x-1">
+                            <a href="{{ route('product-akad.edit', $mapping) }}" class="inline-flex items-center px-3 py-2 min-h-[44px] text-blue-600 hover:bg-blue-50 rounded transition-colors font-medium">Ubah</a>
                             <form action="{{ route('product-akad.destroy', $mapping) }}" method="POST" class="inline-block" id="delete-form-{{ $mapping->id }}">
                                 @csrf @method('DELETE')
                             </form>
-                            <button type="button" class="text-red-600 hover:underline" onclick="confirmDeleteMapping({{ $mapping->id }}, '{{ $mapping->product_code }}')">Hapus</button>
+                            <button type="button" class="inline-flex items-center px-3 py-2 min-h-[44px] text-red-600 hover:bg-red-50 rounded transition-colors font-medium" onclick="confirmDeleteMapping({{ $mapping->id }}, '{{ $mapping->product_code }}')">Hapus</button>
                         </td>
                     </tr>
                 @empty

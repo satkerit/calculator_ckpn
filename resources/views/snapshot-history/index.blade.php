@@ -81,8 +81,8 @@
                         <tr class="hover:bg-gray-50 transition-colors">
                             <td class="px-6 py-4 font-mono text-xs text-gray-900">{{ $snapshot->loan_number }}</td>
                             <td class="px-6 py-4 text-sm text-gray-600">{{ $snapshot->office_code }}</td>
-                            <td class="px-6 py-4 text-right font-mono text-xs text-gray-900">{{ number_format($snapshot->outstanding_balance, 2) }}</td>
-                            <td class="px-6 py-4 text-right font-mono text-xs text-gray-900">{{ number_format($snapshot->principal_arrears, 2) }}</td>
+                            <td class="px-6 py-4 text-right font-mono text-xs text-gray-900">{{ number_format($snapshot->outstanding_balance, 2, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right font-mono text-xs text-gray-900">{{ number_format($snapshot->principal_arrears, 2, ',', '.') }}</td>
                             <td class="px-6 py-4 text-sm text-gray-600">{{ $snapshot->periode_snapshot }}</td>
                             <td class="px-6 py-4 text-sm text-gray-600">{{ $snapshot->created_at->format('d M Y H:i') }}</td>
                             <td class="px-6 py-4 text-sm space-x-1">

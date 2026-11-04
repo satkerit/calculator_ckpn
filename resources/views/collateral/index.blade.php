@@ -26,8 +26,9 @@
 </form>
 
 <div class="mb-4 bg-white p-4 rounded-lg shadow-sm">
-    <form method="GET" action="{{ route('collateral.index') }}" class="flex gap-2">
-        <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari Nomor Pembiayaan, Kode Agunan, atau Tipe..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+    <form method="GET" action="{{ route('collateral.index') }}" class="flex gap-2 items-center">
+        <label for="collateral-search-input" class="sr-only">Cari Agunan</label>
+        <input type="text" id="collateral-search-input" name="search" value="{{ request('search') }}" placeholder="Cari Nomor Pembiayaan, Kode Agunan, atau Tipe..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
         <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">Cari</button>
         @if(request('search'))
             <a href="{{ route('collateral.index') }}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300">Atur Ulang</a>
@@ -98,14 +99,14 @@
                             {{ $c->active_flag ? 'Aktif' : 'Nonaktif' }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-right space-x-2">
+                    <td class="px-6 py-4 text-right space-x-1">
                         @if($c && $c->id)
-                            <a href="{{ route('collateral.show', $c->id) }}" class="text-blue-600 hover:text-blue-800 font-medium">Detail</a>
-                            <a href="{{ route('collateral.edit', $c->id) }}" class="text-emerald-600 hover:text-emerald-800 font-medium">Ubah</a>
+                            <a href="{{ route('collateral.show', $c->id) }}" class="inline-flex items-center px-3 py-2 min-h-[44px] text-blue-600 hover:bg-blue-50 rounded transition-colors text-sm font-medium">Detail</a>
+                            <a href="{{ route('collateral.edit', $c->id) }}" class="inline-flex items-center px-3 py-2 min-h-[44px] text-emerald-600 hover:bg-emerald-50 rounded transition-colors text-sm font-medium">Ubah</a>
                             <form method="POST" action="{{ route('collateral.destroy', $c->id) }}" class="inline-block" id="delete-form-{{ $c->id }}">
                                 @csrf @method('DELETE')
                             </form>
-                            <button type="button" onclick="confirmDeleteCollateral({{ $c->id }}, '{{ $c->loan_number }}', '{{ $c->collateral_code }}')" class="text-red-600 hover:text-red-800 font-medium">
+                            <button type="button" onclick="confirmDeleteCollateral({{ $c->id }}, '{{ $c->loan_number }}', '{{ $c->collateral_code }}')" class="inline-flex items-center px-3 py-2 min-h-[44px] text-red-600 hover:bg-red-50 rounded transition-colors text-sm font-medium">
                                 Hapus
                             </button>
                         @endif

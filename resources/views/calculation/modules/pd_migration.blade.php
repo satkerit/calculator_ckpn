@@ -21,7 +21,7 @@
             <form method="POST" action="{{ $runRoute }}" data-progress data-confirm-title="Konfirmasi Hitung PD Migration" data-confirm-message="Proses akan menghitung ulang PD berbasis quality rating migration untuk seluruh grup." data-confirm-type="warning" data-confirm-button="Ya, Hitung" data-loading-message="Menghitung PD Migration…">
                 @csrf
                 <input type="hidden" name="assessment_period_id" value="{{ $period->id }}">
-                <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">▶ Hitung PD Migration</button>
+                <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">Hitung PD Migration</button>
             </form>
             <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Ekspor XLSX</a>
         </div>
@@ -38,22 +38,38 @@
         </div>
     @endif
 
+    <!-- KPI Metric Cards (Visual Hierarchy: Average PD as Primary Stat) -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-        <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
-            <p class="text-xs font-semibold text-gray-600 uppercase">Groups</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">{{ $results['count'] ?? 0 }}</p>
+        <div class="rounded-xl border-2 border-blue-300/80 p-5 bg-gradient-to-br from-blue-50/60 to-white shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 uppercase">Metrik Utama</span>
+                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mt-1">Average PD</p>
+                </div>
+                <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                </div>
+            </div>
+            <div class="mt-3">
+                <p class="text-3xl font-extrabold text-gray-900 tracking-tight font-mono">{{ number_format((float) ($results['avg_pd'] ?? 0), 4, ',', '.') }}</p>
+                <p class="text-xs text-gray-500 mt-1">Rata-rata tertimbang saldo</p>
+            </div>
         </div>
-        <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
-            <p class="text-xs font-semibold text-gray-600 uppercase">Average PD</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">{{ number_format((float) ($results['avg_pd'] ?? 0), 4, ',', '.') }}</p>
+
+        <div class="rounded-xl border border-gray-200 p-4 bg-white flex flex-col justify-between">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Jumlah Groups</p>
+            <p class="text-2xl font-bold text-gray-900 mt-2 font-mono">{{ $results['count'] ?? 0 }}</p>
+            <p class="text-xs text-gray-500 mt-1">Grup kolektif aktif</p>
         </div>
-        <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
-            <p class="text-xs font-semibold text-gray-600 uppercase">Window Historis</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">{{ $histM }} <span class="text-sm font-medium text-gray-500">bulan</span></p>
+        <div class="rounded-xl border border-gray-200 p-4 bg-white flex flex-col justify-between">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Window Historis</p>
+            <p class="text-2xl font-bold text-gray-900 mt-2 font-mono">{{ $histM }} <span class="text-sm font-medium text-gray-500">bulan</span></p>
+            <p class="text-xs text-gray-500 mt-1">Rentang data observasi</p>
         </div>
-        <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
-            <p class="text-xs font-semibold text-gray-600 uppercase">Matriks Triwulan</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">{{ $numMatrices }} <span class="text-sm font-medium text-gray-500">× 12 bln</span></p>
+        <div class="rounded-xl border border-gray-200 p-4 bg-white flex flex-col justify-between">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Matriks Triwulan</p>
+            <p class="text-2xl font-bold text-gray-900 mt-2 font-mono">{{ $numMatrices }} <span class="text-sm font-medium text-gray-500">× 12 bln</span></p>
+            <p class="text-xs text-gray-500 mt-1">Iterasi migrasi kuartalan</p>
         </div>
     </div>
 </div>
@@ -268,7 +284,16 @@
                         </tr>
                     @endif
                 @empty
-                    <tr><td colspan="9" class="px-3 py-6 text-center text-gray-500">Belum ada hasil PD.</td></tr>
+                    <tr>
+                        <td colspan="9" class="px-6 py-10 text-center">
+                            <div class="max-w-md mx-auto text-center">
+                                <svg class="w-10 h-10 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                <p class="text-sm font-semibold text-gray-900">Belum ada hasil PD Migration</p>
+                                <p class="text-xs text-gray-500 mt-1">Perhitungan Probability of Default metode migrasi belum dijalankan untuk periode ini.</p>
+                                <p class="text-xs text-blue-600 mt-2">Klik tombol <strong>Hitung PD Migration</strong> di atas untuk memproses data.</p>
+                            </div>
+                        </td>
+                    </tr>
                 @endforelse
             </tbody>
         </table>

@@ -24,30 +24,50 @@
                 @foreach ($dimList as $d)
                     <input type="hidden" name="segment_dimensions[]" value="{{ $d }}">
                 @endforeach
-                <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">▶ Jalankan Klasifikasi</button>
+                <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">Jalankan Klasifikasi</button>
             </form>
             <a href="{{ $exportRoute }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Ekspor XLSX</a>
         </div>
     </div>
 
+    <!-- KPI Metric Cards (Visual Hierarchy: Total EAD as Primary Anchor) -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-        <div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
-            <p class="text-xs font-semibold text-blue-700 uppercase">Total Count</p>
-            <p class="text-2xl font-bold text-blue-900 mt-1">{{ ($counts['INDIVIDUAL'] ?? 0) + ($counts['COLLECTIVE'] ?? 0) }}</p>
+        <div class="md:col-span-2 rounded-xl border border-gray-200 bg-gradient-to-br from-slate-50 to-white p-5 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 uppercase">Eksposur Portofolio</span>
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-1">Total EAD Terklasifikasi</p>
+                </div>
+                <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+            </div>
+            <div class="mt-3 flex items-baseline justify-between">
+                <p class="text-2xl font-bold text-gray-900 font-mono tracking-tight">Rp {{ number_format($counts['TOTAL_EAD'] ?? 0, 0, ',', '.') }}</p>
+                <span class="text-xs text-gray-500 font-mono">{{ number_format(($counts['INDIVIDUAL'] ?? 0) + ($counts['COLLECTIVE'] ?? 0), 0, ',', '.') }} rekening</span>
+            </div>
         </div>
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-            <p class="text-xs font-semibold text-emerald-700 uppercase">Individual</p>
-            <p class="text-lg font-bold text-emerald-900 mt-1">{{ $counts['INDIVIDUAL'] ?? 0 }}</p>
-            <p class="text-xs text-emerald-600 mt-2">EAD: {{ number_format($counts['INDIVIDUAL_EAD'] ?? 0, 0, ',', '.') }}</p>
+
+        <div class="rounded-xl border border-gray-200 bg-white p-4 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Individual</p>
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                </div>
+                <p class="text-xl font-bold text-gray-900 mt-2 font-mono">{{ number_format($counts['INDIVIDUAL'] ?? 0, 0, ',', '.') }} <span class="text-xs font-normal text-gray-500">debitur</span></p>
+            </div>
+            <p class="text-xs text-gray-500 mt-3 pt-2 border-t border-gray-100 font-mono">EAD: Rp {{ number_format($counts['INDIVIDUAL_EAD'] ?? 0, 0, ',', '.') }}</p>
         </div>
-        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <p class="text-xs font-semibold text-amber-700 uppercase">Kolektif</p>
-            <p class="text-lg font-bold text-amber-900 mt-1">{{ $counts['COLLECTIVE'] ?? 0 }}</p>
-            <p class="text-xs text-amber-600 mt-2">EAD: {{ number_format($counts['COLLECTIVE_EAD'] ?? 0, 0, ',', '.') }}</p>
-        </div>
-        <div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
-            <p class="text-xs font-semibold text-blue-700 uppercase">Total EAD</p>
-            <p class="text-2xl font-bold text-blue-900 mt-1 font-mono">{{ number_format($counts['TOTAL_EAD'] ?? 0, 0, ',', '.') }}</p>
+
+        <div class="rounded-xl border border-gray-200 bg-white p-4 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Kolektif</p>
+                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                </div>
+                <p class="text-xl font-bold text-gray-900 mt-2 font-mono">{{ number_format($counts['COLLECTIVE'] ?? 0, 0, ',', '.') }} <span class="text-xs font-normal text-gray-500">rekening</span></p>
+            </div>
+            <p class="text-xs text-gray-500 mt-3 pt-2 border-t border-gray-100 font-mono">EAD: Rp {{ number_format($counts['COLLECTIVE_EAD'] ?? 0, 0, ',', '.') }}</p>
         </div>
     </div>
 </div>

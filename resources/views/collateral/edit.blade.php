@@ -7,7 +7,7 @@
 <div class="max-w-2xl mx-auto">
     <div class="mb-6 flex justify-between items-center">
         <a href="{{ route('collateral.index') }}" class="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 text-sm font-semibold">
-            ← Kembali ke Daftar
+            Kembali ke Daftar
         </a>
     </div>
 

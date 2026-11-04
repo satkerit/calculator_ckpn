@@ -70,11 +70,16 @@ class PdNetflowDetailController
             $allData[$gk] = $this->service->loadGroupDetail($assessmentPeriod, $gk);
         }
 
+        $periodModel = DB::table('assessment_periods')
+            ->where('id', $assessmentPeriod)
+            ->first();
+
         return view('calculation.pd_netflow_detail', [
             'availableGroups' => $availableGroups,
             'allData' => $allData,
             'service' => $this->service,
             'assessmentPeriodId' => $assessmentPeriod,
+            'periodModel' => $periodModel,
         ]);
     }
 }

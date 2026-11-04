@@ -41,7 +41,7 @@
                    class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg {{ $method === 'CS' ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50' }}">
                     LGD CS
                 </a>
-                <a href="{{ $backUrl }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">← Kembali</a>
+                <a href="{{ $backUrl }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">Kembali</a>
             </div>
         </div>
 
@@ -71,10 +71,10 @@
                         @foreach ($groupSummary as $g)
                         <tr class="hover:bg-gray-50">
                             <td class="px-3 py-2 border border-gray-300 font-mono">{{ $g->group_key }}</td>
-                            <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($g->total_wo) }}</td>
-                            <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($g->total_recovery) }}</td>
-                            <td class="px-3 py-2 border border-gray-300 text-right">{{ $pct($g->recovery_rate) }}</td>
-                            <td class="px-3 py-2 border border-gray-300 text-right font-bold text-blue-700">{{ $pct($g->lgd_rate) }}</td>
+                            <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $fmt($g->total_wo) }}</td>
+                            <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $fmt($g->total_recovery) }}</td>
+                            <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $pct($g->recovery_rate) }}</td>
+                            <td class="px-3 py-2 border border-gray-300 text-right font-bold text-blue-700 font-mono">{{ $pct($g->lgd_rate) }}</td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -113,19 +113,19 @@
                     @endphp
                     <tr>
                         <td class="px-3 py-2 border border-gray-300 font-semibold bg-gray-50">Total WO / Eksposur</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($exp) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $fmt($exp) }}</td>
                     </tr>
                     <tr>
                         <td class="px-3 py-2 border border-gray-300 font-semibold bg-gray-50">Total Recovery</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($recovery) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $fmt($recovery) }}</td>
                     </tr>
                     <tr>
                         <td class="px-3 py-2 border border-gray-300 font-semibold bg-gray-50">Recovery Rate</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $pct($recoveryRate) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $pct($recoveryRate) }}</td>
                     </tr>
                     <tr>
                         <td class="px-3 py-2 border border-gray-300 font-semibold bg-gray-50">LGD ER Rate</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right font-bold text-blue-700">{{ $pct($lgdRate) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-bold text-blue-700 font-mono">{{ $pct($lgdRate) }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -177,12 +177,12 @@
                                 @php $no++; @endphp
                                 {{-- Baris saldo OS --}}
                                 <tr class="hover:bg-gray-50">
-                                    <td class="px-2 py-1 border border-gray-300 text-center">{{ $no }}</td>
-                                    <td class="px-2 py-1 border border-gray-300 font-medium">{{ $d->loan_number }}</td>
-                                    <td class="px-2 py-1 border border-gray-300 text-center">{{ $cohort->year }}</td>
-                                    <td class="px-2 py-1 border border-gray-300 text-right font-semibold">{{ $fmt($d->wo_nominal) }}</td>
+                                    <td class="px-2 py-1 border border-gray-300 text-center font-mono">{{ $no }}</td>
+                                    <td class="px-2 py-1 border border-gray-300 font-medium font-mono">{{ $d->loan_number }}</td>
+                                    <td class="px-2 py-1 border border-gray-300 text-center font-mono">{{ $cohort->year }}</td>
+                                    <td class="px-2 py-1 border border-gray-300 text-right font-semibold font-mono">{{ $fmt($d->wo_nominal) }}</td>
                                     @foreach ($allYears as $y)
-                                        <td class="px-2 py-1 border border-gray-300 text-right">{{ $fmt($d->sal[$y]) }}</td>
+                                        <td class="px-2 py-1 border border-gray-300 text-right font-mono">{{ $fmt($d->sal[$y]) }}</td>
                                     @endforeach
                                     <td class="px-2 py-1 border border-gray-300 text-right"></td>
                                     <td class="px-2 py-1 border border-gray-300 text-right"></td>
@@ -194,10 +194,10 @@
                                     <td class="px-2 py-1 border border-gray-300"></td>
                                     <td class="px-2 py-1 border border-gray-300"></td>
                                     @foreach ($allYears as $y)
-                                        <td class="px-2 py-1 border border-gray-300 text-right text-emerald-700">{{ $fmt($d->rec[$y]) }}</td>
+                                        <td class="px-2 py-1 border border-gray-300 text-right text-emerald-700 font-mono">{{ $fmt($d->rec[$y]) }}</td>
                                     @endforeach
-                                    <td class="px-2 py-1 border border-gray-300 text-right font-semibold text-emerald-700">{{ $fmt($d->total_recovery) }}</td>
-                                    <td class="px-2 py-1 border border-gray-300 text-right font-semibold">{{ $pct($d->recovery_rate) }}</td>
+                                    <td class="px-2 py-1 border border-gray-300 text-right font-semibold text-emerald-700 font-mono">{{ $fmt($d->total_recovery) }}</td>
+                                    <td class="px-2 py-1 border border-gray-300 text-right font-semibold font-mono">{{ $pct($d->recovery_rate) }}</td>
                                 </tr>
                             @endforeach
 
@@ -206,12 +206,12 @@
                                 <td class="px-2 py-1 border border-gray-300"></td>
                                 <td class="px-2 py-1 border border-gray-300 italic">combine</td>
                                 <td class="px-2 py-1 border border-gray-300"></td>
-                                <td class="px-2 py-1 border border-gray-300 text-right">{{ $fmt($cohort->combine_balance) }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-right font-mono">{{ $fmt($cohort->combine_balance) }}</td>
                                 @foreach ($allYears as $y)
-                                    <td class="px-2 py-1 border border-gray-300 text-right">{{ $fmt($cohort->combine_sal[$y]) }}</td>
+                                    <td class="px-2 py-1 border border-gray-300 text-right font-mono">{{ $fmt($cohort->combine_sal[$y]) }}</td>
                                 @endforeach
-                                <td class="px-2 py-1 border border-gray-300 text-right">{{ $fmt($cohort->combine_total_rec) }}</td>
-                                <td class="px-2 py-1 border border-gray-300 text-right">{{ $pct($cohort->combine_rate) }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-right font-mono">{{ $fmt($cohort->combine_total_rec) }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-right font-mono">{{ $pct($cohort->combine_rate) }}</td>
                             </tr>
                             <tr class="bg-amber-50">
                                 <td class="px-2 py-1 border border-gray-300"></td>
@@ -219,7 +219,7 @@
                                 <td class="px-2 py-1 border border-gray-300"></td>
                                 <td class="px-2 py-1 border border-gray-300"></td>
                                 @foreach ($allYears as $y)
-                                    <td class="px-2 py-1 border border-gray-300 text-right text-emerald-700">{{ $fmt($cohort->combine_rec[$y]) }}</td>
+                                    <td class="px-2 py-1 border border-gray-300 text-right text-emerald-700 font-mono">{{ $fmt($cohort->combine_rec[$y]) }}</td>
                                 @endforeach
                                 <td class="px-2 py-1 border border-gray-300"></td>
                                 <td class="px-2 py-1 border border-gray-300"></td>
@@ -233,12 +233,12 @@
                             <td class="px-2 py-1.5 border border-gray-300"></td>
                             <td class="px-2 py-1.5 border border-gray-300">Total combine</td>
                             <td class="px-2 py-1.5 border border-gray-300"></td>
-                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($erTotalCombine->total_balance) }}</td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right font-mono">{{ $fmt($erTotalCombine->total_balance) }}</td>
                             @foreach ($allYears as $y)
-                                <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($erTotalCombine->sal_years[$y] ?? null) }}</td>
+                                <td class="px-2 py-1.5 border border-gray-300 text-right font-mono">{{ $fmt($erTotalCombine->sal_years[$y] ?? null) }}</td>
                             @endforeach
-                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($erTotalCombine->total_recovery) }}</td>
-                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $pct($erTotalCombine->recovery_rate) }}</td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right font-mono">{{ $fmt($erTotalCombine->total_recovery) }}</td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right font-mono">{{ $pct($erTotalCombine->recovery_rate) }}</td>
                         </tr>
                         <tr class="bg-gray-200">
                             <td class="px-2 py-1.5 border border-gray-300"></td>
@@ -246,7 +246,7 @@
                             <td class="px-2 py-1.5 border border-gray-300"></td>
                             <td class="px-2 py-1.5 border border-gray-300"></td>
                             @foreach ($allYears as $y)
-                                <td class="px-2 py-1.5 border border-gray-300 text-right text-emerald-800">{{ $fmt($erTotalCombine->rec_years[$y] ?? null) }}</td>
+                                <td class="px-2 py-1.5 border border-gray-300 text-right text-emerald-800 font-mono">{{ $fmt($erTotalCombine->rec_years[$y] ?? null) }}</td>
                             @endforeach
                             <td class="px-2 py-1.5 border border-gray-300"></td>
                             <td class="px-2 py-1.5 border border-gray-300"></td>
@@ -311,8 +311,8 @@
                         @foreach ($debtorRows as $r)
                             @php $no++; @endphp
                             <tr class="hover:bg-gray-50 {{ $r->is_write_off ? '' : 'bg-amber-50/40' }}">
-                                <td class="px-2 py-1 border border-gray-300 text-center">{{ $no }}</td>
-                                <td class="px-2 py-1 border border-gray-300 font-medium">{{ $r->loan_number }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-center font-mono">{{ $no }}</td>
+                                <td class="px-2 py-1 border border-gray-300 font-medium font-mono">{{ $r->loan_number }}</td>
                                 <td class="px-2 py-1 border border-gray-300 text-center">
                                     @if ($r->is_write_off)
                                         <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">WO</span>
@@ -320,13 +320,13 @@
                                         <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">K5</span>
                                     @endif
                                 </td>
-                                <td class="px-2 py-1 border border-gray-300 text-right font-semibold">{{ $fmt($r->exposure) }}</td>
-                                <td class="px-2 py-1 border border-gray-300 text-right">{{ $fmt($r->liquidity_value) }}</td>
-                                <td class="px-2 py-1 border border-gray-300 text-center">{{ $r->is_write_off ? $r->wo_year : '-' }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-right font-semibold font-mono">{{ $fmt($r->exposure) }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-right font-mono">{{ $fmt($r->liquidity_value) }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-center font-mono">{{ $r->is_write_off ? $r->wo_year : '-' }}</td>
                                 <td class="px-2 py-1 border border-gray-300 text-center text-gray-400">-</td>
-                                <td class="px-2 py-1 border border-gray-300 text-right text-emerald-700">{{ $fmt($r->net_recovery) }}</td>
-                                <td class="px-2 py-1 border border-gray-300 text-right text-blue-700">{{ $r->is_write_off ? $fmt($r->cash_recovery) : '-' }}</td>
-                                <td class="px-2 py-1 border border-gray-300 text-right font-semibold {{ (float) $r->shortfall > 0 ? 'text-red-700' : 'text-gray-500' }}">{{ $fmt($r->shortfall) }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-right text-emerald-700 font-mono">{{ $fmt($r->net_recovery) }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-right text-blue-700 font-mono">{{ $r->is_write_off ? $fmt($r->cash_recovery) : '-' }}</td>
+                                <td class="px-2 py-1 border border-gray-300 text-right font-semibold font-mono {{ (float) $r->shortfall > 0 ? 'text-red-700' : 'text-gray-500' }}">{{ $fmt($r->shortfall) }}</td>
                             </tr>
                         @endforeach
 
@@ -342,13 +342,13 @@
                             <td class="px-2 py-1.5 border border-gray-300"></td>
                             <td class="px-2 py-1.5 border border-gray-300">Total</td>
                             <td class="px-2 py-1.5 border border-gray-300"></td>
-                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($totExposure) }}</td>
-                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($totLiq) }}</td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right font-mono">{{ $fmt($totExposure) }}</td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right font-mono">{{ $fmt($totLiq) }}</td>
                             <td class="px-2 py-1.5 border border-gray-300"></td>
                             <td class="px-2 py-1.5 border border-gray-300"></td>
-                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($totNet) }}</td>
-                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($totCash) }}</td>
-                            <td class="px-2 py-1.5 border border-gray-300 text-right">{{ $fmt($totShort) }}</td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right font-mono">{{ $fmt($totNet) }}</td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right font-mono">{{ $fmt($totCash) }}</td>
+                            <td class="px-2 py-1.5 border border-gray-300 text-right font-mono">{{ $fmt($totShort) }}</td>
                         </tr>
                     </tbody>
                 </table>

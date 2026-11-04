@@ -12,7 +12,7 @@
         <div class="flex gap-2">
             <a href="{{ route('calculation.module.lgd_er') }}" class="px-4 py-2 bg-white border border-gray-300 rounded hover:bg-gray-50">LGD ER</a>
             <a href="{{ route('calculation.module.lgd_cs') }}" class="px-4 py-2 bg-white border border-gray-300 rounded hover:bg-gray-50">LGD CS</a>
-            <a href="{{ route('dashboard') }}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">← Kembali</a>
+            <a href="{{ route('dashboard') }}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Kembali</a>
         </div>
     </div>
 
@@ -70,14 +70,14 @@
                     @foreach ($groupSummary as $g)
                     <tr class="hover:bg-gray-50">
                         <td class="px-3 py-2 border border-gray-300 font-mono">{{ $g->group_key }}</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($g->wo_er) }}</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($g->recovery_er) }}</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($g->loss_er) }}</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($g->baki_cs) }}</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($g->shortfall_cs) }}</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right font-bold">{{ $fmt($g->total_wo) }}</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right font-bold">{{ $fmt($g->total_lgd) }}</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right font-bold text-blue-700">{{ $pct($g->lgd_weighted_rate) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $fmt($g->wo_er) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $fmt($g->recovery_er) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $fmt($g->loss_er) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $fmt($g->baki_cs) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $fmt($g->shortfall_cs) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-bold font-mono">{{ $fmt($g->total_wo) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-bold font-mono">{{ $fmt($g->total_lgd) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-bold text-blue-700 font-mono">{{ $pct($g->lgd_weighted_rate) }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -101,35 +101,35 @@
                 <tbody>
                     <tr>
                         <td class="px-3 py-2 border border-gray-300 font-semibold bg-gray-50">Total WO ER</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($totalSummary->wo_er) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $fmt($totalSummary->wo_er) }}</td>
                     </tr>
                     <tr>
                         <td class="px-3 py-2 border border-gray-300 font-semibold bg-gray-50">Total Recovery ER</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($totalSummary->recovery_er) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $fmt($totalSummary->recovery_er) }}</td>
                     </tr>
                     <tr>
                         <td class="px-3 py-2 border border-gray-300 font-semibold bg-gray-50">Total Loss ER</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($totalSummary->loss_er) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $fmt($totalSummary->loss_er) }}</td>
                     </tr>
                     <tr>
                         <td class="px-3 py-2 border border-gray-300 font-semibold bg-gray-50">Total Baki Debet CS</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($totalSummary->baki_cs) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $fmt($totalSummary->baki_cs) }}</td>
                     </tr>
                     <tr>
                         <td class="px-3 py-2 border border-gray-300 font-semibold bg-gray-50">Total Shortfall CS</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right">{{ $fmt($totalSummary->shortfall_cs) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-mono">{{ $fmt($totalSummary->shortfall_cs) }}</td>
                     </tr>
                     <tr class="bg-blue-50">
                         <td class="px-3 py-2 border border-gray-300 font-bold">Total WO (ER + CS)</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right font-bold">{{ $fmt($totalSummary->total_wo) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-bold font-mono">{{ $fmt($totalSummary->total_wo) }}</td>
                     </tr>
                     <tr class="bg-blue-50">
                         <td class="px-3 py-2 border border-gray-300 font-bold">Total LGD (Loss ER + Shortfall CS)</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right font-bold">{{ $fmt($totalSummary->total_lgd) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-bold font-mono">{{ $fmt($totalSummary->total_lgd) }}</td>
                     </tr>
                     <tr class="bg-blue-100">
                         <td class="px-3 py-2 border border-gray-300 font-bold">LGD Weighted Rate</td>
-                        <td class="px-3 py-2 border border-gray-300 text-right font-bold text-blue-700 text-lg">{{ $pct($totalSummary->lgd_weighted_rate) }}</td>
+                        <td class="px-3 py-2 border border-gray-300 text-right font-bold text-blue-700 text-lg font-mono">{{ $pct($totalSummary->lgd_weighted_rate) }}</td>
                     </tr>
                 </tbody>
             </table>

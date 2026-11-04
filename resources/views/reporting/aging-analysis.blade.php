@@ -24,41 +24,53 @@
     <div class="bg-white rounded-lg shadow p-6">
         <h3 class="text-lg font-bold mb-6">Distribusi Hari Tunggakan</h3>
 
-        <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
-            @php
-                $total = array_sum($agingBuckets);
-            @endphp
-            @foreach ($agingBuckets as $bucket => $amount)
-                @php
-                    $percentage = $total > 0 ? ($amount / $total) * 100 : 0;
-                @endphp
-                <div class="p-4 rounded-lg bg-white border border-gray-200">
-                    <p class="text-xs uppercase tracking-wide font-semibold text-gray-500 mb-1">{{ $bucket }} Hari</p>
-                    <p class="text-2xl font-bold text-gray-900 font-mono">{{ number_format($amount / 1_000_000_000, 1) }}B</p>
-                    <p class="text-xs text-gray-500 mt-1 font-mono">{{ number_format($percentage, 1) }}%</p>
-                </div>
-            @endforeach
-        </div>
+        @php
+            $total = array_sum($agingBuckets);
+        @endphp
 
-        <!-- Aging Bar Chart -->
-        <div class="mb-6">
-            <p class="text-sm font-semibold text-gray-700 mb-3">Distribusi</p>
-            <div class="flex h-8 rounded-lg overflow-hidden gap-1 bg-gray-100">
+        @if ($total <= 0)
+            <div class="py-12 text-center max-w-md mx-auto">
+                <svg class="w-10 h-10 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <p class="text-sm font-semibold text-gray-900">Belum ada data aging untuk assessment ini</p>
+                <p class="text-xs text-gray-500 mt-1">Data snapshot pembiayaan belum terisi atau seluruh baki debet bernilai nol.</p>
+                <a href="{{ route('import.snapshot.form') }}" class="inline-flex items-center gap-1 mt-3 px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">Impor Snapshot</a>
+            </div>
+        @else
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
                 @foreach ($agingBuckets as $bucket => $amount)
                     @php
                         $percentage = $total > 0 ? ($amount / $total) * 100 : 0;
-                        $color = $bucket === '0-30' ? 'bg-emerald-500' : 
-                                 ($bucket === '31-60' ? 'bg-amber-500' :
-                                 ($bucket === '61-90' ? 'bg-amber-600' : 'bg-red-600'));
                     @endphp
-                    @if ($percentage > 0)
-                        <div class="flex items-center justify-center {{ $color }}" style="width: {{ $percentage }}%">
-                            <span class="text-xs font-semibold text-white">{{ number_format($percentage, 0) }}%</span>
-                        </div>
-                    @endif
+                    <div class="p-4 rounded-lg bg-white border border-gray-200">
+                        <p class="text-xs uppercase tracking-wide font-semibold text-gray-500 mb-1">{{ $bucket }} Hari</p>
+                        <p class="text-2xl font-bold text-gray-900 font-mono">{{ number_format($amount / 1_000_000_000, 1) }}B</p>
+                        <p class="text-xs text-gray-500 mt-1 font-mono">{{ number_format($percentage, 1) }}%</p>
+                    </div>
                 @endforeach
             </div>
-        </div>
+
+            <!-- Aging Bar Chart -->
+            <div class="mb-6">
+                <p class="text-sm font-semibold text-gray-700 mb-3">Distribusi</p>
+                <div class="flex h-8 rounded-lg overflow-hidden gap-1 bg-gray-100">
+                    @foreach ($agingBuckets as $bucket => $amount)
+                        @php
+                            $percentage = $total > 0 ? ($amount / $total) * 100 : 0;
+                            $color = $bucket === '0-30' ? 'bg-emerald-500' : 
+                                     ($bucket === '31-60' ? 'bg-amber-500' :
+                                     ($bucket === '61-90' ? 'bg-amber-600' : 'bg-red-600'));
+                        @endphp
+                        @if ($percentage > 0)
+                            <div class="{{ $color }} flex items-center justify-center text-xs font-bold text-white transition-all" style="width: {{ $percentage }}%" title="{{ $bucket }} Hari: {{ number_format($percentage, 1) }}%">
+                                @if ($percentage > 5)
+                                    {{ number_format($percentage, 0) }}%
+                                @endif
+                            </div>
+                        @endif
+                    @endforeach
+                </div>
+            </div>
+        @endif
 
         <!-- Summary -->
         <div class="p-4 bg-white rounded-lg border border-gray-200">
@@ -126,7 +138,7 @@
 
     <!-- Back Button -->
     <div class="flex gap-3">
-        <a href="{{ route('reporting.ckpn-summary') }}" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">&larr; Kembali</a>
+        <a href="{{ route('reporting.ckpn-summary') }}" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">Kembali</a>
     </div>
 </div>
 @endsection

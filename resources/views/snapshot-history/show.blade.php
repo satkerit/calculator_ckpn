@@ -27,11 +27,11 @@
             </div>
             <div class="flex justify-between border-b pb-2">
                 <span class="text-gray-600 font-medium">Baki Debet</span>
-                <span class="font-mono text-gray-900">{{ number_format($snapshot->outstanding_balance, 2) }}</span>
+                <span class="font-mono text-gray-900">{{ number_format($snapshot->outstanding_balance, 2, ',', '.') }}</span>
             </div>
             <div class="flex justify-between border-b pb-2">
                 <span class="text-gray-600 font-medium">Tunggakan Pokok</span>
-                <span class="font-mono text-gray-900">{{ number_format($snapshot->principal_arrears, 2) }}</span>
+                <span class="font-mono text-gray-900">{{ number_format($snapshot->principal_arrears, 2, ',', '.') }}</span>
             </div>
             <div class="flex justify-between border-b pb-2">
                 <span class="text-gray-600 font-medium">Periode Snapshot</span>
@@ -75,7 +75,7 @@
             <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <p class="text-sm text-gray-700">
                     <span class="font-medium">Total Eksposur:</span>
-                    <span class="font-mono text-gray-900">{{ number_format($snapshot->outstanding_balance + $snapshot->principal_arrears, 2) }}</span>
+                    <span class="font-mono text-gray-900">{{ number_format($snapshot->outstanding_balance + $snapshot->principal_arrears, 2, ',', '.') }}</span>
                 </p>
             </div>
         </div>

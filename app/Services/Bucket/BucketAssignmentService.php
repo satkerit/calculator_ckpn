@@ -114,7 +114,6 @@ class BucketAssignmentService
 
         return DB::table('snapshot')
             ->where('periode_snapshot', $periodeYm)
-            ->where('active_flag', true)
             ->update([
                 'bucket_no' => DB::raw($caseWhen),
             ]);

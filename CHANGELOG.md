@@ -5,6 +5,65 @@ Setiap perubahan kode/konfigurasi signifikan WAJIB dicatat di sini.
 
 ---
 
+## [Unreleased] — 2026-11-23
+
+### Fixed — EAD Rule per Akad pada PD Netflow (Kolektif & Individual)
+- **Root cause:** `aggregateSnapshots()` selalu sum `outstanding_balance` tanpa mempertimbangkan EAD rule per `financing_contract_code`. Akad `10` (IMBT) dan `03` (Musyarakah) memiliki EAD rule berbeda.
+- **Fix** di `app/Services/PdNetflow/PdNetflowCalculator.php`:
+  - Tambah method `resolveEadFromRow()`: akad `10` → `principal_arrears` selalu; akad `03` → `principal_arrears` jika `expired_date <= akhir periode`, else `0`; lainnya → `outstanding_balance`
+  - `loadHistoricalSnapshots()` kini select eksplisit kolom `expired_date`, `financing_contract_code`, `principal_arrears`
+  - `aggregateSnapshots()` panggil `resolveEadFromRow()` per baris saat akumulasi bucket outstanding
+- **Dampak:** Tabel 1, 2, 3 PD Netflow kini menggunakan EAD yang benar sesuai akad — berlaku untuk PD Kolektif maupun Individual
+- **File terdampak:** `app/Services/PdNetflow/PdNetflowCalculator.php`
+
+## [Unreleased] — 2026-11-22
+
+### Fixed — Bug Compound PD = 0% di PD Netflow Calculator
+- **Root cause:** Guard `$rate == 1.0 → rate = 0.0` lama (sebelum sesi ini) + inisialisasi `$compoundPd = 1.0` tanpa flag `$hasRealStep` → jika semua step diagonal di-skip (semua bucket di rantai kosong), nilai tetap 1.0 bukan 0.0, sehingga avg PD = 100% atau 0% tergantung kondisi.
+- **Fix utama** di `app/Services/PdNetflow/PdNetflowCalculator.php` baris ±491–535:
+  - Tambah flag `$hasRealStep = false`; jika tidak ada step nyata (semua skip) → `$compoundPd = 0.0`
+  - Ubah guard float equality `$rate == 1.0` → `abs($rate - 1.0) < 1e-9` (lebih aman)
+  - Tambah cap `$rate = min(1.0, max(0.0, $rate))` sebelum kalikan — rate > 1.0 (data anomali outstanding naik) tidak valid untuk PD
+  - Set `$hasRealStep = true` hanya setelah rate dikali ke `$compoundPd`
+- **Verifikasi:** Group `01|06|1` period 64 → sebelum fix avg B1 = 0%, sesudah = 0.38%. Semua bucket 1–13 kini > 0%.
+- **File terdampak:** `app/Services/PdNetflow/PdNetflowCalculator.php`, `app/Console/Commands/TestPdNetflowCalculator.php` (period ID 20→64)
+
+### Changed — Desain Tabel 3 Compound Flow to Loss (pd_netflow_detail.blade.php)
+- Header card: `background-color:#DAE3F3` (sesuai xlsx sheet B1.PD-Net Flow)
+- Header thead: `background-color:#8EA9DB`
+- Kolom PD: `background-color:#AFABAB`, label "PD" (bukan "PD Rate")
+- Label baris: `background-color:#DAE3F3`, teks "B{n} to B14" (bukan bucket range)
+- Format angka: `number_format(value * 100, 2)` → `0.00%` fixed 2 desimal
+- File terdampak: `resources/views/calculation/pd_netflow_detail.blade.php`
+
+
+### Added — Read Budget Agent (Anti Full-File Reading) & Skill `chunk-for-ai`
+- **`AGENTS.md` §1 butir 4 baru: "Read Budget — Anti Full-File Reading (Mandatory)"**
+  - Grep-first sebelum membuka berkas (`code_search` / `rg -n`, `rg --files`, `git diff --stat`); baca hanya rentang yang memuat sinyal.
+  - Jendela baca 200–400 baris per panggilan (`offset`/`limit`), beberapa berkas sekaligus dalam satu `read_files`; dilarang baca utuh berkas > 800 baris.
+  - Daftar berkas terlarang dibaca penuh: `composer.lock` (11.175 baris / ±103.800 token), `package-lock.json` (2.126 / ±20.700), `docs/CKPN.md` (3.791 / ±14.200), dokumen `.xlsx`/`.pdf`, `vendor/**`, `node_modules/**`, `public/build/**`, `storage/framework/views/**`.
+  - Pintu masuk dokumen CKPN ditetapkan ke `docs/CKPN/index.md` + chunk `docs/CKPN/NN-*.md`.
+- **Skill komunitas `anhnch/skills@chunk-for-ai` dipasang** ke `.agents/skills/chunk-for-ai` (Socket: 0 alerts, Snyk: low risk). Fungsi: memecah Markdown besar menjadi chunk per heading + `index.md` routing.
+- **Uji banding pada `docs/CKPN.md`** (split H1, 102 heading, tanpa heading di dalam blok kode):
+  - Baca utuh: 3.791 baris / 56.616 karakter ≈ **14.154 token** (estimasi karakter/4).
+  - Rute chunk untuk pertanyaan PD Net Flow: `index.md` ±2.564 token + `86-85-pd-net-flow-table-compound-flow-to-loss.md` 146 token ≈ **2.710 token** → hemat ±81%.
+  - Temuan: untuk satu istilah sempit, `grep -n` + jendela 200–400 baris (±146 token) tetap lebih murah daripada membuka index; index unggul saat perlu menjelajah banyak bagian.
+  - Keterbatasan: skill hanya menangani Markdown — `composer.lock`/`package-lock.json` tetap diselesaikan dengan grep/lockfile parse, bukan chunking.
+- **Artefak:** `docs/CKPN/` berisi 102 chunk + `index.md` (untracked, hasil generate; `docs/CKPN.md` tidak diubah). Hapus dengan `rm -rf docs/CKPN` bila tidak diperlukan.
+- **Verifikasi:** `chunks=102`, `bad_first_line=0`, `files=103`, seluruh link `index.md` menunjuk berkas yang ada, sampel chunk `86-85-*` terbaca benar.
+
+### Added — `chunk-for-ai` Dipasang Global + Pemicu Otomatis `read-budget`
+- **Instalasi global:** `npx skills add anhnch/skills --skill chunk-for-ai --global --yes` → `~/.agents/skills/chunk-for-ai` (universal: Gemini CLI, Codex, OpenCode, Cline, Amp, +14 lainnya) dengan symlink `~/.claude/skills/chunk-for-ai`. Skill tersedia lintas proyek, tidak lagi hanya di repo ini.
+- **Skill global baru `read-budget`** (`~/.agents/skills/read-budget` + symlink `~/.claude/skills/read-budget`): deskripsi dirancang sebagai pemicu otomatis — dipilih saat tugas butuh isi berkas > ±800 baris, dokumen besar, lockfile, log, dump SQL, atau saat user minta hemat token.
+  - Markdown > 800 baris → muat `chunk-for-ai` (chunk + `index.md`), pakai ulang folder chunk yang ada.
+  - Kode > 800 baris → `code_search` lalu 200–400 baris di sekitar temuan.
+  - `composer.lock` / `package-lock.json` / dump SQL / log → `grep -n` lalu jendela sempit.
+  - Biner (`.xlsx`, `.pdf`) → tidak dibaca sebagai teks; ekspor teks atau ekstrak via skrip.
+- **Instruksi global `~/.claude/CLAUDE.md`** (baru): bagian "Skill routing (automatic)" memuat `read-budget` + `chunk-for-ai` agar aturan ini berlaku di semua proyek Claude Code.
+- **`AGENTS.md` §1.4:** butir baru mewajibkan muat skill `read-budget` sebelum membaca berkas besar, sehingga pemicu juga aktif pada sesi agen di repo ini.
+
+---
+
 ### Fixed — Alpine Collapse Plugin & Realtime SSE Streaming Upload Agunan
 - **Frontend & Alpine JS (`package.json`, `resources/js/app.js`, `public/build/*`)**:
   - Menginstal paket dev `@alpinejs/collapse` dan mendaftarkan plugin via `Alpine.plugin(collapse)` sebelum `Alpine.start()`.
@@ -18,6 +77,17 @@ Setiap perubahan kode/konfigurasi signifikan WAJIB dicatat di sini.
   - Menambahkan penanganan event SSE `status === 'starting'` dan fallback update UI saat parsing JSON stream.
   - Menambahkan penanganan status `error` langsung ke container error log.
   - Memastikan total baris dan persentase terupdate secara responsif.
+
+### Fixed — Otomatisasi Penentuan `active_flag` & `write_off_flag` Upload Snapshot Pembiayaan
+- **Backend Import Snapshot (`app/Http/Controllers/DataImportController.php`)**:
+  - Memperbaiki logika deteksi status pembiayaan pada method `uploadSnapshot()`.
+  - Menetapkan `isWo = true` jika kolom `write_off_flag` berisi nilai positif (`W`, `1`, `TRUE`, `WO`, `WRITE_OFF`, `YES`), atau `tglwo` terisi dan bukan `'0'`, atau `quality_rating === 'WO'`.
+  - Mengotomatiskan `active_flag = true` untuk seluruh pembiayaan non-WO tanpa perlu kolom eksplisit `active_flag` di berkas upload core banking (karena seluruh data ekspor adalah fasilitas aktif berjalan `stsrec <> 'L'`).
+  - Menetapkan `active_flag = false` otomatis untuk data write-off (`isWo`), atau jika kolom `active_flag` eksplisit bernilai string nonaktif (`0`, `false`, `tidak`, dll).
+  - Mengeliminasi kebutuhan eksekusi manual query SQL `UPDATE snapshot SET active_flag = 1 ...` pasca import.
+- **Database Synchronization**:
+  - Menyelaraskan 10.549 data snapshot existing pada periode `202608` dan `202609` non-WO menjadi `active_flag = true`, sehingga konsisten dengan data periode `202610` dan siap diproses pada pipeline klasifikasi/EAD.
+
 
 ---
 

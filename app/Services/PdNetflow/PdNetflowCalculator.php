@@ -92,7 +92,7 @@ class PdNetflowCalculator
      */
     private function tableOneStartYm(Carbon $assessmentDate, int $historicalMonths): string
     {
-        return $assessmentDate->copy()->subMonths($historicalMonths + 1)->format('Ym');
+        return $assessmentDate->copy()->subMonthsNoOverflow($historicalMonths + 1)->format('Ym');
     }
 
     private function tableOneEndYm(Carbon $assessmentDate): string
@@ -133,7 +133,6 @@ class PdNetflowCalculator
     private function resolvePeriodsInRange(string $startYm, string $endYm): array
     {
         return DB::table('snapshot')
-            ->where('active_flag', true)
             ->distinct()
             ->pluck('periode_snapshot')
             ->filter(function ($p) use ($startYm, $endYm) {
@@ -161,7 +160,6 @@ class PdNetflowCalculator
         }
 
         $query = DB::table('snapshot')
-            ->where('active_flag', true)
             ->whereIn('periode_snapshot', $windowPeriods);
 
         if ($officeCode !== 'NA') $query->where('office_code', $officeCode);
@@ -188,6 +186,7 @@ class PdNetflowCalculator
     /**
      * Load historical snapshots (Tabel 1) filtered by group segmentasi.
      * Window: (N-H-1) .. (N-1)
+     * Select expired_date & financing_contract_code untuk EAD rule per akad.
      */
     private function loadHistoricalSnapshots(string $officeCode, string $akadCode, string $usageCode, int $months, Carbon $assessmentDate)
     {
@@ -200,7 +199,15 @@ class PdNetflowCalculator
         }
 
         $query = DB::table('snapshot')
-            ->where('active_flag', true)
+            ->select([
+                'periode_snapshot',
+                'bucket_no',
+                'loan_number',
+                'outstanding_balance',
+                'principal_arrears',
+                'financing_contract_code',
+                'expired_date',
+            ])
             ->whereNotNull('bucket_no')
             ->whereIn('periode_snapshot', $windowPeriods);
 
@@ -213,9 +220,42 @@ class PdNetflowCalculator
     }
 
     /**
+     * Resolve EAD per baris snapshot berdasarkan akad rule:
+     * - '10' (IMBT): selalu principal_arrears
+     * - '03' (Musyarakah): principal_arrears jika expired_date <= periode_snapshot, else 0
+     * - Lainnya: outstanding_balance
+     */
+    private function resolveEadFromRow(object $s): float
+    {
+        $akad = (string) ($s->financing_contract_code ?? '');
+
+        if ($akad === '10') {
+            return (float) ($s->principal_arrears ?? 0);
+        }
+
+        if ($akad === '03') {
+            $expiredDate = $s->expired_date ?? null;
+            if (!$expiredDate) {
+                return 0.0;
+            }
+            // periode_snapshot bisa YYYYMM atau YYYY-MM-DD; bandingkan sebagai string YYYY-MM
+            $periodeYm = $this->normalizePeriode($s->periode_snapshot); // 'YYYYMM'
+            $periodeEndDate = \Carbon\Carbon::createFromFormat('Ym', $periodeYm)->endOfMonth()->format('Y-m-d');
+            $expired = substr((string) $expiredDate, 0, 10); // pastikan YYYY-MM-DD
+            return $expired <= $periodeEndDate
+                ? (float) ($s->principal_arrears ?? 0)
+                : 0.0;
+        }
+
+        return (float) ($s->outstanding_balance ?? 0);
+    }
+
+    /**
      * Stream snapshot historis (cursor) → agregasi memori ringkas.
-     * Semantik identik dgn versi ->get() lama (group by periode_bucket, sum outstanding,
-     * count rekening, daftar periode unik terurut) tanpa memuat seluruh baris ke memori.
+     * EAD per baris diselesaikan via resolveEadFromRow() sesuai akad rule.
+     * - akad 10 (IMBT): principal_arrears
+     * - akad 03 (Musyarakah): principal_arrears jika sudah jatuh tempo, else 0
+     * - Lainnya: outstanding_balance
      *
      * @return array{bucket_outstanding: array<string, float>, counts: array<string, int>, periods: list<string>, empty: bool}
      */
@@ -225,13 +265,14 @@ class PdNetflowCalculator
             return ['bucket_outstanding' => [], 'counts' => [], 'periods' => [], 'empty' => true];
         }
 
-        $bucketOutstanding = []; // "periode_bucket" => sum outstanding
+        $bucketOutstanding = []; // "periode_bucket" => sum EAD
         $counts = [];            // "periode_bucket" => count rekening
         $periods = [];           // daftar periode_snapshot unik
 
         foreach ($query->cursor() as $s) {
             $key = $s->periode_snapshot . '_' . $s->bucket_no;
-            $bucketOutstanding[$key] = ($bucketOutstanding[$key] ?? 0) + (float) $s->outstanding_balance;
+            $ead = $this->resolveEadFromRow($s);
+            $bucketOutstanding[$key] = ($bucketOutstanding[$key] ?? 0) + $ead;
             $counts[$key] = ($counts[$key] ?? 0) + 1;
             if (! in_array($s->periode_snapshot, $periods, true)) {
                 $periods[] = $s->periode_snapshot;
@@ -492,6 +533,7 @@ class PdNetflowCalculator
                 $sourceBucket = $bucketIds[$b];
 
                 $compoundPd = 1.0;
+                $hasRealStep = false; // track apakah ada step nyata (bukan skip semua)
                 $totalSteps = count($bucketIds) - 1 - $b;
 
                 // Diagonal: bucket i→i+1 di t, i+1→i+2 di t+1, ..., (max-1)→max di t+(max-i-1)
@@ -500,34 +542,42 @@ class PdNetflowCalculator
                     $toBucket = $bucketIds[$b + $step + 1];
                     $stepPeriodeIdx = $startIdx + $step;
 
-                    // Jika periode tidak ada dalam data, gunakan 0.0
+                    // Jika periode tidak ada dalam data, skip step
                     if ($stepPeriodeIdx >= count($sortedPeriodes)) {
-                        $rate = 0.0;
-                    } else {
-                        $stepPeriode = $sortedPeriodes[$stepPeriodeIdx];
-                        $transitions = $normalized[$stepPeriode] ?? [];
+                        continue;
+                    }
 
-                        // Cari rate dari_bucket → bucket berikutnya
-                        $rate = 0.0;
-                        foreach ($transitions as $t) {
-                            if ($t->from_bucket == $fromBucket && $t->to_bucket == $toBucket) {
-                                $rate = (float) $t->transition_rate;
-                                break;
-                            }
-                        }
+                    $stepPeriode = $sortedPeriodes[$stepPeriodeIdx];
+                    $transitions = $normalized[$stepPeriode] ?? [];
 
-                        // Rate 1.0 karena outstanding bucket asal kosong pada periode
-                        // sebelumnya = tidak ada data → compound = 0 (bukan 1)
-                        if ($rate == 1.0) {
-                            $prevDate = \Carbon\Carbon::parse($stepPeriode)->subMonth()->endOfMonth()->toDateString();
-                            $prevOutstanding = $outstandingMap[$prevDate][$fromBucket] ?? 0.0;
-                            if ($prevOutstanding <= 0) {
-                                $rate = 0.0;
-                            }
+                    // Cari rate dari_bucket → bucket berikutnya
+                    $rate = null;
+                    foreach ($transitions as $t) {
+                        if ($t->from_bucket == $fromBucket && $t->to_bucket == $toBucket) {
+                            $rate = (float) $t->transition_rate;
+                            break;
                         }
                     }
 
+                    // Jika rate = 1.0 (default Excel ISBLANK) atau tidak ada → cek apakah bucket asal kosong
+                    if ($rate === null || abs($rate - 1.0) < 1e-9) {
+                        $prevDate = \Carbon\Carbon::parse($stepPeriode)->subMonth()->endOfMonth()->toDateString();
+                        $prevOutstanding = $outstandingMap[$prevDate][$fromBucket] ?? 0.0;
+                        if ($prevOutstanding <= 0) {
+                            continue; // bucket asal kosong → skip step ini (tidak mempengaruhi produk)
+                        }
+                        $rate = $rate ?? 0.0; // outstanding ada tapi rate null → tidak ada flow → 0
+                    }
+
+                    // Cap rate ke [0, 1] — rate > 1 artinya outstanding naik (tidak wajar untuk PD)
+                    $rate = min(1.0, max(0.0, $rate));
                     $compoundPd *= $rate;
+                    $hasRealStep = true;
+                }
+
+                // Jika semua step di-skip (tidak ada nasabah di seluruh rantai) → PD = 0
+                if (!$hasRealStep) {
+                    $compoundPd = 0.0;
                 }
 
                 $batch[] = [

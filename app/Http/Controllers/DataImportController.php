@@ -151,12 +151,27 @@ class DataImportController extends Controller
                             continue;
                         }
 
-                        // Parse flags
-                        $activeVal = strtolower(trim((string) ($rowData['active_flag'] ?? '1')));
-                        $isActive = in_array($activeVal, ['1', 'true', 'active', 'aktif', 'yes'], true) || $activeVal === '';
-
+                        // Parse flags & status write-off / aktif:
+                        // 1. Write-off ditentukan jika tglwo terisi, flag write_off = W/1/WO, atau quality_rating = WO
                         $woVal = strtoupper(trim((string) ($rowData['write_off_flag'] ?? '0')));
-                        $isWo = in_array($woVal, ['W', '1', 'TRUE', 'WO', 'WRITE_OFF', 'YES'], true);
+                        $tglWo = trim((string) ($rowData['tglwo'] ?? ''));
+                        $rawRating = strtoupper(trim((string) ($rowData['quality_rating'] ?? '')));
+                        $isWo = in_array($woVal, ['W', '1', 'TRUE', 'WO', 'WRITE_OFF', 'YES'], true)
+                            || ($tglWo !== '' && $tglWo !== '0')
+                            || $rawRating === 'WO';
+
+                        // 2. Active flag: jika record merupakan write-off maka active_flag = false.
+                        // Jika bukan write-off, default selalu true (aktif) karena data snapshot yang diunggah
+                        // adalah seluruh portofolio pembiayaan aktif/berjalan (stsrec <> 'L').
+                        // Namun jika kolom active_flag secara eksplisit bernilai '0', 'false', 'tidak', 'nonaktif', maka false.
+                        $activeRaw = strtolower(trim((string) ($rowData['active_flag'] ?? '')));
+                        if ($isWo) {
+                            $isActive = false;
+                        } elseif ($activeRaw !== '' && in_array($activeRaw, ['0', 'false', 'n', 'no', 'tidak', 'nonaktif'], true)) {
+                            $isActive = false;
+                        } else {
+                            $isActive = true;
+                        }
 
                         // Quality rating
                         $qualityRating = trim((string) ($rowData['quality_rating'] ?? ''));

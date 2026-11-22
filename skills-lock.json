@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "skills": {
+    "chunk-for-ai": {
+      "source": "anhnch/skills",
+      "commit": "583f30d28f06da0182733771042b462286bb6c11",
+      "sourceType": "github",
+      "skillPath": "chunk-for-ai/SKILL.md",
+      "computedHash": "d3d6945955bff95949762f11f30c6091c1a836ce98f0a2afb968ed4b4298b2aa"
+    }
+  }
+}

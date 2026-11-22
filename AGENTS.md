@@ -68,6 +68,16 @@ Setiap agen AI (termasuk Assistant IDE) yang menangani tugas di repository ini W
    - Gunakan single-pass accumulator daripada filter berulang di memory collection.
    - Gunakan `chunkById()` atau stream untuk batch processing pembiayaan berukuran besar.
 
+4. **Read Budget — Anti Full-File Reading (Mandatory):**
+   - **Grep-first, read-second:** sebelum membuka berkas, cari sinyalnya dulu (`code_search` / `rg -n`, `rg --files`, `git diff --stat`). Baca hanya berkas dan rentang baris yang memuat sinyal tersebut.
+   - **Read window:** gunakan `offset`/`limit` 200–400 baris per panggilan; perluas jendela hanya bila sinyal belum ditemukan. Gabungkan beberapa berkas terkait dalam satu panggilan `read_files`, bukan satu berkas per panggilan.
+   - **Larangan baca utuh:** dilarang membaca berkas > 800 baris secara keseluruhan. Bila memang diperlukan, sebutkan alasannya lebih dulu di jawaban.
+   - **Berkas yang wajib dihindari (jangan dibaca penuh):** `composer.lock` (11.175 baris), `package-lock.json` (2.126), `docs/CKPN.md` (3.791), dokumen `.xlsx`/`.pdf` (biner), `vendor/**`, `node_modules/**`, `public/build/**`, `storage/framework/views/**`, serta dump SQL/migrasi panjang.
+   - **Dokumen CKPN bertingkat:** masuk lewat `docs/CKPN/index.md` (routing ±2.500 token), lalu buka hanya chunk `docs/CKPN/NN-*.md` yang relevan (±100–900 token per chunk). Jangan membaca `docs/CKPN.md` utuh (±14.100 token); regenerasi chunk bila dokumen sumber berubah.
+   - **Berkas kode > 800 baris** dibaca bertahap: temukan method/kelas via `code_search`, lalu baca 200–400 baris di sekitar temuan (contoh: `app/Http/Controllers/Export/FullCkpnExportController.php`, 1.118 baris).
+   - **Skill wajib (global):** muat skill `read-budget` sebelum membaca berkas besar — ia merutekan Markdown > 800 baris ke skill `chunk-for-ai` (chunk + `index.md`) dan jenis lain ke grep + jendela baca. Pakai ulang `docs/CKPN/index.md` yang sudah ada; regenerasi chunk hanya bila `docs/CKPN.md` berubah.
+   - **Output terminal** dipangkas ke sinyal yang dibutuhkan (`--stat`, `-l`, `-c`, `-n`, `head`, `sed -n`), jangan mencetak seluruh isi berkas ke konteks.
+
 ---
 
 ## Overview

@@ -13,7 +13,7 @@ class TestPdNetflowCalculator extends Command
 
     public function handle()
     {
-        $periodId = 20; // Use test period
+        $periodId = 64; // Use test period
         
         $this->info("Testing calculator for group 01|06|1, period {$periodId}");
         

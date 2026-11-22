@@ -19,6 +19,7 @@ class PdNetflowTableRulesTest extends TestCase
 
     private function createPeriod(): AssessmentPeriod
     {
+        $this->seed(\Database\Seeders\BucketDefinitionSeeder::class);
         $user = User::factory()->create();
 
         return AssessmentPeriod::create([
@@ -117,7 +118,7 @@ class PdNetflowTableRulesTest extends TestCase
         $detail = $service->loadGroupDetail($period->id, '010|MURABAHAH|MODAL_KERJA');
         $this->assertArrayHasKey('transition_periods', $detail);
         $this->assertArrayHasKey('compound_periods', $detail);
-        $this->assertContains('2026-08-31 00:00:00', $detail['compound_periods']);
+        $this->assertContains('2026-08-31', $detail['compound_periods']);
     }
 
     public function testProjectionUsesRollingAverageOfPreviousSixMonths(): void

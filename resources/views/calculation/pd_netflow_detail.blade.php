@@ -113,37 +113,37 @@
 
             <!-- TABEL 3: COMPOUND FLOW TO LOSS (PD Compound) -->
             <div class="mb-6 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-100 bg-blue-50">
-                    <h3 class="text-lg font-bold text-gray-900">Compound Flow to Loss</h3>
-                    <p class="text-xs text-gray-600 mt-1">PD Compound per Source Bucket (Persentase 0-100%)</p>
+                <div class="px-6 py-3 border-b border-gray-200" style="background-color:#DAE3F3;">
+                    <h3 class="text-sm font-bold text-gray-900">Compound Flow to Loss</h3>
+                    <p class="text-xs text-gray-600 mt-0.5">PD Compound per Source Bucket — MIN(100%, AVERAGE setiap periode)</p>
                 </div>
 
                 <div class="overflow-x-auto">
                     <table class="w-full text-xs border-collapse">
-                        <thead class="bg-blue-100">
-                            <tr class="border border-gray-300">
-                                <th class="px-3 py-2 text-left font-bold text-gray-900 border-r border-gray-300 w-28">Bucket</th>
+                        <thead>
+                            <tr style="background-color:#8EA9DB;">
+                                <th class="px-3 py-2 text-left font-bold text-gray-900 border border-gray-400 w-28">Bucket</th>
                                 @foreach ($data['compound_periods'] ?? $data['transition_periods'] as $period)
-                                    <th class="px-2 py-2 text-center font-bold text-gray-900 border-r border-gray-300 whitespace-nowrap w-24">
+                                    <th class="px-2 py-2 text-center font-bold text-gray-900 border border-gray-400 whitespace-nowrap w-24">
                                         {{ \Carbon\Carbon::parse($period)->format('M-y') }}
                                     </th>
                                 @endforeach
-                                <th class="px-3 py-2 text-center font-bold text-gray-900 border-r border-gray-300 whitespace-nowrap w-24 bg-amber-100">PD Rate</th>
+                                <th class="px-3 py-2 text-center font-bold text-gray-900 border border-gray-400 whitespace-nowrap w-24" style="background-color:#AFABAB;">PD</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-300">
+                        <tbody>
                             @foreach ($data['compounds'] as $compound)
-                                <tr class="border-b border-gray-300 hover:bg-gray-50">
-                                    <td class="px-3 py-2 text-left font-bold text-gray-900 border-r border-gray-300 bg-blue-50">
-                                        {{ $compound['source_bucket'] }} to {{ (int)$compound['source_bucket'] + 1 }}
+                                <tr class="border-b border-gray-300">
+                                    <td class="px-3 py-1.5 text-left font-semibold text-gray-900 border border-gray-300" style="background-color:#DAE3F3;">
+                                        B{{ $compound['source_bucket'] }} to B14
                                     </td>
                                     @foreach ($data['compound_periods'] ?? $data['transition_periods'] as $period)
-                                        <td class="px-2 py-2 text-right text-gray-900 border-r border-gray-300 font-mono">
-                                            {{ $service->formatValue(($compound['periods'][$period] ?? 0) * 100, 'number') }}%
+                                        <td class="px-2 py-1.5 text-right text-gray-900 border border-gray-300 font-mono">
+                                            {{ number_format(($compound['periods'][$period] ?? 0) * 100, 2) }}%
                                         </td>
                                     @endforeach
-                                    <td class="px-2 py-2 text-right font-bold text-gray-900 border-r border-gray-300 font-mono bg-amber-50">
-                                        {{ $service->formatValue($compound['pd_rate'] * 100, 'number') }}%
+                                    <td class="px-2 py-1.5 text-right font-bold text-gray-900 border border-gray-300 font-mono" style="background-color:#AFABAB;">
+                                        {{ number_format($compound['pd_rate'] * 100, 2) }}%
                                     </td>
                                 </tr>
                             @endforeach

@@ -15,7 +15,19 @@
         <div>
             <h2 class="text-base font-bold text-gray-900">Tetapkan daftar debitur Individual & Kolektif + Segmentasi Kolektif</h2>
             <p class="text-sm text-gray-600 mt-1">Periode: {{ $period->assessment_date?->format('Y-m-d') ?? '-' }} · Segmen aktif: <span class="font-semibold">{{ implode(' | ', $dimList) }}</span></p>
-            <p class="text-xs text-gray-500 mt-1">Kriteria Individual: <span class="font-semibold">NPL (kualitas/kolektibilitas {{ implode(', ', $config['npl_ratings'] ?? [3,4,5]) }})</span> diambil <span class="font-semibold">TOP {{ $config['individual_top_n'] ?? 20 }}</span> outstanding terbesar.</p>
+            <p class="text-xs text-gray-500 mt-1">
+                Kriteria Individual:
+                @if (!empty($config['individual_include_kol5']))
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">All Kol 5 Aktif</span>
+                    Semua Kol 5 (Macet)
+                @endif
+                @if (($config['individual_top_n'] ?? 0) > 0)
+                    {{ !empty($config['individual_include_kol5']) ? '+' : '' }}
+                    <span class="font-semibold">NPL (kualitas/kolektibilitas {{ implode(', ', $config['npl_ratings'] ?? [3,4,5]) }})</span> diambil <span class="font-semibold">TOP {{ $config['individual_top_n'] }}</span> outstanding terbesar.
+                @elseif (empty($config['individual_include_kol5']))
+                    <span class="text-gray-400 italic">Tidak ada aturan Individual aktif (seluruh debitur masuk Kolektif).</span>
+                @endif
+            </p>
         </div>
         <div class="flex gap-2">
             <form method="POST" action="{{ $runRoute }}" data-progress data-confirm-title="Konfirmasi Klasifikasi & Segmentasi" data-confirm-message="Proses akan mengklasifikasi ulang seluruh debitur periode ini menjadi Individual/Kolektif beserta segmentasinya." data-confirm-type="warning" data-confirm-button="Ya, Jalankan" data-loading-message="Menjalankan klasifikasi & segmentasi…">

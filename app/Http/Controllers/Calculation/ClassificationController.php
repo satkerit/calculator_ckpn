@@ -44,12 +44,13 @@ class ClassificationController extends BaseCalculationController
 
         $topN       = (int) $config['individual_top_n'];
         $nplRatings = $config['npl_ratings'];
+        $includeKol5 = (bool) ($config['individual_include_kol5'] ?? true);
 
         $periodeYm = $period->assessment_date?->format('Ym') ?? '999912';
         $token = $this->progressToken($request);
 
         // Seluruh proses utama dibungkus run-lock per periode (abort 423 bila sedang berjalan).
-        return $this->withRunLock($period->id, function () use ($request, $period, $config, $dims, $topN, $nplRatings, $periodeYm, $token) {
+        return $this->withRunLock($period->id, function () use ($request, $period, $config, $dims, $topN, $nplRatings, $includeKol5, $periodeYm, $token) {
             // 0) Assign bucket_no ke snapshot untuk persiapan PD Net Flow
             $this->pushProgress($token, 'Menetapkan bucket tunggakan seluruh snapshot…', 5, 'Assign Bucket');
             $bucketService = app(BucketAssignmentService::class);
@@ -108,7 +109,9 @@ class ClassificationController extends BaseCalculationController
                 ];
             }
 
-            // 2) Ambil TOP N debitur NPL dengan outstanding terbesar → INDIVIDUAL.
+            // 2) Tentukan debitur INDIVIDUAL:
+            // a. Jika includeKol5 aktif: seluruh fasilitas dengan kualitas 5 otomatis masuk Individual.
+            // b. TOP N debitur NPL dengan outstanding terbesar (termasuk Kol 5 jika belum masuk).
             $nplIndexes = [];
             foreach ($rows as $i => $r) {
                 if ($r['is_npl']) {
@@ -117,11 +120,27 @@ class ClassificationController extends BaseCalculationController
             }
 
             usort($nplIndexes, fn ($a, $b) => $rows[$b]['outstanding'] <=> $rows[$a]['outstanding']);
-            $selected = array_slice($nplIndexes, 0, $topN);
 
-            foreach ($selected as $rank => $idx) {
-                $rows[$idx]['_individual'] = true;
-                $rows[$idx]['_reason']     = $this->individualReason($rows[$idx], $rank + 1, $nplRatings);
+            // Tandai Kol 5 bila opsi includeKol5 aktif
+            if ($includeKol5) {
+                foreach ($nplIndexes as $idx) {
+                    if ($rows[$idx]['rating'] === 5) {
+                        $rows[$idx]['_individual'] = true;
+                        $rows[$idx]['_applied_rule'] = 'ALL_KOL_5';
+                        $rows[$idx]['_reason'] = $this->individualReasonKol5($rows[$idx]);
+                    }
+                }
+            }
+
+            // Ambil TOP N NPL (hanya jika TOP N > 0)
+            if ($topN > 0) {
+                $topCandidate = array_slice($nplIndexes, 0, $topN);
+                foreach ($topCandidate as $rank => $idx) {
+                    $isAlreadyKol5 = $rows[$idx]['_individual'] && ($rows[$idx]['_applied_rule'] ?? '') === 'ALL_KOL_5';
+                    $rows[$idx]['_individual'] = true;
+                    $rows[$idx]['_applied_rule'] = $isAlreadyKol5 ? 'ALL_KOL_5_AND_TOP_N' : 'NPL_TOP_N_OUTSTANDING';
+                    $rows[$idx]['_reason'] = $this->individualReason($rows[$idx], $rank + 1, $nplRatings, $isAlreadyKol5);
+                }
             }
 
             $this->pushProgress($token, 'Menyimpan hasil klasifikasi…', 85, 'Menyimpan Hasil');
@@ -131,11 +150,11 @@ class ClassificationController extends BaseCalculationController
             $totalColl = 0;
             $totalEad  = 0.0;
 
-            // 3) Persist: INDIVIDUAL (TOP N NPL) + COLLECTIVE (sisanya).
+            // 3) Persist: INDIVIDUAL (All Kol 5 + TOP N NPL) + COLLECTIVE (sisanya).
             // Fase tulis atomik: penghapusan stage lama + batch insert baru dalam satu transaksi,
             // sehingga tidak ada stage parsial bila gagal di tengah. Baca berat (cursor snapshot)
             // sudah selesai sebelum titik ini agar tidak menahan lock terlalu lama.
-            DB::transaction(function () use ($period, $rows, $topN, $now, &$totalIndi, &$totalColl, &$totalEad) {
+            DB::transaction(function () use ($period, $rows, $topN, $includeKol5, $now, &$totalIndi, &$totalColl, &$totalEad) {
                 $this->cleanStage($period->id, ['stage_classifications', 'stage_ead_buckets']);
 
                 $insertBatch = [];
@@ -164,8 +183,8 @@ class ClassificationController extends BaseCalculationController
                         'classification'       => $isIndividual ? 'INDIVIDUAL' : 'COLLECTIVE',
                         'reason'               => $isIndividual
                             ? $r['_reason']
-                            : 'collective_default (non-NPL atau di luar TOP ' . $topN . ' NPL)',
-                        'applied_rule'         => $isIndividual ? 'NPL_TOP_N_OUTSTANDING' : 'COLLECTIVE_DEFAULT',
+                            : 'collective_default (' . ($includeKol5 ? 'bukan Kol 5' : '') . ($includeKol5 && $topN > 0 ? ' & ' : '') . ($topN > 0 ? 'di luar TOP ' . $topN . ' NPL' : ($includeKol5 ? '' : 'kolektif default')) . ')',
+                        'applied_rule'         => $isIndividual ? ($r['_applied_rule'] ?? 'NPL_TOP_N_OUTSTANDING') : 'COLLECTIVE_DEFAULT',
                         'created_at'           => $now,
                         'updated_at'           => $now,
                     ];
@@ -261,7 +280,7 @@ class ClassificationController extends BaseCalculationController
      * @param  array<string, mixed>  $row
      * @param  array<int, int>  $nplRatings
      */
-    private function individualReason(array $row, int $rank, array $nplRatings): string
+    private function individualReason(array $row, int $rank, array $nplRatings, bool $isAlreadyKol5 = false): string
     {
         $criteria = [];
         if (! empty($row['snapshot']->write_off_flag)) {
@@ -272,8 +291,19 @@ class ClassificationController extends BaseCalculationController
         }
 
         $basis = $criteria ? implode('|', $criteria) : 'npl';
+        $prefix = $isAlreadyKol5 ? 'All-Kol-5 & ' : '';
 
-        return 'NPL(' . $basis . ') · rank#' . $rank
+        return $prefix . 'NPL(' . $basis . ') · rank#' . $rank
             . ' outstanding=' . number_format($row['outstanding'], 0, ',', '.');
+    }
+
+    /**
+     * Alasan loan masuk INDIVIDUAL berbasis aturan otomatis Seluruh Kol 5 (Macet).
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function individualReasonKol5(array $row): string
+    {
+        return 'Mandatory Kol 5 (Macet) · outstanding=' . number_format($row['outstanding'], 0, ',', '.');
     }
 }

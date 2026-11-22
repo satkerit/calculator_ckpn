@@ -112,11 +112,20 @@ class CalculationConfigInvalidationTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        DB::table('role_permissions')->insert([
-            'role_id' => $roleId,
-            'permission_id' => $permId,
+        $exportPermId = DB::table('permissions')->insertGetId([
+            'kode_permission' => 'reporting.export',
+            'nama_permission' => 'Export Report',
+            'name' => 'reporting.export',
+            'display_name' => 'Export Report',
+            'module' => 'CKPN_CALCULATION',
+            'active' => 1,
             'created_at' => now(),
             'updated_at' => now(),
+        ]);
+
+        DB::table('role_permissions')->insert([
+            ['role_id' => $roleId, 'permission_id' => $permId, 'created_at' => now(), 'updated_at' => now()],
+            ['role_id' => $roleId, 'permission_id' => $exportPermId, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
         return User::factory()->create(['role_id' => $roleId]);

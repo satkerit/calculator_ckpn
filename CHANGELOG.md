@@ -5,6 +5,52 @@ Setiap perubahan kode/konfigurasi signifikan WAJIB dicatat di sini.
 
 ---
 
+### Fixed — Alpine Collapse Plugin & Realtime SSE Streaming Upload Agunan
+- **Frontend & Alpine JS (`package.json`, `resources/js/app.js`, `public/build/*`)**:
+  - Menginstal paket dev `@alpinejs/collapse` dan mendaftarkan plugin via `Alpine.plugin(collapse)` sebelum `Alpine.start()`.
+  - Mengeliminasi warning konsol browser: `You can't use [x-collapse] without first installing the "Collapse" plugin`.
+  - Menjalankan Vite build ulang untuk menyertakan bundle frontend terkini.
+- **Backend Import Streaming (`app/Http/Controllers/DataImportController.php`)**:
+  - Menghitung total data baris (`countFileRows`) sebelum iterasi streaming dimulai.
+  - Mengirim event SSE berstatus `progress` berkala selama proses membaca baris/batch file CSV & XLSX, mencegah UI browser terhenti di status inisialisasi.
+  - Memperbaiki penanganan `progressCallback` pada `runImport()` dan `streamImport()`.
+- **Tampilan Unggah Agunan (`resources/views/import/collateral.blade.php`)**:
+  - Menambahkan penanganan event SSE `status === 'starting'` dan fallback update UI saat parsing JSON stream.
+  - Menambahkan penanganan status `error` langsung ke container error log.
+  - Memastikan total baris dan persentase terupdate secara responsif.
+
+---
+
+### Changed — Fleksibilitas TOP N Individual (Opsional & Nilai > 0)
+- **Engine Klasifikasi (`app/Http/Controllers/Calculation/ClassificationController.php`)**:
+  - Penyesuaian seleksi TOP N NPL: hanya dieksekusi jika `individual_top_n > 0`. Jika bernilai `0`, seleksi TOP N dinonaktifkan sepenuhnya.
+  - Perbaikan keterangan `reason` klasifikasi kolektif default agar dinamis sesuai status aktif All Kol 5 dan TOP N.
+- **Tampilan Konfigurasi & Klasifikasi**:
+  - `configuration.blade.php`: input field TOP N default bernilai 0 dengan keterangan opsi opsional (isi 0 untuk menonaktifkan).
+  - `classification.blade.php`: teks kriteria individual dinamis, hanya menampilkan klausul TOP N jika nilainya > 0, atau menampilkan info jika tidak ada kriteria individual yang aktif.
+
+---
+
+## [Unreleased] — 2026-11-22
+
+### Added — Aturan Mandatory All Kol 5 untuk CKPN Individual
+- **Skema Database (`database/migrations/2026_11_22_000001_add_individual_include_kol5_to_stage_configs_table.php`)**:
+  - Menambahkan kolom `individual_include_kol5` (boolean, default: `true`) pada tabel `stage_configs`.
+- **Logika Konfigurasi & Invalidation (`app/Http/Controllers/Calculation/BaseCalculationController.php`)**:
+  - Mendaftarkan `individual_include_kol5` ke `CONFIG_DEFAULTS` (default `true`) dan normalisasi boolean di `configFor()`.
+  - Mendaftarkan `individual_top_n` dan `individual_include_kol5` ke `FINGERPRINT_KEYS['CKPN']` pada deteksi stale results / invalidation marks.
+- **Form & Audit Konfigurasi (`app/Http/Controllers/Calculation/ConfigurationController.php`)**:
+  - Validasi request `individual_include_kol5` (nullable boolean).
+  - Menyimpan parameter ke `stage_configs` dan mencatat jejak audit perubahannya.
+- **Engine Klasifikasi (`app/Http/Controllers/Calculation/ClassificationController.php`)**:
+  - Mengimplementasikan aturan seleksi gabungan: jika `individual_include_kol5 = true`, seluruh fasilitas dengan Kolektibilitas 5 (Macet) otomatis ditandai `INDIVIDUAL` (`applied_rule: ALL_KOL_5`), kemudian digabung dengan fasilitas TOP N NPL (`applied_rule: ALL_KOL_5_AND_TOP_N` atau `NPL_TOP_N_OUTSTANDING`).
+  - Menambahkan method helper `individualReasonKol5()` dan memperbarui format reason `individualReason()`.
+- **UI Blade Modules**:
+  - `resources/views/calculation/modules/configuration.blade.php`: Menambahkan kontrol checkbox "Sertakan Semua Debitur Kol 5 (Macet)" pada bagian Mandatory CKPN Individual.
+  - `resources/views/calculation/modules/classification.blade.php`: Menampilkan status aktif badge kriteria "All Kol 5 Aktif" pada header ringkasan kriteria klasifikasi.
+
+---
+
 ## [Unreleased] — 2026-11-04
 
 ### Changed — Anti-Slop UI Remediation: Hierarki Stat Card (#27) & Format Tabel Monospace (#34)

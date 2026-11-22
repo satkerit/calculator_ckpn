@@ -29,10 +29,12 @@ abstract class BaseCalculationController extends Controller
         'lgd_historical_months' => 60,
         'sale_cost_percentage' => 0.05,
         'segment_dimensions' => 'OFFICE',
-        // Kriteria CKPN Individual: debitur NPL (kualitas/kolektibilitas 3,4,5)
-        // dengan TOP N outstanding terbesar.
-        'individual_top_n' => 30,
+        // Kriteria CKPN Individual:
+        // 1. All Kol 5 (seluruh fasilitas/debitur dengan kualitas 5 / Macet langsung Individual).
+        // 2. Debitur NPL (kualitas/kolektibilitas 3,4,5) dengan TOP N outstanding terbesar.
+        'individual_top_n' => 50,
         'npl_ratings' => [3, 4, 5],
+        'individual_include_kol5' => true,
     ];
 
     /**
@@ -62,6 +64,7 @@ abstract class BaseCalculationController extends Controller
         $config['lgd_historical_months'] = (int) $config['lgd_historical_months'];
         $config['sale_cost_percentage'] = (float) $config['sale_cost_percentage'];
         $config['individual_top_n'] = max(0, (int) $config['individual_top_n']);
+        $config['individual_include_kol5'] = filter_var($config['individual_include_kol5'] ?? true, FILTER_VALIDATE_BOOLEAN);
 
         // npl_ratings: array kualitas yang dianggap NPL (default 3,4,5).
         $rawRatings = $config['npl_ratings'];
@@ -248,7 +251,7 @@ abstract class BaseCalculationController extends Controller
      */
     protected const FINGERPRINT_KEYS = [
         'PD' => ['segment_dimensions', 'pd_method'],
-        'CKPN' => ['segment_dimensions', 'pd_method', 'lgd_method'],
+        'CKPN' => ['segment_dimensions', 'pd_method', 'lgd_method', 'individual_top_n', 'individual_include_kol5'],
         'LGD' => ['segment_dimensions', 'lgd_method'],
     ];
 
@@ -301,8 +304,10 @@ abstract class BaseCalculationController extends Controller
                 $dims = array_values(array_intersect($dims, ['OFFICE', 'AKAD', 'USAGE']));
                 sort($dims);
                 $value = implode('|', $dims);
-            } elseif ($key === 'historical_months') {
+            } elseif ($key === 'historical_months' || $key === 'individual_top_n') {
                 $value = (int) $value;
+            } elseif ($key === 'individual_include_kol5') {
+                $value = (bool) $value ? 1 : 0;
             } elseif ($key === 'pd_method') {
                 $value = strtoupper((string) $value);
             }

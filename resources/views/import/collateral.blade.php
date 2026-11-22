@@ -245,9 +245,16 @@ uploadForm.addEventListener('submit', async (e) => {
             for (const chunk of lines) {
                 const match = chunk.match(/^data:\s*(.+)$/m);
                 if (!match) continue;
-                const data = JSON.parse(match[1]);
+                let data;
+                try {
+                    data = JSON.parse(match[1]);
+                } catch (parseErr) {
+                    continue;
+                }
 
-                if (data.status === 'progress') {
+                if (data.status === 'starting') {
+                    statusMessage.textContent = data.message || 'Mempersiapkan data...';
+                } else if (data.status === 'progress') {
                     const percentage = Math.round(data.percentage);
                     progressBar.style.width = percentage + '%';
                     percentageText.textContent = percentage + '%';
@@ -259,9 +266,10 @@ uploadForm.addEventListener('submit', async (e) => {
                 } else if (data.status === 'complete') {
                     progressBar.style.width = '100%';
                     percentageText.textContent = '100%';
-                    statusMessage.textContent = 'Selesai!';
+                    statusMessage.textContent = data.message || 'Selesai!';
                     document.getElementById('successCount').textContent = data.imported;
                     document.getElementById('failedCount').textContent = data.failed;
+                    document.getElementById('processedCount').textContent = (data.imported || 0) + (data.failed || 0);
 
                     if (data.errors && data.errors.length > 0) {
                         errorLog.classList.remove('hidden');
@@ -275,6 +283,14 @@ uploadForm.addEventListener('submit', async (e) => {
 
                     successMessage.classList.remove('hidden');
                     successText.textContent = `Impor berhasil! ${data.imported} data diimpor.`;
+                    document.getElementById('submitBtn').disabled = false;
+                } else if (data.status === 'error') {
+                    statusMessage.textContent = data.message || 'Gagal memproses file';
+                    errorLog.classList.remove('hidden');
+                    const div = document.createElement('div');
+                    div.className = 'p-2 bg-red-100 rounded text-red-700';
+                    div.textContent = data.message;
+                    errorList.appendChild(div);
                     document.getElementById('submitBtn').disabled = false;
                 }
             }

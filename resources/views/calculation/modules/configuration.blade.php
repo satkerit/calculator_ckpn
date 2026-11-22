@@ -56,8 +56,18 @@
             </div>
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">TOP N Outstanding (Individual)</label>
-                <input type="number" min="0" max="10000" name="individual_top_n" value="{{ $config['individual_top_n'] ?? 20 }}" class="w-full border-gray-300 rounded-lg text-sm">
-                <p class="text-xs text-gray-500 mt-1">Ambil N debitur NPL dengan outstanding terbesar.</p>
+                <input type="number" min="0" max="10000" name="individual_top_n" value="{{ $config['individual_top_n'] ?? 0 }}" class="w-full border-gray-300 rounded-lg text-sm">
+                <p class="text-xs text-gray-500 mt-1">Opsional: ambil N debitur NPL terbesar (isi 0 jika tidak menggunakan aturan TOP N).</p>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Mandatory CKPN Individual</label>
+                <label class="inline-flex items-center gap-2 text-sm text-gray-800">
+                    <input type="checkbox" name="individual_include_kol5" value="1"
+                           @checked(!empty($config['individual_include_kol5']))
+                           class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    <span class="font-medium">Sertakan Semua Debitur Kol 5 (Macet)</span>
+                </label>
+                <p class="text-xs text-gray-500 mt-1">Semua fasilitas dengan kualitas 5 (Macet) otomatis masuk CKPN Individual di samping TOP N NPL.</p>
             </div>
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">NPL - Kualitas (Kolektibilitas)</label>

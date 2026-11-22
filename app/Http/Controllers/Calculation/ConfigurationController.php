@@ -36,6 +36,7 @@ class ConfigurationController extends BaseCalculationController
             'segment_dimensions' => 'required|array|min:1',
             'segment_dimensions.*' => 'in:OFFICE,AKAD,USAGE',
             'individual_top_n' => 'required|integer|min:0|max:10000',
+            'individual_include_kol5' => 'nullable|boolean',
             'npl_ratings' => 'required|array|min:1',
             'npl_ratings.*' => 'integer|min:1|max:5',
         ], [
@@ -54,8 +55,11 @@ class ConfigurationController extends BaseCalculationController
             'sale_cost_percentage' => 'Sale cost',
             'segment_dimensions' => 'Segmentasi',
             'individual_top_n' => 'TOP N Outstanding',
+            'individual_include_kol5' => 'Kriteria All Kol 5',
             'npl_ratings' => 'Kualitas NPL',
         ]);
+
+        $includeKol5 = $request->boolean('individual_include_kol5');
 
         $this->saveConfig(
             (int) $validated['assessment_period_id'],
@@ -67,6 +71,7 @@ class ConfigurationController extends BaseCalculationController
                 'sale_cost_percentage' => (float) $validated['sale_cost_percentage'],
                 'segment_dimensions' => implode('|', $validated['segment_dimensions']),
                 'individual_top_n' => (int) $validated['individual_top_n'],
+                'individual_include_kol5' => $includeKol5,
                 'npl_ratings' => implode(',', $validated['npl_ratings']),
             ]
         );
@@ -88,6 +93,7 @@ class ConfigurationController extends BaseCalculationController
             'lgd_method' => $validated['lgd_method'],
             'segment_dimensions' => implode('|', $validated['segment_dimensions']),
             'individual_top_n' => (int) $validated['individual_top_n'],
+            'individual_include_kol5' => $includeKol5,
             'npl_ratings' => implode(',', $validated['npl_ratings']),
             'stale_results' => $stale,
         ]);

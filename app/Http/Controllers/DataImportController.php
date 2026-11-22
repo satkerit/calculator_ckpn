@@ -446,10 +446,31 @@ class DataImportController extends Controller
         $fullPath = Storage::path($file->store('temp'));
 
         return response()->stream(function () use ($fullPath, $extension, $fields, $batchUpsert) {
-            $this->sse(['status' => 'starting', 'message' => "Importing {$fields[0]} data..."]);
+            $this->sse(['status' => 'starting', 'message' => "Memulai import data..."]);
 
             try {
-                $result = $this->runImport($fullPath, $extension, $fields, $batchUpsert);
+                $totalRows = $this->countFileRows($fullPath, $extension);
+                $this->sse([
+                    'status' => 'progress',
+                    'current' => 0,
+                    'total' => $totalRows,
+                    'percentage' => 0,
+                    'message' => "Total {$totalRows} baris terdeteksi. Memproses data...",
+                ]);
+
+                $onProgress = function (int $current, int $total, float $percentage) use ($totalRows) {
+                    $effectiveTotal = $total > 0 ? $total : $totalRows;
+                    $pct = $effectiveTotal > 0 ? round(($current / $effectiveTotal) * 100, 1) : 0;
+                    $this->sse([
+                        'status' => 'progress',
+                        'current' => $current,
+                        'total' => $effectiveTotal,
+                        'percentage' => min(100, $pct),
+                        'message' => "Memproses baris {$current}" . ($effectiveTotal > 0 ? " / {$effectiveTotal}" : '') . "...",
+                    ]);
+                };
+
+                $result = $this->runImport($fullPath, $extension, $fields, $batchUpsert, $onProgress);
 
                 @unlink($fullPath);
 
@@ -458,7 +479,7 @@ class DataImportController extends Controller
                     'imported' => $result['success'] ?? 0,
                     'failed' => $result['failed'] ?? 0,
                     'errors' => $result['errors'] ?? [],
-                    'message' => 'Import complete: ' . ($result['success'] ?? 0) . ' imported, ' . ($result['failed'] ?? 0) . ' failed',
+                    'message' => 'Import selesai: ' . ($result['success'] ?? 0) . ' berhasil, ' . ($result['failed'] ?? 0) . ' gagal',
                 ]);
             } catch (\Throwable $e) {
                 \Log::error("Import error: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
@@ -471,8 +492,13 @@ class DataImportController extends Controller
      * Jalankan import CSV atau XLSX. Header map kolom Excel (A, B, C, ...)
      * diturunkan otomatis dari daftar field.
      */
-    private function runImport(string $fullPath, string $extension, array $fields, \Closure $batchUpsert): array
-    {
+    private function runImport(
+        string $fullPath,
+        string $extension,
+        array $fields,
+        \Closure $batchUpsert,
+        ?\Closure $progressCallback = null
+    ): array {
         // OpenSpout v4 tidak bisa membaca .xls (Excel 97-2003). Tanpa guard ini file .xls
         // lolos validasi mimes tetapi berakhir sebagai import 0 baris tanpa penjelasan.
         if ($extension === 'xls') {
@@ -482,7 +508,7 @@ class DataImportController extends Controller
         }
 
         if (in_array($extension, ['csv', 'txt'], true)) {
-            return SpoutImportService::importCsv($fullPath, $fields, $batchUpsert, null, 1000);
+            return SpoutImportService::importCsv($fullPath, $fields, $batchUpsert, $progressCallback, 500);
         }
 
         $service = new SpoutImportService($fullPath);
@@ -491,23 +517,50 @@ class DataImportController extends Controller
         $headerMap = array_combine(range('A', chr(ord('A') + count($fields) - 1)), $fields);
 
         $buffer = [];
+        $totalProcessed = 0;
+        $success = 0;
+        $failed = 0;
+        $errors = [];
+
+        $flushBuffer = function () use (&$buffer, &$totalProcessed, &$success, &$failed, &$errors, $batchUpsert, $progressCallback) {
+            if (empty($buffer)) {
+                return;
+            }
+            $count = count($buffer);
+            try {
+                $batchUpsert($buffer);
+                $success += $count;
+            } catch (\Throwable $e) {
+                $failed += $count;
+                $errors[] = ['row' => $totalProcessed, 'error' => $e->getMessage()];
+                \Log::error("Batch import error at row {$totalProcessed}: " . $e->getMessage());
+            }
+            $buffer = [];
+            if ($progressCallback) {
+                $progressCallback($totalProcessed, 0, 0);
+            }
+        };
+
         $result = $service->import(
             $headerMap,
-            function (array $rowData) use (&$buffer, $batchUpsert) {
+            function (array $rowData) use (&$buffer, &$totalProcessed, $flushBuffer) {
+                $totalProcessed++;
                 $buffer[] = $rowData;
                 if (count($buffer) >= 500) {
-                    $batchUpsert($buffer);
-                    $buffer = [];
+                    $flushBuffer();
                 }
             },
             null
         );
 
-        if (!empty($buffer)) {
-            $batchUpsert($buffer);
-        }
+        $flushBuffer();
 
-        return $result ?? [];
+        return [
+            'success' => $success,
+            'failed' => $failed,
+            'errors' => array_merge($errors, $result['errors'] ?? []),
+            'total' => $totalProcessed,
+        ];
     }
 
     /**

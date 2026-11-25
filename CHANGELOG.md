@@ -7,12 +7,41 @@ Setiap perubahan kode/konfigurasi signifikan WAJIB dicatat di sini.
 
 ## [Unreleased] — 2026-11-25
 
+### Changed — Artefak tooling AI dikeluarkan dari repositori
+- `.gitignore`: ditambahkan `/.agents/`, `/.claude/`, `/.kiro/`, `/.screenshots/`, dan `/anti-slop/`.
+- `git rm -r --cached` pada `.agents`, `.claude`, `.kiro`, `anti-slop` (8 berkas) agar tidak lagi di-push; berkas tetap ada di disk lokal.
+- **Verifikasi:** `git check-ignore -v` mengonfirmasi kelima pola berlaku; `git ls-files` → 0 berkas terlacak untuk path tersebut.
+
 ### Fixed — `SQLSTATE[42S22] Unknown column 'id' in 'order clause'` pada Dashboard
 - **Root cause:** tabel `snapshot` tidak punya kolom `id`, tetapi tie-breaker `->orderByDesc('id')` yang ditambahkan pada optimasi kualitas sebelumnya membuat query dashboard `select * from snapshot order by periode_snapshot desc, id desc limit 8` gagal.
 - `app/Http/Controllers/DashboardController.php`: tie-breaker snapshot diganti `->orderByDesc('created_at')`.
 - `app/Models/Snapshot.php`: deklarasikan `$primaryKey = null` + `$incrementing = false` agar Eloquent tidak lagi mengasumsikan kolom `id`.
 - `app/Http/Controllers/SnapshotHistoryController.php` + `routes/web.php` + `resources/views/snapshot-history/{index,show}.blade.php`: detail snapshot (sebelumnya `findOrFail($id)` → error 1054 yang sama) kini dicari per `loan_number` dengan periode opsional — route menjadi `GET /snapshot-history/{loan_number}?periode=YYYYMM`.
 - **Verifikasi:** `php -l` bersih pada 3 berkas PHP; `php artisan route:list --name=snapshot-history` menampilkan route baru; query dashboard dijalankan ke MySQL live → 8 baris tanpa error; `README.md` (daftar route) disesuaikan.
+
+### Refactored — Audit & Optimasi Performa (skill `laravel-best-practices`)
+
+#### Fixed — N+1 pada halaman Manajemen Role
+- **`app/Http/Controllers/RoleController.php::index()`**: `with('permissions','users')` → `with('permissions')->withCount(['users','permissions'])`. Sebelumnya seluruh model `User` dihidrasi hanya untuk `count()`.
+- **`resources/views/role/index.blade.php`**: `$role->users()->count()` (query builder → mengabaikan eager load, memicu N+1 dan berpotensi melanggar `preventLazyLoading`) diganti `$role->users_count`; penghitung hak akses memakai `$role->permissions_count` dan daftar memakai koleksi `permissions` yang sudah eager-loaded.
+
+#### Changed — Export snapshot tidak lagi memuat seluruh tabel ke memori
+- **`app/Http/Controllers/SnapshotHistoryController.php`**:
+  - Filter pencarian (`search`, `office_code`, `period_from`, `period_to`) diekstrak ke `filteredQuery()` — menghapus ±30 baris duplikasi antara `index()` dan `export()`.
+  - `export()` kini `->select([...])` kolom spesifik + `->lazy(1000)` di dalam `StreamedResponse`, bukan `->get()` yang memuat seluruh baris.
+  - Tie-breaker diubah ke `->orderBy('loan_number')` (tabel `snapshot` tidak punya kolom `id`).
+
+#### Changed — List CKPN Summary tanpa N+1
+- **`app/Support/CalculationResults.php`**: tambah `summariesForPeriods(array $ids)` — agregasi `stage_classifications`, `stage_individual_ckpn`, `stage_collective_ckpn` dengan `selectRaw(... GROUP BY assessment_period_id)` + `whereIn()` → **3 query total** untuk seluruh halaman.
+- **`app/Http/Controllers/ReportingController.php::ckpnSummary()`**: sebelumnya `forPeriod()` dipanggil di dalam `map()` (≈6 query × 10 periode); kini memakai `summariesForPeriods()`. Kontrak output view tetap sama.
+
+#### Removed — Query mati di Dashboard
+- **`app/Http/Controllers/DashboardController.php`**: blok `$assessmentTrend` dihapus total — terbukti tidak dikonsumsi view mana pun dan memakai `DATE_FORMAT()` (MySQL-only, gagal di SQLite test).
+
+#### Changed — Cache hitung debitur unik
+- **`app/Http/Controllers/AssessmentPeriodController.php::show()`**: `Snapshot::distinct('loan_number')->count()` dibungkus `Cache::remember('snapshot:distinct_loan_count', 300, ...)`; import FQN inline diganti `use` statement.
+
+- **Verifikasi:** `GetDiagnostics` bersih; `php artisan test` → `2 failed, 1 skipped, 62 passed (321 assertions)`. Dua kegagalan berada di `tests/Feature/Auth/RegistrationTest.php` dan bersifat **pre-existing** — route `register` sengaja dikunci di balik `auth` + `permission:user.create` (`routes/auth.php`), tidak terkait perubahan ini.
 
 ## [Unreleased] — 2026-11-23
 

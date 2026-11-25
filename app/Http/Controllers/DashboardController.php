@@ -63,17 +63,6 @@ class DashboardController extends Controller
             ->limit(8)
             ->get();
         
-        // Assessment period distribution (last 12 months)
-        $assessmentTrend = AssessmentPeriod::select(
-            DB::raw('DATE_FORMAT(assessment_date, "%Y-%m") as period'),
-            DB::raw('count(*) as total'),
-            DB::raw('SUM(CASE WHEN status IN ("REVIEW", "APPROVED", "LOCKED") THEN 1 ELSE 0 END) as completed')
-        )
-            ->where('assessment_date', '>=', now()->subMonths(12))
-            ->groupBy('period')
-            ->orderBy('period')
-            ->get();
-        
         // Snapshot by usage type (if available)
         $classificationStats = $stats['classificationStats'];
 
@@ -87,7 +76,6 @@ class DashboardController extends Controller
             'latestAssessment',
             'recentAssessments',
             'recentSnapshots',
-            'assessmentTrend',
             'classificationStats'
         ));
     }

@@ -10,6 +10,60 @@ use Illuminate\Support\Facades\DB;
  */
 final class CalculationResults
 {
+    /**
+     * Ringkasan agregat banyak periode sekaligus (3 query total, bukan 3 per periode).
+     * Dipakai list report agar tidak N+1 saat paginate.
+     *
+     * @param  array<int, int>  $assessmentPeriodIds
+     * @return array<int, array{total_ead: float, total_count: int, total_individual_ckpn: float, total_collective_ckpn: float}>
+     */
+    public static function summariesForPeriods(array $assessmentPeriodIds): array
+    {
+        if ($assessmentPeriodIds === []) {
+            return [];
+        }
+
+        $summaries = [];
+        foreach ($assessmentPeriodIds as $id) {
+            $summaries[$id] = [
+                'total_ead' => 0.0,
+                'total_count' => 0,
+                'total_individual_ckpn' => 0.0,
+                'total_collective_ckpn' => 0.0,
+            ];
+        }
+
+        DB::table('stage_classifications')
+            ->whereIn('assessment_period_id', $assessmentPeriodIds)
+            ->groupBy('assessment_period_id')
+            ->selectRaw('assessment_period_id, COUNT(*) as total_count, COALESCE(SUM(ead_amount), 0) as total_ead')
+            ->get()
+            ->each(function ($row) use (&$summaries) {
+                $summaries[$row->assessment_period_id]['total_count'] = (int) $row->total_count;
+                $summaries[$row->assessment_period_id]['total_ead'] = (float) $row->total_ead;
+            });
+
+        DB::table('stage_individual_ckpn')
+            ->whereIn('assessment_period_id', $assessmentPeriodIds)
+            ->groupBy('assessment_period_id')
+            ->selectRaw('assessment_period_id, COALESCE(SUM(ckpn_individual), 0) as total')
+            ->get()
+            ->each(function ($row) use (&$summaries) {
+                $summaries[$row->assessment_period_id]['total_individual_ckpn'] = (float) $row->total;
+            });
+
+        DB::table('stage_collective_ckpn')
+            ->whereIn('assessment_period_id', $assessmentPeriodIds)
+            ->groupBy('assessment_period_id')
+            ->selectRaw('assessment_period_id, COALESCE(SUM(ckpn_kolektif), 0) as total')
+            ->get()
+            ->each(function ($row) use (&$summaries) {
+                $summaries[$row->assessment_period_id]['total_collective_ckpn'] = (float) $row->total;
+            });
+
+        return $summaries;
+    }
+
     public static function forPeriod(int $assessmentPeriodId): array
     {
         $collective = DB::table('stage_collective_ckpn')

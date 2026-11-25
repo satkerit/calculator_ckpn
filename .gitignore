@@ -1,5 +1,10 @@
 *.log
 .DS_Store
+/.agents/
+/.claude/
+/.kiro/
+/.screenshots/
+/anti-slop/
 .env
 .env.backup
 .env.production

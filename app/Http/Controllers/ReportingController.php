@@ -15,16 +15,18 @@ class ReportingController extends Controller
             ->latest('assessment_date')
             ->paginate(10);
 
-        $reports = $assessments->map(function ($assessment) {
-            $cached = CalculationResults::forPeriod($assessment->id);
-            $individualCkpn = $cached['individual_ckpn']['total_ckpn_individual'] ?? 0;
-            $collectiveCkpn = $cached['collective_ckpn']['total_ckpn_collective'] ?? 0;
-            $totalEad = $cached['ead']['total_ead'] ?? 0;
+        $summaries = CalculationResults::summariesForPeriods($assessments->pluck('id')->all());
+
+        $reports = $assessments->map(function ($assessment) use ($summaries) {
+            $row = $summaries[$assessment->id];
+            $individualCkpn = $row['total_individual_ckpn'];
+            $collectiveCkpn = $row['total_collective_ckpn'];
+            $totalEad = $row['total_ead'];
 
             return [
                 'assessment' => $assessment,
                 'ead' => $totalEad,
-                'individual_count' => $cached['ead']['total_count'] ?? 0,
+                'individual_count' => $row['total_count'],
                 'individual_ckpn' => $individualCkpn,
                 'collective_ckpn' => $collectiveCkpn,
                 'total_ckpn' => $individualCkpn + $collectiveCkpn,

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\AssessmentPeriod;
+use App\Models\Snapshot;
 use App\Http\Requests\StoreAssessmentPeriodRequest;
 use App\Http\Requests\UpdateAssessmentPeriodRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 
@@ -42,7 +44,11 @@ class AssessmentPeriodController extends Controller
 
     public function show(AssessmentPeriod $assessment): View
     {
-        $loanCount = \App\Models\Snapshot::distinct('loan_number')->count('loan_number');
+        // Count debitur unik dari snapshot; di-cache karena query distinct berat dan jarang berubah.
+        $loanCount = Cache::remember('snapshot:distinct_loan_count', 300, function () {
+            return Snapshot::distinct('loan_number')->count('loan_number');
+        });
+
         return view('assessment.show', ['assessmentPeriod' => $assessment, 'financingCount' => $loanCount, 'loanCount' => $loanCount]);
     }
 

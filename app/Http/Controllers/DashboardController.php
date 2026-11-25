@@ -8,24 +8,38 @@ use App\Models\User;
 use App\Support\CalculationResults;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
     public function index(): View
     {
-        // Basic counts
-        $assessmentCount = AssessmentPeriod::count();
-        $snapshotCount = Snapshot::distinct('loan_number')->count('loan_number');
-        $userCount = User::count();
-        
-        // Assessment status breakdown
-        $assessmentByStatus = AssessmentPeriod::select('status', DB::raw('count(*) as total'))
-            ->groupBy('status')
-            ->get()
-            ->keyBy('status');
-        
-        // Total EAD (from cache or latest calculation)
+        // Cached stats (30s TTL) — heavy count queries yang jarang berubah
+        $stats = Cache::remember('dashboard:stats', 30, function () {
+            $snapshotCount = Snapshot::distinct('loan_number')->count('loan_number');
+
+            return [
+                'assessmentCount' => AssessmentPeriod::count(),
+                'snapshotCount' => $snapshotCount,
+                'userCount' => User::count(),
+                'assessmentByStatus' => AssessmentPeriod::select('status', DB::raw('count(*) as total'))
+                    ->groupBy('status')
+                    ->get()
+                    ->keyBy('status'),
+                'classificationStats' => [
+                    'with_usage_type' => Snapshot::whereNotNull('usage_type')->distinct('loan_number')->count('loan_number'),
+                    'total' => $snapshotCount,
+                ],
+            ];
+        });
+
+        $assessmentCount = $stats['assessmentCount'];
+        $snapshotCount = $stats['snapshotCount'];
+        $userCount = $stats['userCount'];
+        $assessmentByStatus = $stats['assessmentByStatus'];
+
+        // Data yang sering berubah tetap fresh (tidak di-cache)
         $latestAssessment = AssessmentPeriod::whereIn('status', ['REVIEW', 'APPROVED', 'LOCKED'])
             ->latest('assessment_date')
             ->first();
@@ -41,9 +55,11 @@ class DashboardController extends Controller
         }
         
         // Recent data
-        $recentAssessments = AssessmentPeriod::latest()->limit(5)->get();
+        $recentAssessments = AssessmentPeriod::latest()->orderByDesc('id')->limit(5)->get();
+        // Tabel `snapshot` tidak punya kolom `id` — tie-breaker pakai `created_at`.
         $recentSnapshots = Snapshot::with('office:office_code,office_name')
             ->orderByDesc('periode_snapshot')
+            ->orderByDesc('created_at')
             ->limit(8)
             ->get();
         
@@ -59,10 +75,7 @@ class DashboardController extends Controller
             ->get();
         
         // Snapshot by usage type (if available)
-        $classificationStats = [
-            'with_usage_type' => Snapshot::whereNotNull('usage_type')->distinct('loan_number')->count('loan_number'),
-            'total' => $snapshotCount,
-        ];
+        $classificationStats = $stats['classificationStats'];
 
         return view('dashboard.index', compact(
             'assessmentCount',

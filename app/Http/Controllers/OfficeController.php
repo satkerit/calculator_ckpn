@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Office;
+use App\Http\Requests\StoreOfficeRequest;
+use App\Http\Requests\UpdateOfficeRequest;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -20,16 +22,9 @@ class OfficeController extends Controller
         return view('office.create');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreOfficeRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'office_code' => 'required|string|max:50|unique:offices',
-            'office_name' => 'required|string|max:255',
-            'office_type' => 'required|in:PUSAT,CABANG,UNIT',
-            'province' => 'required|string|max:100',
-            'city' => 'required|string|max:100',
-            'active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         Office::create($validated + ['active' => $request->boolean('active', true)]);
 
@@ -46,16 +41,9 @@ class OfficeController extends Controller
         return view('office.edit', compact('office'));
     }
 
-    public function update(Request $request, Office $office): RedirectResponse
+    public function update(UpdateOfficeRequest $request, Office $office): RedirectResponse
     {
-        $validated = $request->validate([
-            'office_code' => 'required|string|max:50|unique:offices,office_code,' . $office->id,
-            'office_name' => 'required|string|max:255',
-            'office_type' => 'required|in:PUSAT,CABANG,UNIT',
-            'province' => 'required|string|max:100',
-            'city' => 'required|string|max:100',
-            'active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $office->update($validated + ['active' => $request->boolean('active', $office->active)]);
 

@@ -154,12 +154,18 @@ class PdNetflowService
                 $periods[$periodeKey] = $row->compound_pd;
             }
 
+            $nonZeroPeriods = array_filter($periods, fn($p) => $p > 0);
+            $pdRate = !empty($nonZeroPeriods)
+                ? min(1.0, array_sum($nonZeroPeriods) / count($nonZeroPeriods))
+                : 0.0;
+
             $result[$sourceBucket] = [
                 'source_bucket' => $sourceBucket,
                 'label' => $this->getBucketLabel($sourceBucket),
                 'periods' => $periods,
-                // Kolom terakhir: PD Rate per bucket = MIN(100%, AVERAGE PD compound semua periode).
-                'pd_rate' => !empty($periods) ? min(1.0, array_sum($periods) / count($periods)) : 0.0,
+                // Kolom terakhir: PD Rate per bucket = MIN(100%, AVERAGEIF(compound PD semua periode, ">0")).
+                // Nilai 0 tidak ikut dihitung rata-rata (hanya periode dengan flow nyata ke loss).
+                'pd_rate' => $pdRate,
             ];
         }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BucketDefinition;
+use App\Http\Requests\StoreBucketDefinitionRequest;
 use Illuminate\Http\Request;
 
 class BucketConfigurationController extends Controller
@@ -28,9 +29,9 @@ class BucketConfigurationController extends Controller
         return view('bucket.create', compact('bucket', 'nextUrutan'));
     }
 
-    public function store(Request $request)
+    public function store(StoreBucketDefinitionRequest $request)
     {
-        $validated = $this->validateBucket($request);
+        $validated = $request->validated();
 
         BucketDefinition::create($validated + ['active' => true]);
 
@@ -42,9 +43,9 @@ class BucketConfigurationController extends Controller
         return view('bucket.edit', ['bucket' => $bucket, 'nextUrutan' => null]);
     }
 
-    public function update(Request $request, BucketDefinition $bucket)
+    public function update(StoreBucketDefinitionRequest $request, BucketDefinition $bucket)
     {
-        $validated = $this->validateBucket($request, $bucket->id);
+        $validated = $request->validated();
 
         $bucket->update($validated);
 

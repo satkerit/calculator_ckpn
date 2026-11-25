@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Collateral;
 use App\Models\CollateralSetup;
+use App\Http\Requests\StoreCollateralRequest;
+use App\Http\Requests\UpdateCollateralRequest;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -33,18 +35,9 @@ class CollateralController extends Controller
         return view('collateral.create', compact('setups'));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreCollateralRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'loan_number' => 'required|string|exists:snapshot,loan_number',
-            'collateral_code' => 'nullable|string|max:50',
-            'collateral_order' => 'required|integer|min:1',
-            'collateral_type' => 'required|string|exists:collateral_setup,collateral_type',
-            'liquidity_value' => 'nullable|numeric|min:0',
-            'estimated_value' => 'nullable|numeric|min:0',
-            'valuation_date' => 'nullable|date',
-            'active_flag' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         Collateral::create([
             'loan_number' => $validated['loan_number'],
@@ -72,17 +65,9 @@ class CollateralController extends Controller
         return view('collateral.edit', compact('collateral', 'setups'));
     }
 
-    public function update(Request $request, Collateral $collateral): RedirectResponse
+    public function update(UpdateCollateralRequest $request, Collateral $collateral): RedirectResponse
     {
-        $validated = $request->validate([
-            'collateral_code' => 'nullable|string|max:50',
-            'collateral_order' => 'required|integer|min:1',
-            'collateral_type' => 'required|string|exists:collateral_setup,collateral_type',
-            'liquidity_value' => 'nullable|numeric|min:0',
-            'estimated_value' => 'nullable|numeric|min:0',
-            'valuation_date' => 'nullable|date',
-            'active_flag' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $collateral->update([
             'collateral_code' => $validated['collateral_code'] ?? null,

@@ -19,6 +19,10 @@ use Illuminate\View\View;
  */
 class ClassificationController extends BaseCalculationController
 {
+    public function __construct(
+        private BucketAssignmentService $bucketService
+    ) {}
+
     public function index(Request $request): View
     {
         $period         = $this->resolvePeriod($request);
@@ -53,8 +57,7 @@ class ClassificationController extends BaseCalculationController
         return $this->withRunLock($period->id, function () use ($request, $period, $config, $dims, $topN, $nplRatings, $includeKol5, $periodeYm, $token) {
             // 0) Assign bucket_no ke snapshot untuk persiapan PD Net Flow
             $this->pushProgress($token, 'Menetapkan bucket tunggakan seluruh snapshot…', 5, 'Assign Bucket');
-            $bucketService = app(BucketAssignmentService::class);
-            $bucketsAssigned = $bucketService->assignBucketsForPeriodFast($periodeYm);
+            $bucketsAssigned = $this->bucketService->assignBucketsForPeriodFast($periodeYm);
 
             // Lazy load: cursor() agar snapshot besar tidak dimuat sekaligus ke memori.
             $snapshotQuery = Snapshot::where('periode_snapshot', $periodeYm)

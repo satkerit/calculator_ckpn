@@ -243,7 +243,7 @@ class ModularCalculationTest extends TestCase
      */
     public function testNplTopNSelectionIsRankedByOutstandingDesc(): void
     {
-        $ctrl = new class extends \App\Http\Controllers\Calculation\ClassificationController {
+        $ctrl = new class(app(\App\Services\Bucket\BucketAssignmentService::class)) extends \App\Http\Controllers\Calculation\ClassificationController {
             /** @param array<int, array<string, mixed>> $rows */
             public function selectTop(array $rows, int $topN, array $nplRatings): array
             {

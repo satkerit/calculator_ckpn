@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\AkadType;
 use App\Services\SpoutImportService;
+use App\Http\Requests\StoreAkadTypeRequest;
+use App\Http\Requests\UpdateAkadTypeRequest;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -22,16 +24,9 @@ class AkadTypeController extends Controller
         return view('akad-type.create');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreAkadTypeRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'kode_akad' => 'required|string|max:50|unique:akad_types',
-            'nama_akad' => 'required|string|max:255',
-            'kategori' => 'required|in:jual_beli,bagi_hasil,sewa,pinjaman',
-            'ead_rule_type' => 'required|in:outstanding_balance,principal_arrears_conditional,zero_if_not_expired',
-            'requires_due_date' => 'boolean',
-            'active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         AkadType::create($validated + [
             'requires_due_date' => $request->boolean('requires_due_date', false),
@@ -51,16 +46,9 @@ class AkadTypeController extends Controller
         return view('akad-type.edit', compact('akadType'));
     }
 
-    public function update(Request $request, AkadType $akadType): RedirectResponse
+    public function update(UpdateAkadTypeRequest $request, AkadType $akadType): RedirectResponse
     {
-        $validated = $request->validate([
-            'kode_akad' => 'required|string|max:50|unique:akad_types,kode_akad,' . $akadType->id,
-            'nama_akad' => 'required|string|max:255',
-            'kategori' => 'required|in:jual_beli,bagi_hasil,sewa,pinjaman',
-            'ead_rule_type' => 'required|in:outstanding_balance,principal_arrears_conditional,zero_if_not_expired',
-            'requires_due_date' => 'boolean',
-            'active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $akadType->update($validated + [
             'requires_due_date' => $request->boolean('requires_due_date', $akadType->requires_due_date),

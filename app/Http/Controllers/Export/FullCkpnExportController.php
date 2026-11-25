@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Export;
 use App\Http\Controllers\Calculation\BaseCalculationController;
 use App\Models\AssessmentPeriod;
 use App\Services\Bucket\BucketAssignmentService;
+use App\Services\PdNetflow\PdNetflowCalculator;
+use App\Services\PdNetflow\PdNetflowService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -47,8 +49,10 @@ class FullCkpnExportController extends BaseCalculationController
     private Style $styleKpiCard;
     private Style $styleKpiVal;
 
-    public function __construct()
-    {
+    public function __construct(
+        private PdNetflowService $pdNetflowService,
+        private PdNetflowCalculator $pdNetflowCalculator
+    ) {
         $this->initStyles();
     }
 
@@ -477,10 +481,8 @@ class FullCkpnExportController extends BaseCalculationController
             return;
         }
 
-        /** @var \App\Services\PdNetflow\PdNetflowService $service */
-        $service = app(\App\Services\PdNetflow\PdNetflowService::class);
-        /** @var \App\Services\PdNetflow\PdNetflowCalculator $calculator */
-        $calculator = app(\App\Services\PdNetflow\PdNetflowCalculator::class);
+        $service = $this->pdNetflowService;
+        $calculator = $this->pdNetflowCalculator;
 
         foreach ($pdRows as $gk => $res) {
             $hasData = DB::table('pd_netflow_bucket_snapshots')

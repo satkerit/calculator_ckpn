@@ -12,6 +12,15 @@ class Snapshot extends Model
 
     protected $table = 'snapshot';
 
+    /**
+     * Tabel `snapshot` tidak memiliki kolom `id`. Identitas baris adalah
+     * pasangan (loan_number, periode_snapshot), jadi Eloquent tidak boleh
+     * mengasumsikan primary key `id` (mis. pada orderBy/find).
+     */
+    protected $primaryKey = null;
+
+    public $incrementing = false;
+
     protected $fillable = [
         'loan_number',
         'product_code',
@@ -47,5 +56,10 @@ class Snapshot extends Model
     public function office(): BelongsTo
     {
         return $this->belongsTo(Office::class, 'office_code', 'office_code');
+    }
+
+    public function financing(): BelongsTo
+    {
+        return $this->belongsTo(Financing::class, 'loan_number', 'loan_number');
     }
 }

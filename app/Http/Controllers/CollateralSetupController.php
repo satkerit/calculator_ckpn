@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\CollateralSetup;
+use App\Http\Requests\StoreCollateralSetupRequest;
+use App\Http\Requests\UpdateCollateralSetupRequest;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -20,13 +22,9 @@ class CollateralSetupController extends Controller
         return view('collateral-setup.create');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreCollateralSetupRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'collateral_type' => 'required|string|max:100|unique:collateral_setup,collateral_type',
-            'collateral_ket' => 'required|string|max:255',
-            'active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         CollateralSetup::create([
             'collateral_type' => $validated['collateral_type'],
@@ -47,12 +45,9 @@ class CollateralSetupController extends Controller
         return view('collateral-setup.edit', ['collateral' => $collateralSetup]);
     }
 
-    public function update(Request $request, CollateralSetup $collateralSetup): RedirectResponse
+    public function update(UpdateCollateralSetupRequest $request, CollateralSetup $collateralSetup): RedirectResponse
     {
-        $validated = $request->validate([
-            'collateral_ket' => 'required|string|max:255',
-            'active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $collateralSetup->update([
             'collateral_ket' => $validated['collateral_ket'],

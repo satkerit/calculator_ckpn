@@ -124,7 +124,7 @@ class PdNetflowTableRulesTest extends TestCase
     public function testProjectionUsesRollingAverageOfPreviousSixMonths(): void
     {
         $period = $this->createPeriod();
-        $calculator = new PdNetflowCalculator();
+        $calculator = app(PdNetflowCalculator::class);
         $groupKey = '010|MURABAHAH|MODAL_KERJA';
 
         // Data historis Tabel 1: 2026-02 s/d 2026-08.

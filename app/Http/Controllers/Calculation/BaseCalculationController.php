@@ -135,7 +135,9 @@ abstract class BaseCalculationController extends Controller
 
         // Hanya tampilkan periode terakhir; JANGAN auto-create dummy pada GET
         // (sebelumnya membuat baris 'DEFAULT' diam-diam hanya dari membuka halaman).
-        $period = AssessmentPeriod::orderByDesc('assessment_date')->first();
+        $period = AssessmentPeriod::orderByDesc('assessment_date')
+            ->orderByDesc('id')
+            ->first();
 
         abort_if($period === null, 422, 'Belum ada periode assessment. Buat periode terlebih dahulu.');
 

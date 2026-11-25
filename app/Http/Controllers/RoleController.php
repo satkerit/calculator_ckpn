@@ -4,15 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\Role;
 use App\Models\Permission;
+use App\Http\Requests\StoreRoleRequest;
+use App\Http\Requests\UpdateRoleRequest;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 
 class RoleController extends Controller
 {
     public function index(): View
     {
-        $roles = Role::with('permissions', 'users')->get();
+        $roles = Role::with('permissions')->withCount(['users', 'permissions'])->get();
         return view('role.index', compact('roles'));
     }
 
@@ -22,16 +25,9 @@ class RoleController extends Controller
         return view('role.form', compact('permissions'));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreRoleRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'kode_role' => 'required|string|unique:roles,kode_role|max:50',
-            'nama_role' => 'required|string|max:100',
-            'deskripsi' => 'nullable|string|max:500',
-            'active' => 'boolean',
-            'permissions' => 'array',
-            'permissions.*' => 'integer|exists:permissions,id',
-        ]);
+        $validated = $request->validated();
 
         $role = Role::create([
             'kode_role' => strtoupper($validated['kode_role']),
@@ -53,16 +49,9 @@ class RoleController extends Controller
         return view('role.form', compact('role', 'permissions'));
     }
 
-    public function update(Request $request, Role $role): RedirectResponse
+    public function update(UpdateRoleRequest $request, Role $role): RedirectResponse
     {
-        $validated = $request->validate([
-            'kode_role' => 'required|string|unique:roles,kode_role,' . $role->id . '|max:50',
-            'nama_role' => 'required|string|max:100',
-            'deskripsi' => 'nullable|string|max:500',
-            'active' => 'boolean',
-            'permissions' => 'array',
-            'permissions.*' => 'integer|exists:permissions,id',
-        ]);
+        $validated = $request->validated();
 
         $role->update([
             'kode_role' => strtoupper($validated['kode_role']),
@@ -83,8 +72,11 @@ class RoleController extends Controller
         }
 
         $roleName = $role->nama_role;
-        $role->permissions()->detach();
-        $role->delete();
+
+        DB::transaction(function () use ($role) {
+            $role->permissions()->detach();
+            $role->delete();
+        });
 
         return redirect()->route('role.index')->with('success', "Role '{$roleName}' berhasil dihapus.");
     }
@@ -104,7 +96,15 @@ class RoleController extends Controller
             return redirect()->route('role.index')->with('error', "Role berikut masih digunakan: {$names}");
         }
 
-        $count = Role::whereIn('id', $validated['ids'])->delete();
+        DB::transaction(function () use ($validated) {
+            $roles = Role::whereIn('id', $validated['ids'])->get();
+            foreach ($roles as $role) {
+                $role->permissions()->detach();
+            }
+            Role::whereIn('id', $validated['ids'])->delete();
+        });
+
+        $count = count($validated['ids']);
 
         return redirect()->route('role.index')->with('success', "{$count} role berhasil dihapus.");
     }

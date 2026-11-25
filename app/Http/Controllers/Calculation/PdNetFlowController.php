@@ -21,6 +21,11 @@ use Illuminate\View\View;
  */
 class PdNetFlowController extends BaseCalculationController
 {
+    public function __construct(
+        private PdNetflowCalculator $calculator,
+        private PdNetflowService $service
+    ) {}
+
     public function index(Request $request): View
     {
         $period = $this->resolvePeriod($request);
@@ -55,8 +60,8 @@ class PdNetFlowController extends BaseCalculationController
             $this->cleanStage($period->id, ['stage_pd_results', 'stage_segmented_snapshots', 'stage_historical_buckets', 'stage_migration_rates', 'stage_compound_flow']);
 
             // 1) Panggil PdNetflowCalculator untuk menghitung 3 tabel (Bucket Snapshots, Transitions, Compound Flow)
-            $calculator = app(PdNetflowCalculator::class);
-            $service = app(PdNetflowService::class);
+            $calculator = $this->calculator;
+            $service = $this->service;
 
             // Fase tulis atomik: kalkulasi service (menulis ke DB) + penulisan stage_pd_results
             // dalam satu transaksi — bila gagal di tengah tidak ada stage parsial.

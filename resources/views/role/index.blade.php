@@ -41,7 +41,7 @@
     @forelse($roles as $role)
         <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
             <div class="flex items-start justify-between mb-4">
-                @if($role->users()->count() === 0)
+                @if($role->users_count === 0)
                     <input type="checkbox" aria-label="Pilih baris ini" class="row-checkbox mt-1" value="{{ $role->id }}" onchange="updateBulkActionsBar()">
                 @else
                     <div class="w-4"></div>
@@ -60,15 +60,15 @@
             @endif
 
             <div class="mb-4">
-                <p class="text-xs font-semibold text-gray-700 uppercase mb-2">Hak Akses ({{ $role->permissions()->count() }})</p>
+                <p class="text-xs font-semibold text-gray-700 uppercase mb-2">Hak Akses ({{ $role->permissions_count }})</p>
                 <div class="flex flex-wrap gap-1">
-                    @forelse($role->permissions()->limit(5)->get() as $perm)
+                    @forelse($role->permissions->take(5) as $perm)
                         <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ $perm->display_name }}</span>
                     @empty
                         <span class="text-xs text-gray-500">Tidak ada permission</span>
                     @endforelse
-                    @if($role->permissions()->count() > 5)
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">+{{ $role->permissions()->count() - 5 }} lainnya</span>
+                    @if($role->permissions_count > 5)
+                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">+{{ $role->permissions_count - 5 }} lainnya</span>
                     @endif
                 </div>
             </div>

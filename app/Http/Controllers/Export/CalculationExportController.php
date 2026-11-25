@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Export;
 use App\Http\Controllers\Calculation\BaseCalculationController;
 use App\Models\AssessmentPeriod;
 use App\Services\Bucket\BucketAssignmentService;
+use App\Services\PdNetflow\PdNetflowCalculator;
+use App\Services\PdNetflow\PdNetflowService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -22,6 +24,11 @@ use OpenSpout\Writer\XLSX\Writer;
  */
 class CalculationExportController extends BaseCalculationController
 {
+    public function __construct(
+        private PdNetflowService $pdNetflowService,
+        private PdNetflowCalculator $pdNetflowCalculator
+    ) {}
+
     public const MODULES = [
         'config'           => ['sheet' => '01_Konfigurasi_CKPN',      'table' => 'stage_configs'],
         'classification'    => ['sheet' => '02_Klasifikasi_Segmentasi','table' => 'stage_classifications'],
@@ -246,10 +253,8 @@ class CalculationExportController extends BaseCalculationController
             $pdRows = $pdRows->only([$groupKeyFilter]);
         }
 
-        /** @var \App\Services\PdNetflow\PdNetflowService $service */
-        $service = app(\App\Services\PdNetflow\PdNetflowService::class);
-        /** @var \App\Services\PdNetflow\PdNetflowCalculator $calculator */
-        $calculator = app(\App\Services\PdNetflow\PdNetflowCalculator::class);
+        $service = $this->pdNetflowService;
+        $calculator = $this->pdNetflowCalculator;
 
         $writer = $this->makeWriter();
 

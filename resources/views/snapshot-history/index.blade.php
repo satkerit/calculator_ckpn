@@ -86,9 +86,7 @@
                             <td class="px-6 py-4 text-sm text-gray-600">{{ $snapshot->periode_snapshot }}</td>
                             <td class="px-6 py-4 text-sm text-gray-600">{{ $snapshot->created_at->format('d M Y H:i') }}</td>
                             <td class="px-6 py-4 text-sm space-x-1">
-                                @if($snapshot->id)
-                                    <a href="{{ route('snapshot-history.show', $snapshot->id) }}" class="text-blue-600 hover:text-blue-900 font-medium">Lihat</a>
-                                @endif
+                                <a href="{{ route('snapshot-history.show', ['loan_number' => $snapshot->loan_number, 'periode' => $snapshot->periode_snapshot]) }}" class="text-blue-600 hover:text-blue-900 font-medium">Lihat</a>
                             </td>
                         </tr>
                     @endforeach

@@ -66,12 +66,6 @@
     <div class="bg-white rounded-lg shadow-md p-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">Detail Tambahan</h2>
         <div class="space-y-3">
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p class="text-sm text-gray-700">
-                    <span class="font-medium">ID:</span>
-                    <span class="font-mono text-gray-900">{{ $snapshot->id }}</span>
-                </p>
-            </div>
             <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <p class="text-sm text-gray-700">
                     <span class="font-medium">Total Eksposur:</span>

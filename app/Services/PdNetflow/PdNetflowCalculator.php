@@ -8,6 +8,10 @@ use Carbon\Carbon;
 
 class PdNetflowCalculator
 {
+    public function __construct(
+        private BucketAssignmentService $bucketService
+    ) {}
+
     private const ROLLING_AVG_MONTHS = 6;
     private const DEFAULT_PROJECTION_MONTHS = 12;
 
@@ -172,11 +176,10 @@ class PdNetflowCalculator
             return 0;
         }
 
-        $bucketService = app(BucketAssignmentService::class);
         $totalUpdated = 0;
 
         foreach ($periods as $periodeYm) {
-            $updated = $bucketService->assignBucketsForPeriodFast($periodeYm);
+            $updated = $this->bucketService->assignBucketsForPeriodFast($periodeYm);
             $totalUpdated += $updated;
         }
 

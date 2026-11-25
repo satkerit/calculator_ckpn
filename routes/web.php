@@ -66,7 +66,7 @@ Route::middleware(['auth'])->group(function () {
     // Snapshot History
     Route::get('/snapshot-history', [SnapshotHistoryController::class, 'index'])
         ->middleware('permission:financing.view')->name('snapshot-history.index');
-    Route::get('/snapshot-history/{id}', [SnapshotHistoryController::class, 'show'])
+    Route::get('/snapshot-history/{loan_number}', [SnapshotHistoryController::class, 'show'])
         ->middleware('permission:financing.view')->name('snapshot-history.show');
     Route::post('/snapshot-history/export', [SnapshotHistoryController::class, 'export'])
         ->middleware('permission:reporting.export')->name('snapshot-history.export');

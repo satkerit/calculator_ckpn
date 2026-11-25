@@ -253,7 +253,7 @@ GET  /api/product-akad/resolve   → resolve mapping product → akad (JSON)
 ### Snapshot History
 ```
 GET  /snapshot-history                   → list riwayat snapshot
-GET  /snapshot-history/{id}              → detail snapshot
+GET  /snapshot-history/{loan_number}     → detail snapshot (opsional ?periode=YYYYMM)
 POST /snapshot-history/export             → export Excel
 ```
 

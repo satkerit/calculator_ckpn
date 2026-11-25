@@ -44,9 +44,18 @@ class SnapshotHistoryController extends Controller
         return view('snapshot-history.index', compact('snapshots', 'offices'));
     }
 
-    public function show(string $id): View
+    /**
+     * Detail snapshot dicari per loan_number + periode (tabel tanpa kolom `id`).
+     */
+    public function show(Request $request, string $loanNumber): View
     {
-        $snapshot = Snapshot::findOrFail($id);
+        $periode = preg_replace('/[^\d]/', '', (string) $request->query('periode', ''));
+
+        $snapshot = Snapshot::where('loan_number', $loanNumber)
+            ->when($periode !== '', fn ($query) => $query->where('periode_snapshot', $periode))
+            ->orderByDesc('periode_snapshot')
+            ->firstOrFail();
+
         return view('snapshot-history.show', compact('snapshot'));
     }
 

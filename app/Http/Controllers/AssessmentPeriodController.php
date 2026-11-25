@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\AssessmentPeriod;
+use App\Http\Requests\StoreAssessmentPeriodRequest;
+use App\Http\Requests\UpdateAssessmentPeriodRequest;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -20,14 +22,9 @@ class AssessmentPeriodController extends Controller
         return view('assessment.create');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreAssessmentPeriodRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'period_name' => 'required|string|max:255',
-            'fiscal_month' => 'required|numeric|min:1|max:12',
-            'fiscal_year' => 'required|numeric|min:2000',
-            'assessment_date' => 'required|date',
-        ]);
+        $validated = $request->validated();
 
         $periodCode = strtoupper(sprintf('P%d%02d%s', $validated['fiscal_year'], $validated['fiscal_month'], substr(md5(microtime(true)), 0, 4)));
         
@@ -54,14 +51,9 @@ class AssessmentPeriodController extends Controller
         return view('assessment.edit', ['assessmentPeriod' => $assessment]);
     }
 
-    public function update(Request $request, AssessmentPeriod $assessment): RedirectResponse
+    public function update(UpdateAssessmentPeriodRequest $request, AssessmentPeriod $assessment): RedirectResponse
     {
-        $validated = $request->validate([
-            'period_name' => 'required|string|max:255',
-            'fiscal_month' => 'required|numeric|min:1|max:12',
-            'fiscal_year' => 'required|numeric|min:2000',
-            'assessment_date' => 'required|date',
-        ]);
+        $validated = $request->validated();
 
         $assessment->update($validated);
 

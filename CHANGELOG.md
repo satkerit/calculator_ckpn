@@ -5,7 +5,34 @@ Setiap perubahan kode/konfigurasi signifikan WAJIB dicatat di sini.
 
 ---
 
+## [Unreleased] — 2026-11-25
+
+### Fixed — `SQLSTATE[42S22] Unknown column 'id' in 'order clause'` pada Dashboard
+- **Root cause:** tabel `snapshot` tidak punya kolom `id`, tetapi tie-breaker `->orderByDesc('id')` yang ditambahkan pada optimasi kualitas sebelumnya membuat query dashboard `select * from snapshot order by periode_snapshot desc, id desc limit 8` gagal.
+- `app/Http/Controllers/DashboardController.php`: tie-breaker snapshot diganti `->orderByDesc('created_at')`.
+- `app/Models/Snapshot.php`: deklarasikan `$primaryKey = null` + `$incrementing = false` agar Eloquent tidak lagi mengasumsikan kolom `id`.
+- `app/Http/Controllers/SnapshotHistoryController.php` + `routes/web.php` + `resources/views/snapshot-history/{index,show}.blade.php`: detail snapshot (sebelumnya `findOrFail($id)` → error 1054 yang sama) kini dicari per `loan_number` dengan periode opsional — route menjadi `GET /snapshot-history/{loan_number}?periode=YYYYMM`.
+- **Verifikasi:** `php -l` bersih pada 3 berkas PHP; `php artisan route:list --name=snapshot-history` menampilkan route baru; query dashboard dijalankan ke MySQL live → 8 baris tanpa error; `README.md` (daftar route) disesuaikan.
+
 ## [Unreleased] — 2026-11-23
+
+### Laravel Quality Optimization — 10 Requirements Implemented
+
+#### Fixed — Data Integrity
+- **RoleController::destroy()**: wrapped detach+delete in `DB::transaction()` for atomicity
+- **RoleController::bulkDestroy()**: added pivot detach before bulk delete in `DB::transaction()`
+
+#### Added — Best Practices
+- **Eloquent relationship return types**: added `: BelongsTo`/`: HasMany` to 5 model relationships (User, Role, AkadType, ProductAkadMapping)
+- **Model::preventLazyLoading()**: activated in `AppServiceProvider::boot()` for non-production environments
+- **Dependency injection**: replaced 6 `app()` helper calls with constructor/method injection across ClassificationController, PdNetFlowController, CalculationExportController, FullCkpnExportController, PdNetflowCalculator
+- **Form Request classes**: created 15 Form Request classes, updated 8 controllers to use type-hinted Form Requests instead of inline `$request->validate()`
+
+#### Improved — Performance & Consistency
+- **Sort tie-breakers**: added `->orderByDesc('id')` to 3 queries in DashboardController and BaseCalculationController
+- **Dashboard query deduplication**: consolidated duplicate count query
+- **Financing model**: created `app/Models/Financing.php` with `snapshots()`, `collaterals()`, `office()` relationships; added `Snapshot::financing()` relationship
+- **Dashboard caching**: wrapped 5 count queries in `Cache::remember('dashboard:stats', 30, ...)`; created `AssessmentPeriodObserver` for cache invalidation
 
 ### Fixed — EAD Rule per Akad pada PD Netflow (Kolektif & Individual)
 - **Root cause:** `aggregateSnapshots()` selalu sum `outstanding_balance` tanpa mempertimbangkan EAD rule per `financing_contract_code`. Akad `10` (IMBT) dan `03` (Musyarakah) memiliki EAD rule berbeda.

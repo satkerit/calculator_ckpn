@@ -30,17 +30,18 @@ class Role extends Model
         return (bool) array_intersect($permissionNames, $this->permissionNames());
     }
 
-    /** Sekali query per role per request; dipakai middleware CheckPermission. */
+    /** Cache nama permission per instance (bukan static) agar tidak bocor antar request. */
+    private ?array $permissionNameCache = null;
+
+    /** Sekali query per role instance; dipakai middleware CheckPermission. */
     private function permissionNames(): array
     {
-        static $cache = [];
-
-        $key = $this->getKey();
-
-        if (! isset($cache[$key])) {
-            $cache[$key] = $this->permissions()->pluck('name')->all();
+        if ($this->permissionNameCache !== null) {
+            return $this->permissionNameCache;
         }
 
-        return $cache[$key];
+        return $this->permissionNameCache = $this->relationLoaded('permissions')
+            ? $this->permissions->pluck('name')->all()
+            : $this->permissions()->pluck('name')->all();
     }
 }

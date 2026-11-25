@@ -26,12 +26,14 @@ class LgdWeightedController extends BaseCalculationController
 
         // Load hasil LGD ER per group
         $erResults = DB::table('stage_lgd_results')
+            ->select(['group_key', 'total_write_off', 'total_recovery', 'total_shortfall', 'total_exposure_wo'])
             ->where('assessment_period_id', $periodId)
             ->where('method', 'ER')
             ->get();
 
         // Load hasil LGD CS per group
         $csResults = DB::table('stage_lgd_results')
+            ->select(['group_key', 'total_write_off', 'total_recovery', 'total_shortfall', 'total_exposure_wo'])
             ->where('assessment_period_id', $periodId)
             ->where('method', 'CS')
             ->get();

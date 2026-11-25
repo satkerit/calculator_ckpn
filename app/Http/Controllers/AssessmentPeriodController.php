@@ -33,7 +33,7 @@ class AssessmentPeriodController extends Controller
         AssessmentPeriod::updateOrCreate(
             ['period_code' => $periodCode],
             $validated + [
-                'status' => 'DRAFT',
+                'status' => AssessmentPeriod::STATUS_DRAFT,
                 'period_code' => $periodCode,
                 'created_by' => auth()->id()
             ]

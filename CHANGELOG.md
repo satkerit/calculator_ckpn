@@ -5,6 +5,32 @@ Setiap perubahan kode/konfigurasi signifikan WAJIB dicatat di sini.
 
 ---
 
+## [Unreleased] — 2026-11-26
+
+### Fixed — Cache `static` bocor di `Role::permissionNames()` (menyebabkan 403 palsu)
+- **`app/Models/Role.php`**: cache nama permission dipindah dari `static $cache` di dalam method ke **instance property** `private ?array $permissionNameCache = null`.
+- **Root cause:** cache static hidup sepanjang proses PHP dan di-key hanya oleh role id. Pada satu proses (test suite, queue worker, Octane) role id `1` yang pernah di-cache sebagai VIEWER tanpa permission akan membuat role ADMIN berikutnya ditolak `CheckPermission` dengan **403**.
+- **Tambahan:** method kini memakai relasi `permissions` bila sudah eager-loaded (`relationLoaded('permissions')`) sehingga tidak menambah query.
+- **Verifikasi:** `RegistrationTest` 3 passed (6 assertions); full suite `1 skipped, 65 passed (325 assertions)`.
+
+### Fixed — Inkonsistensi status period `PENDING` vs `DRAFT`
+- **`app/Http/Controllers/Api/AssessmentController.php`**: `'status' => 'PENDING'` → `AssessmentPeriod::STATUS_DRAFT`.
+- **`app/Http/Controllers/AssessmentPeriodController.php`** (baris 36): literal `'DRAFT'` → `AssessmentPeriod::STATUS_DRAFT`.
+- **Alasan:** `PENDING` **tidak ada** dalam enum kolom `status` (migration `2026_09_30_111002_create_assessment_periods_table.php`) — penyimpanan dari API akan gagal di MySQL dan tidak dikenali state machine model; SQLite (test) lebih permisif sehingga bug lolos suite.
+
+### Changed — `LgdWeightedController` tidak lagi `SELECT *`
+- **`app/Http/Controllers/Calculation/LgdWeightedController.php`**: kedua query `stage_lgd_results` (method `ER` dan `CS`) kini `->select(['group_key', 'total_write_off', 'total_recovery', 'total_shortfall', 'total_exposure_wo'])`.
+- Hanya kolom yang benar-benar dipakai; `LgdWeightedPageTest` tetap lulus.
+
+### Changed — `RegistrationTest` ditulis ulang (2 test basi → 3 test bermakna)
+- **`tests/Feature/Auth/RegistrationTest.php`**: test lama menguji registrasi publik yang sengaja ditutup (`routes/auth.php` di balik `auth` + `permission:user.create`) sehingga selalu gagal.
+- Test baru: `test_guests_are_redirected_to_login` (redirect), `test_users_without_permission_receive_forbidden` (403), `test_admin_with_permission_can_create_user` (user tersimpan + redirect `user.index`).
+
+### Changed — Laporan audit disinkronkan dengan status penyelesaian
+- **`docs/AUDIT-laravel-best-practices-2026-11-25.md`**: header ditambah tanggal penyelesaian + status `SELESAI`; §1 tabel ringkasan kini 0 sisa; §3 diubah dari "Belum Ditangani" menjadi "Diselesaikan" dengan kode perbaikan (§3.1–§3.3) + sub-bagian baru §3.4 (cache static `Role`); §5 verifikasi `1 skipped, 65 passed (325 assertions)`; §6 daftar file diperbarui; §7 rekomendasi lama dicoret karena selesai.
+
+- **Verifikasi:** `php artisan test` → `1 skipped, 65 passed (325 assertions), Duration 36.47s`. Baseline `2 failed, 1 skipped, 62 passed` → **nol regresi**.
+
 ## [Unreleased] — 2026-11-25
 
 ### Changed — Artefak tooling AI dikeluarkan dari repositori
@@ -18,6 +44,9 @@ Setiap perubahan kode/konfigurasi signifikan WAJIB dicatat di sini.
 - `app/Models/Snapshot.php`: deklarasikan `$primaryKey = null` + `$incrementing = false` agar Eloquent tidak lagi mengasumsikan kolom `id`.
 - `app/Http/Controllers/SnapshotHistoryController.php` + `routes/web.php` + `resources/views/snapshot-history/{index,show}.blade.php`: detail snapshot (sebelumnya `findOrFail($id)` → error 1054 yang sama) kini dicari per `loan_number` dengan periode opsional — route menjadi `GET /snapshot-history/{loan_number}?periode=YYYYMM`.
 - **Verifikasi:** `php -l` bersih pada 3 berkas PHP; `php artisan route:list --name=snapshot-history` menampilkan route baru; query dashboard dijalankan ke MySQL live → 8 baris tanpa error; `README.md` (daftar route) disesuaikan.
+
+### Added — Laporan audit `docs/AUDIT-laravel-best-practices-2026-11-25.md`
+- Dokumentasi hasil audit + optimasi (6 temuan diperbaiki, 3 temuan tersisa beserta rekomendasi prioritas), termasuk bukti verifikasi `php artisan test` dan daftar file terdampak.
 
 ### Refactored — Audit & Optimasi Performa (skill `laravel-best-practices`)
 

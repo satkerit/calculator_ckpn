@@ -1,4 +1,0 @@
-interface:
-  display_name: "Chunk for AI"
-  short_description: "Split large Markdown docs for efficient AI reading"
-  default_prompt: "Use $chunk-for-ai to split a large Markdown document by its first useful heading level and create a routing index."

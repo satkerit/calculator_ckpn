@@ -70,13 +70,16 @@ class LgdCollateralShortfallController extends BaseCalculationController
                     // Kol 5 Aktif ATAU WO aktif 5 tahun
                     $q->whereRaw('CAST(quality_rating AS UNSIGNED) = 5')
                         ->orWhere(function ($q2) use ($startYm, $assessYm) {
+                            // Range pada kolom tglwo (bukan SUBSTRING) agar index
+                            // snapshot_wo_tglwo_idx dipakai — tglwo = string yyyymmdd.
                             $q2->where('write_off_flag', 1)
                                 ->whereNotNull('tglwo')->where('tglwo', '<>', '')
-                                ->whereRaw('SUBSTRING(tglwo, 1, 6) >= ?', [$startYm])
-                                ->whereRaw('SUBSTRING(tglwo, 1, 6) <= ?', [$assessYm]);
+                                ->where('tglwo', '>=', $startYm.'01')
+                                ->where('tglwo', '<=', $assessYm.'31');
                         });
                 })
-                ->get(['loan_number', 'outstanding_balance', 'office_code', 'product_code', 'usage_type', 'financing_contract_code', 'write_off_flag', 'tglwo'])
+                ->selectRaw('loan_number, outstanding_balance, office_code, product_code, usage_type, financing_contract_code, write_off_flag, tglwo, CAST(quality_rating AS UNSIGNED) as quality_rating')
+                ->get()
                 ->keyBy('loan_number');
 
             // Saldo saat WO per loan (snapshot pada periode tglwo; fallback snapshot pertama setelahnya).
@@ -101,9 +104,10 @@ class LgdCollateralShortfallController extends BaseCalculationController
                 ->where('periode_snapshot', $assessYm)
                 ->pluck('outstanding_balance', 'loan_number');
 
-            // Baki debet Kol 5 = posisi 1 bulan terakhir sebelum periode assessment.
+            // Baki debet Kol 5 AKTIF = posisi 1 bulan terakhir sebelum periode assessment (hanya loan yang quality_rating=5 dari csRows).
             $prevBalances = DB::table('snapshot')
                 ->where('periode_snapshot', $prevYm)
+                ->whereIn('loan_number', $csRows->where('quality_rating', 5)->pluck('loan_number'))
                 ->pluck('outstanding_balance', 'loan_number');
 
             $this->pushProgress($token, 'Memuat baki debet & agunan periode assessment…', 20);

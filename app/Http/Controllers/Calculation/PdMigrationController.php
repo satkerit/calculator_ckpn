@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Calculation;
 
-use App\Models\Snapshot;
 use App\Services\PdMigration\PeriodResolver;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -94,7 +93,6 @@ class PdMigrationController extends BaseCalculationController
             foreach ($classRows as $c) {
                 $loansByGroup[$this->collectiveGroupKey($dims, $c->office_code, $c->akad_code, $c->usage_code)][] = $c->loan_number;
             }
-            $loanNumbers = $classRows->pluck('loan_number')->unique()->values();
 
             $this->pushProgress($token, 'Menyusun matriks triwulan…', 15);
 
@@ -107,19 +105,9 @@ class PdMigrationController extends BaseCalculationController
                 return $m;
             }, $rawMatrices);
 
-            // Snapshot yang dibutuhkan = posisi di t_start & t_end tiap matriks
-            // + posisi asesmen (untuk bobot PD grup & deteksi WO/paid).
-            $neededYm = array_values(array_unique(array_merge(
-                [$assessmentYm],
-                array_column($matrices, 't_start_ym'),
-                array_column($matrices, 't_end_ym'),
-            )));
-
-            $snaps = Snapshot::whereIn('loan_number', $loanNumbers)
-                ->whereIn('periode_snapshot', $neededYm)
-                ->get()
-                ->groupBy(fn ($s) => $s->periode_snapshot.'|'.$s->loan_number);
-
+            // Fase 2: matriks diagregasi langsung di SQL per grup (GROUP BY),
+            // jadi tidak perlu menghidrasi snapshot t_start/t_end/assessment
+            // ke memori untuk seluruh populasi loan.
             $now = now();
             $batch = [];
             $totalGroups = max(1, $groups->count());
@@ -131,7 +119,7 @@ class PdMigrationController extends BaseCalculationController
                     'current' => $i, 'total' => $totalGroups, 'label' => 'Hitung PD Migration',
                 ]);
                 $loans = $loansByGroup[$g->group_key] ?? [];
-                $detail = $this->computeMigrationPd($snaps, $matrices, $loans, $assessmentYm);
+                $detail = $this->computeMigrationPd(null, $matrices, $loans, $assessmentYm);
 
                 // PD Migration per rating (1..5): simpan sebagai baris terpisah bucket_no = rating_no.
                 // Agar CKPN Kolektif dapat lookup PD sesuai quality_rating nasabah (1..5).
@@ -210,7 +198,7 @@ class PdMigrationController extends BaseCalculationController
      *
      * @return array{pd_group:float,rating_pd:array<int,float>,matrices:array,matrices_used:int,matrix:array,rating_exposure:array<int,float>,matrix_total:float}
      */
-    private function computeMigrationPd(Collection $snaps, array $matrices, array $loanNumbers, string $assessmentYm): array
+    private function computeMigrationPd(?Collection $snaps, array $matrices, array $loanNumbers, string $assessmentYm): array
     {
         $zeroRating = [1 => 0.0, 2 => 0.0, 3 => 0.0, 4 => 0.0, 5 => 0.0];
 
@@ -225,41 +213,13 @@ class PdMigrationController extends BaseCalculationController
             $startYm = $m['t_start_ym'];
             $endYm = $m['t_end_ym'];
 
-            $matrix = [];
-            $rowTotals = [1 => 0.0, 2 => 0.0, 3 => 0.0, 4 => 0.0, 5 => 0.0];
-            foreach ($loanNumbers as $ln) {
-                $curRows = $snaps->get($startYm.'|'.$ln);
-                $cur = $curRows instanceof Collection ? $curRows->first() : $curRows;
-                if (! $cur || (bool) ($cur->write_off_flag ?? false)) {
-                    // t_start hanya debitur aktif non-WO, rating 1..5.
-                    continue;
-                }
-                $from = $this->ratingBucket($cur->quality_rating);
-                $startBalance = (float) ($cur->outstanding_balance ?? 0);
-                if ($startBalance < 0) {
-                    $startBalance = 0;
-                }
-                // Saldo Awal (kolom B kertas kerja) = posisi t_start per rating.
-                $rowTotals[$from] += $startBalance;
-
-                $nextRows = $snaps->get($endYm.'|'.$ln);
-                $next = $nextRows instanceof Collection ? $nextRows->first() : $nextRows;
-                if (! $next) {
-                    // Debitur lenyap di t_end: saldo awal tidak di-place ke sel manapun,
-                    // menjadi Pembayaran via komputasi residual per baris (selisih).
-                    continue;
-                }
-                // Sel matriks (C..H kertas kerja) = outstanding posisi t_end.
-                // Saldo awal tetap di $rowTotals dari t_start.
-                $endBalance = max(0.0, (float) ($next->outstanding_balance ?? 0));
-                $to = $this->destState($cur, $next);
-                if ($to === self::DEST_PAID) {
-                    // Lunas di t_end: jangan place langsung, serap via residual
-                    // agar Pembayaran murni = Saldo Awal - Σ(1..5) - WO.
-                    continue;
-                }
-                $matrix[$from][$to] = ($matrix[$from][$to] ?? 0) + $endBalance;
-            }
+            // Fase 2: akumulasi sel & saldo awal di SQL (GROUP BY rating sumber ×
+            // state tujuan) — menggantikan loop PHP O(loan × matriks) sebelumnya.
+            // Bila snapshot diberikan (unit test murni), pakai jalur in-memory
+            // sebagai referensi angka yang sama.
+            ['matrix' => $matrix, 'row_totals' => $rowTotals] = $snaps !== null
+                ? $this->aggregateMatrixFromSnapshots($snaps, $startYm, $endYm, $loanNumbers)
+                : $this->aggregateMatrixSql($startYm, $endYm, $loanNumbers);
 
             $rowSum = array_sum($rowTotals);
             if ($rowSum <= 0) {
@@ -400,18 +360,10 @@ class PdMigrationController extends BaseCalculationController
             }
         }
 
-        // Bobot exposure posisi asesmen per rating → PD grup.
-        $assessExp = $zeroRating;
-        foreach ($loanNumbers as $ln) {
-            $rows = $snaps->get($assessmentYm.'|'.$ln);
-            $snap = $rows instanceof Collection ? $rows->first() : $rows;
-            if (! $snap) {
-                continue;
-            }
-            $r = $this->ratingBucket($snap->quality_rating);
-            $bal = (float) ($snap->outstanding_balance ?? 0);
-            $assessExp[$r] += max(0, $bal);
-        }
+        // Bobot exposure posisi asesmen per rating → PD grup (agregasi SQL).
+        $assessExp = $snaps !== null
+            ? $this->aggregateAssessmentExposureFromSnapshots($snaps, $loanNumbers, $assessmentYm)
+            : $this->aggregateAssessmentExposureSql($loanNumbers, $assessmentYm);
         $totalExp = array_sum($assessExp);
         if ($totalExp > 0) {
             $pdGroup = 0.0;
@@ -432,6 +384,167 @@ class PdMigrationController extends BaseCalculationController
             'rating_exposure' => $assessExp,
             'matrix_total' => $matrixTotal,
         ];
+    }
+
+    /**
+     * Referensi in-memory (unit test murni): akumulasi sel matriks dari snapshot
+     * yang sudah di-load. Menghasilkan struktur sama dengan aggregateMatrixSql().
+     *
+     * @param  array<int,string>  $loanNumbers
+     * @return array{matrix:array<int,array<int,float>>,row_totals:array<int,float>}
+     */
+    private function aggregateMatrixFromSnapshots(Collection $snaps, string $startYm, string $endYm, array $loanNumbers): array
+    {
+        $matrix = [];
+        $rowTotals = [1 => 0.0, 2 => 0.0, 3 => 0.0, 4 => 0.0, 5 => 0.0];
+
+        foreach ($loanNumbers as $ln) {
+            $curRows = $snaps->get($startYm.'|'.$ln);
+            $cur = $curRows instanceof Collection ? $curRows->first() : $curRows;
+            if (! $cur || (bool) ($cur->write_off_flag ?? false)) {
+                // t_start hanya debitur aktif non-WO, rating 1..5.
+                continue;
+            }
+            $from = $this->ratingBucket($cur->quality_rating);
+            $startBalance = (float) ($cur->outstanding_balance ?? 0);
+            if ($startBalance < 0) {
+                $startBalance = 0;
+            }
+            // Saldo Awal (kolom B kertas kerja) = posisi t_start per rating.
+            $rowTotals[$from] += $startBalance;
+
+            $nextRows = $snaps->get($endYm.'|'.$ln);
+            $next = $nextRows instanceof Collection ? $nextRows->first() : $nextRows;
+            if (! $next) {
+                // Debitur lenyap di t_end: terserap residual Pembayaran.
+                continue;
+            }
+            // Sel matriks (C..H kertas kerja) = outstanding posisi t_end.
+            $endBalance = max(0.0, (float) ($next->outstanding_balance ?? 0));
+            $to = $this->destState($cur, $next);
+            if ($to === self::DEST_PAID) {
+                // Lunas di t_end: serap via residual agar Pembayaran = Saldo Awal - Σ(1..5) - WO.
+                continue;
+            }
+            $matrix[$from][$to] = ($matrix[$from][$to] ?? 0) + $endBalance;
+        }
+
+        return ['matrix' => $matrix, 'row_totals' => $rowTotals];
+    }
+
+    /**
+     * Referensi in-memory: exposure per rating di posisi asesmen.
+     *
+     * @param  array<int,string>  $loanNumbers
+     * @return array<int,float>
+     */
+    private function aggregateAssessmentExposureFromSnapshots(Collection $snaps, array $loanNumbers, string $assessmentYm): array
+    {
+        $assessExp = [1 => 0.0, 2 => 0.0, 3 => 0.0, 4 => 0.0, 5 => 0.0];
+
+        foreach ($loanNumbers as $ln) {
+            $rows = $snaps->get($assessmentYm.'|'.$ln);
+            $snap = $rows instanceof Collection ? $rows->first() : $rows;
+            if (! $snap) {
+                continue;
+            }
+            $assessExp[$this->ratingBucket($snap->quality_rating)] += max(0, (float) ($snap->outstanding_balance ?? 0));
+        }
+
+        return $assessExp;
+    }
+
+    /**
+     * Fase 2: agregasi sel matriks migrasi langsung di SQL (GROUP BY).
+     *
+     * Menggantikan loop PHP per loan × matriks. Semantik identik:
+     *   - Baris = rating sumber di t_start, hanya debitur non-WO.
+     *   - Kolom = state tujuan di t_end: 1..5 rating, 6 = Hapus Buku, 7 = Pembayaran.
+     *   - Saldo awal (kolom B kertas kerja) = outstanding posisi t_start.
+     *   - Sel matriks (C..H) = outstanding posisi t_end; Lunas (7) dibiarkan
+     *     kosong agar terserap sebagai residual Pembayaran per baris.
+     *
+     * @param  array<int,string>  $loanNumbers
+     * @return array{matrix:array<int,array<int,float>>,row_totals:array<int,float>}
+     */
+    private function aggregateMatrixSql(string $startYm, string $endYm, array $loanNumbers): array
+    {
+        $rowTotals = [1 => 0.0, 2 => 0.0, 3 => 0.0, 4 => 0.0, 5 => 0.0];
+        $matrix = [];
+
+        if ($loanNumbers === []) {
+            return ['matrix' => $matrix, 'row_totals' => $rowTotals];
+        }
+
+        // SQL portabel (MySQL & SQLite): grouping pakai nilai mentah quality_rating,
+        // normalisasi rating 1..5 tetap dilakukan di ratingBucket() seperti sebelumnya.
+        // 1:1 join karena snapshot unik per (loan_number, periode_snapshot).
+        $rows = DB::table('snapshot as s')
+            ->leftJoin('snapshot as e', function ($join) use ($endYm) {
+                $join->on('e.loan_number', '=', 's.loan_number')
+                    ->where('e.periode_snapshot', '=', $endYm);
+            })
+            ->where('s.periode_snapshot', $startYm)
+            ->whereIn('s.loan_number', $loanNumbers)
+            // t_start hanya debitur aktif non-WO (NULL dianggap non-WO seperti PHP).
+            ->whereRaw('COALESCE(s.write_off_flag, 0) = 0')
+            ->selectRaw('s.quality_rating as from_rating_raw')
+            ->selectRaw("CASE
+                    WHEN e.loan_number IS NULL THEN 'NONE'
+                    WHEN COALESCE(e.write_off_flag, 0) = 1 THEN 'WO'
+                    WHEN COALESCE(e.active_flag, 1) = 0
+                         AND COALESCE(e.outstanding_balance, 0) <= 0
+                         AND COALESCE(e.principal_arrears, 0) <= 0 THEN 'PAID'
+                    ELSE COALESCE(e.quality_rating, '') END as dest_key")
+            ->selectRaw('SUM(CASE WHEN s.outstanding_balance > 0 THEN s.outstanding_balance ELSE 0 END) as saldo_awal')
+            ->selectRaw('SUM(CASE WHEN e.loan_number IS NULL THEN 0 WHEN e.outstanding_balance > 0 THEN e.outstanding_balance ELSE 0 END) as cell_balance')
+            ->groupByRaw('from_rating_raw, dest_key')
+            ->get();
+
+        foreach ($rows as $r) {
+            $from = $this->ratingBucket($r->from_rating_raw);
+            // Saldo awal per rating: setiap baris t_start muncul sekali di grup mana pun.
+            $rowTotals[$from] += (float) $r->saldo_awal;
+
+            $destKey = (string) ($r->dest_key ?? '');
+            if ($destKey === 'NONE' || $destKey === 'PAID') {
+                // Lenyap di t_end / lunas: tidak di-place, terserap residual Pembayaran.
+                continue;
+            }
+            $dest = $destKey === 'WO' ? self::DEST_WRITE_OFF : $this->ratingBucket($destKey);
+            $matrix[$from][$dest] = ($matrix[$from][$dest] ?? 0.0) + (float) $r->cell_balance;
+        }
+
+        return ['matrix' => $matrix, 'row_totals' => $rowTotals];
+    }
+
+    /**
+     * Exposure per rating di posisi asesmen (bobot PD grup) — agregasi SQL.
+     *
+     * @param  array<int,string>  $loanNumbers
+     * @return array<int,float>
+     */
+    private function aggregateAssessmentExposureSql(array $loanNumbers, string $assessmentYm): array
+    {
+        $assessExp = [1 => 0.0, 2 => 0.0, 3 => 0.0, 4 => 0.0, 5 => 0.0];
+
+        if ($loanNumbers === []) {
+            return $assessExp;
+        }
+
+        $rows = DB::table('snapshot')
+            ->where('periode_snapshot', $assessmentYm)
+            ->whereIn('loan_number', $loanNumbers)
+            ->selectRaw('quality_rating as rating_raw')
+            ->selectRaw('SUM(CASE WHEN outstanding_balance > 0 THEN outstanding_balance ELSE 0 END) as exposure')
+            ->groupByRaw('rating_raw')
+            ->get();
+
+        foreach ($rows as $r) {
+            $assessExp[$this->ratingBucket($r->rating_raw)] += (float) $r->exposure;
+        }
+
+        return $assessExp;
     }
 
     /**

@@ -16,7 +16,16 @@ class AssessmentPeriodController extends Controller
     public function index(): View
     {
         $assessments = AssessmentPeriod::paginate(15);
-        return view('assessment.index', compact('assessments'));
+
+        // Peringatan data lama: lebih dari satu periode untuk tahun/bulan fiskal
+        // yang sama membuat hasil kalkulasi ambigu (resolvePeriod memilih satu saja).
+        $duplicatePeriods = AssessmentPeriod::query()
+            ->selectRaw('fiscal_year, fiscal_month, COUNT(*) as total')
+            ->groupBy('fiscal_year', 'fiscal_month')
+            ->havingRaw('COUNT(*) > 1')
+            ->get();
+
+        return view('assessment.index', compact('assessments', 'duplicatePeriods'));
     }
 
     public function create(): View
@@ -28,16 +37,20 @@ class AssessmentPeriodController extends Controller
     {
         $validated = $request->validated();
 
-        $periodCode = strtoupper(sprintf('P%d%02d%s', $validated['fiscal_year'], $validated['fiscal_month'], substr(md5(microtime(true)), 0, 4)));
-        
-        AssessmentPeriod::updateOrCreate(
-            ['period_code' => $periodCode],
-            $validated + [
-                'status' => AssessmentPeriod::STATUS_DRAFT,
-                'period_code' => $periodCode,
-                'created_by' => auth()->id()
-            ]
-        );
+        // period_code deterministik dari tahun/bulan fiskal: P{Y}{MM} (mis. P202610).
+        $periodCode = strtoupper(sprintf('P%d%02d', $validated['fiscal_year'], $validated['fiscal_month']));
+
+        // Cegah duplikat periode tahun/bulan yang sama.
+        $existing = AssessmentPeriod::where('period_code', $periodCode)->first();
+        if ($existing) {
+            return redirect()->route('assessment.index')->with('error', 'Periode assessment sudah ada untuk tahun/bulan ini.');
+        }
+
+        AssessmentPeriod::create($validated + [
+            'status' => AssessmentPeriod::STATUS_DRAFT,
+            'period_code' => $periodCode,
+            'created_by' => auth()->id()
+        ]);
 
         return redirect()->route('assessment.index')->with('success', 'Assessment period created successfully');
     }
@@ -60,6 +73,12 @@ class AssessmentPeriodController extends Controller
     public function update(UpdateAssessmentPeriodRequest $request, AssessmentPeriod $assessment): RedirectResponse
     {
         $validated = $request->validated();
+
+        // period_code deterministik: regenerasi bila tahun/bulan fiskal berubah.
+        if ((int) $validated['fiscal_year'] !== (int) $assessment->fiscal_year
+            || (int) $validated['fiscal_month'] !== (int) $assessment->fiscal_month) {
+            $validated['period_code'] = strtoupper(sprintf('P%d%02d', $validated['fiscal_year'], $validated['fiscal_month']));
+        }
 
         $assessment->update($validated);
 

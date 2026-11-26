@@ -766,11 +766,16 @@ class CalculationExportController extends BaseCalculationController
         $titleStyle  = (new Style())->setFontBold()->setBackgroundColor('D9E1F2');
         $headerStyle = (new Style())->setFontBold()->setFontColor('FFFFFF')->setBackgroundColor('1F4E78');
 
+        // PD Migration menyimpan satu baris per rating (1..5) per grup; detail
+        // & ringkasan ditulis sekali per grup (unique group_key) agar tidak ada
+        // blok matriks ganda dan JSON detail tidak di-decode berulang.
         $rows = DB::table('stage_pd_results')
             ->where('assessment_period_id', $period->id)
             ->where('method', 'MIGRATION')
             ->orderBy('pd_calculated', 'desc')
-            ->get();
+            ->get()
+            ->unique('group_key')
+            ->values();
 
         if ($rows->isEmpty()) {
             $writer->addRow(Row::fromValues(['Belum ada hasil PD Migration untuk periode ini.']));
@@ -928,6 +933,52 @@ class CalculationExportController extends BaseCalculationController
             });
     }
 
+    /**
+     * Baris debitur kolektif untuk export Detail CKPN.
+     *
+     * Pengurutan CKPN debitur dilakukan di SQL (`ead × pd × lgd`) dan hasilnya
+     * dialirkan per 1.000 baris, sehingga tidak perlu menampung seluruh debitur
+     * + map di memori. PD/LGD diambil lewat join ke stage_collective_ckpn memakai
+     * group_key segmentasi + dimensi risiko (bucket NET_FLOW / rating MIGRATION).
+     *
+     * @param  array<int, string>  $dims
+     * @return iterable<int, object>
+     */
+    private function collectiveDebiturRows(int $periodId, array $dims, bool $isMigration, string $periodeYm): iterable
+    {
+        $parts = [];
+        foreach (['OFFICE' => 'sc.office_code', 'AKAD' => 'sc.akad_code', 'USAGE' => 'sc.usage_code'] as $dim => $column) {
+            if (in_array($dim, $dims, true)) {
+                $parts[] = "COALESCE(NULLIF({$column}, ''), 'NA')";
+            }
+        }
+        $groupKeyExpr = "CONCAT_WS('|', ".implode(', ', $parts).')';
+        $dimExpr = $isMigration
+            ? 'CAST(COALESCE(s.quality_rating, 1) AS UNSIGNED)'
+            : 'COALESCE(s.bucket_no, 1)';
+
+        return DB::table('stage_classifications as sc')
+            ->leftJoin('snapshot as s', function ($j) use ($periodeYm) {
+                $j->on('sc.loan_number', '=', 's.loan_number')
+                    ->where('s.periode_snapshot', '=', $periodeYm)
+                    ->where('s.active_flag', '=', true);
+            })
+            ->leftJoin('stage_collective_ckpn as cc', function ($j) use ($groupKeyExpr, $dimExpr) {
+                $j->on('cc.assessment_period_id', '=', 'sc.assessment_period_id')
+                    ->on('cc.group_key', '=', DB::raw($groupKeyExpr))
+                    ->on('cc.bucket_no', '=', DB::raw($dimExpr));
+            })
+            ->where('sc.assessment_period_id', $periodId)
+            ->where('sc.classification', 'COLLECTIVE')
+            ->selectRaw(
+                "sc.loan_number, sc.ead_amount, {$groupKeyExpr} as group_key, {$dimExpr} as dim_key, "
+                .'cc.pd as pd, cc.lgd as lgd, '
+                .'COALESCE(ROUND(sc.ead_amount * cc.pd * cc.lgd, 2), 0) as ckpn_debitur'
+            )
+            ->orderByRaw('ckpn_debitur DESC, sc.loan_number ASC')
+            ->lazy(1000);
+    }
+
     private function writeDetailCkpn(Writer $writer, AssessmentPeriod $period): void
     {
         $headerStyle = (new Style())->setFontBold()->setFontColor('FFFFFF')->setBackgroundColor('1F4E78');
@@ -975,62 +1026,40 @@ class CalculationExportController extends BaseCalculationController
         $cfgRow = DB::table('stage_configs')->where('assessment_period_id', $period->id)->first();
         $isMigration = strtoupper((string) ($cfgRow->pd_method ?? 'NET_FLOW')) === 'MIGRATION';
 
-        $ckpnMap = DB::table('stage_collective_ckpn')
-            ->where('assessment_period_id', $period->id)
-            ->get()
-            ->keyBy(fn ($r) => $r->group_key.'|'.(int) $r->bucket_no);
-
-        $collectives = DB::table('stage_classifications as sc')
-            ->leftJoin('snapshot as s', function ($j) use ($periodeYm) {
-                $j->on('sc.loan_number', '=', 's.loan_number')
-                    ->where('s.periode_snapshot', '=', $periodeYm)
-                    ->where('s.active_flag', '=', true);
-            })
-            ->where('sc.assessment_period_id', $period->id)
-            ->where('sc.classification', 'COLLECTIVE')
-            ->select(
-                'sc.loan_number', 'sc.ead_amount', 'sc.office_code', 'sc.akad_code', 'sc.usage_code',
-                DB::raw('COALESCE(s.bucket_no, 1) as bucket_no'),
-                DB::raw('CAST(COALESCE(s.quality_rating, 1) AS UNSIGNED) as quality_rating'),
-            )
-            ->get()
-            ->map(function ($r) use ($ckpnMap, $dims, $isMigration) {
-                $r->group_key = $this->buildSegment($dims, $r->office_code, $r->akad_code, $r->usage_code)['group_key'];
-                // MIGRATION mencocokkan ke quality_rating, NET_FLOW mencocokkan ke bucket_no
-                $dimKey = $isMigration ? (int) $r->quality_rating : (int) $r->bucket_no;
-                $g = $ckpnMap[$r->group_key.'|'.$dimKey] ?? null;
-                $r->pd  = $g ? (float) $g->pd : null;
-                $r->lgd = $g ? (float) $g->lgd : null;
-                $r->ckpn_debitur = $g ? round((float) $r->ead_amount * (float) $g->pd * (float) $g->lgd, 2) : 0.0;
-                $r->dim_label = $isMigration
-                    ? 'Rating ' . $r->quality_rating
-                    : BucketAssignmentService::getBucketLabel((int) $r->bucket_no);
-
-                return $r;
-            })
-            ->sortByDesc('ckpn_debitur')
-            ->values();
+        // Satu query label bucket untuk semua baris (hindari N+1 per debitur).
+        $bucketLabels = BucketAssignmentService::bucketLabels();
 
         $writer->addRow(Row::fromValues(['CKPN KOLEKTIF — Daftar Debitur'])->setStyle($titleStyle));
         $writer->addRow(Row::fromValues([
             'No. Akad', 'Segmen', $isMigration ? 'Rating' : 'Bucket', $isMigration ? 'Kolektibilitas' : 'Hari Tunggakan',
             'EAD (Rp)', 'PD (%)', 'LGD (%)', 'CKPN Kolektif (Rp)',
         ])->setStyle($headerStyle));
-        foreach ($collectives as $r) {
+
+        // Baris debitur kolektif diurutkan di SQL (bukan get() semua + sortByDesc di
+        // memori) dan ditulis per chunk 1.000 baris. PD/LGD di-join dari
+        // stage_collective_ckpn memakai group_key segmentasi + dimensi risiko.
+        $totalEadKol = 0.0;
+        $totalCkpnKol = 0.0;
+        $countKol = 0;
+        foreach ($this->collectiveDebiturRows($period->id, $dims, $isMigration, $periodeYm) as $r) {
+            $dimKey = (int) $r->dim_key;
             $writer->addRow(Row::fromValues([
                 $r->loan_number, $r->group_key,
-                $isMigration ? (int) $r->quality_rating : (int) $r->bucket_no,
-                $r->dim_label,
+                $dimKey,
+                $isMigration ? 'Rating '.$dimKey : ($bucketLabels[$dimKey] ?? 'Unknown'),
                 (float) $r->ead_amount,
-                $r->pd !== null ? round($r->pd * 100, 2) : '',
-                $r->lgd !== null ? round($r->lgd * 100, 2) : '',
-                $r->ckpn_debitur,
+                $r->pd !== null ? round((float) $r->pd * 100, 2) : '',
+                $r->lgd !== null ? round((float) $r->lgd * 100, 2) : '',
+                (float) $r->ckpn_debitur,
             ]));
+            $totalEadKol += (float) $r->ead_amount;
+            $totalCkpnKol += (float) $r->ckpn_debitur;
+            $countKol++;
         }
         $writer->addRow(Row::fromValues([
             'TOTAL', '', '', '',
-            (float) $collectives->sum('ead_amount'), '', '',
-            (float) $collectives->sum('ckpn_debitur'),
+            $totalEadKol, '', '',
+            $totalCkpnKol,
         ])->setStyle($totalStyle));
         $writer->addRow(Row::fromValues(['']));
 
@@ -1063,8 +1092,8 @@ class CalculationExportController extends BaseCalculationController
         $writer->addRow(Row::fromValues(['Jumlah Debitur Individual', $individuals->count()]));
         $writer->addRow(Row::fromValues(['Total EAD Individual', (float) $individuals->sum('nilai_tercatat')]));
         $writer->addRow(Row::fromValues(['Total CKPN Individual', $ind]));
-        $writer->addRow(Row::fromValues(['Jumlah Debitur Kolektif', $collectives->count()]));
-        $writer->addRow(Row::fromValues(['Total EAD Kolektif', (float) $collectives->sum('ead_amount')]));
+        $writer->addRow(Row::fromValues(['Jumlah Debitur Kolektif', $countKol]));
+        $writer->addRow(Row::fromValues(['Total EAD Kolektif', $totalEadKol]));
         $writer->addRow(Row::fromValues(['Total CKPN Kolektif', $col]));
         $writer->addRow(Row::fromValues(['Total CKPN', round($ind + $col, 2)])->setStyle($totalStyle));
     }

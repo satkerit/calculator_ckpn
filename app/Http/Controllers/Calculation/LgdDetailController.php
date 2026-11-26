@@ -79,8 +79,8 @@ class LgdDetailController extends BaseCalculationController
             $woLoans = DB::table('snapshot')
                 ->where('write_off_flag', 1)
                 ->whereNotNull('tglwo')->where('tglwo', '<>', '')
-                ->whereRaw('SUBSTRING(tglwo, 1, 6) >= ?', [$startYm])
-                ->whereRaw('SUBSTRING(tglwo, 1, 6) <= ?', [$assessYm])
+                ->where('tglwo', '>=', $startYm.'01')
+                ->where('tglwo', '<=', $assessYm.'31')
                 ->distinct()
                 ->pluck('loan_number');
 

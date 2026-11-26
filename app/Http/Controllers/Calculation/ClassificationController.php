@@ -204,12 +204,13 @@ class ClassificationController extends BaseCalculationController
 
                 // Simpan agregasi EAD per bucket ke stage_ead_buckets
                 $eadBucketBatch = [];
+                $bucketLabels = BucketAssignmentService::bucketLabels();
                 foreach ($bucketSummary as $bNo => $val) {
                     $eadBucketBatch[] = [
                         'assessment_period_id' => $period->id,
                         'group_key'            => 'ALL_SEGMENTS',
                         'bucket_no'            => $bNo,
-                        'hari_tunggakan'       => BucketAssignmentService::getBucketLabel($bNo),
+                        'hari_tunggakan'       => $bucketLabels[$bNo] ?? 'Unknown',
                         'office_code'          => null,
                         'akad_code'            => null,
                         'usage_code'           => null,

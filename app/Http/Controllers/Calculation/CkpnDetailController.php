@@ -111,11 +111,14 @@ class CkpnDetailController extends BaseCalculationController
             ->get()
             ->keyBy(fn ($r) => $r->group_key.'|'.(int) $r->bucket_no);
 
-        return $rows->map(function ($r) use ($dims, $ckpnMap, $isMigration) {
+        // Satu query label bucket untuk seluruh baris (hindari N+1 per debitur).
+        $bucketLabels = BucketAssignmentService::bucketLabels();
+
+        return $rows->map(function ($r) use ($dims, $ckpnMap, $isMigration, $bucketLabels) {
             $r->group_key = $this->collectiveGroupKey($dims, $r->office_code, $r->akad_code, $r->usage_code);
             $r->bucket_no = (int) $r->bucket_no;
             $r->quality_rating = (int) $r->quality_rating;
-            $r->bucket_label = BucketAssignmentService::getBucketLabel($r->bucket_no);
+            $r->bucket_label = $bucketLabels[$r->bucket_no] ?? 'Unknown';
 
             // MIGRATION: PD tersimpan per quality_rating (bucket_no = rating).
             $dimKey = $isMigration ? $r->quality_rating : $r->bucket_no;

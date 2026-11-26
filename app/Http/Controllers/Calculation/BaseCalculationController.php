@@ -183,9 +183,11 @@ abstract class BaseCalculationController extends Controller
      *
      * @return array<int, string> contoh ['OFFICE','AKAD','USAGE']
      */
-    protected function segmentDimensions(Request $request, int $assessmentPeriodId): array
+    protected function segmentDimensions(?Request $request, int $assessmentPeriodId): array
     {
-        $raw = $request->input('segment_dimensions');
+        // $request boleh null agar method ini dapat dipakai di luar siklus HTTP
+        // (command/export tanpa request) — saat itu dipakai konfigurasi periode.
+        $raw = $request?->input('segment_dimensions');
 
         if ($raw === null) {
             $raw = $this->configFor($assessmentPeriodId)['segment_dimensions'];

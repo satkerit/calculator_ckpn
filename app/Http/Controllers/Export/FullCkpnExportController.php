@@ -388,6 +388,9 @@ class FullCkpnExportController extends BaseCalculationController
         $sumEad = 0.0;
         $sumCkpn = 0.0;
 
+        // Satu query label bucket untuk semua baris (hindari N+1 per debitur).
+        $bucketLabels = \App\Services\Bucket\BucketAssignmentService::bucketLabels();
+
         foreach ($rows as $r) {
             $groupKey = $this->buildSegment($dims, $r->office_code, $r->akad_code, $r->usage_code)['group_key'];
             $dimKey = $isMigration ? (int) $r->quality_rating : (int) $r->bucket_no;
@@ -403,7 +406,7 @@ class FullCkpnExportController extends BaseCalculationController
 
             $dimLabel = $isMigration
                 ? 'Rating '.$r->quality_rating
-                : \App\Services\Bucket\BucketAssignmentService::getBucketLabel((int) $r->bucket_no);
+                : ($bucketLabels[(int) $r->bucket_no] ?? 'Unknown');
 
             $sumEad += $ead;
             $sumCkpn += $ckpn;
@@ -577,6 +580,8 @@ class FullCkpnExportController extends BaseCalculationController
             ->map(function ($grp) {
                 $r = $grp->first();
                 $d = json_decode($r->detail ?? '{}', true) ?: [];
+                // Simpan hasil decode agar loop penulisan tidak mem-parse JSON grup yang sama lagi.
+                $r->decoded = $d;
                 $ratingPd = array_map('floatval', $d['rating_pd'] ?? []);
                 $exposure = array_map('floatval', $d['rating_exposure'] ?? []);
 
@@ -603,7 +608,7 @@ class FullCkpnExportController extends BaseCalculationController
         $destLabels = [1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => 'WO (Hapus Buku)', 7 => 'Pembayaran'];
 
         foreach ($rows as $r) {
-            $d = json_decode($r->detail ?? '{}', true) ?: [];
+            $d = $r->decoded ?? (json_decode($r->detail ?? '{}', true) ?: []);
             $matrices = $d['matrices'] ?? [];
 
             $writer->addRow(Row::fromValues(["SEGMEN GROUP: {$r->group_key}"])->setStyle($this->styleSection));
@@ -1003,12 +1008,12 @@ class FullCkpnExportController extends BaseCalculationController
         $assessYm = $assessmentDate->format('Ym');
         $startYm = $assessmentDate->copy()->subMonths($histM)->format('Ym');
 
-        // Populasi WO
+        // Populasi WO (range tglwo → index snapshot_wo_tglwo_idx terpakai)
         $woLoans = DB::table('snapshot')
             ->where('write_off_flag', 1)
             ->whereNotNull('tglwo')->where('tglwo', '<>', '')
-            ->whereRaw('SUBSTRING(tglwo, 1, 6) >= ?', [$startYm])
-            ->whereRaw('SUBSTRING(tglwo, 1, 6) <= ?', [$assessYm])
+            ->where('tglwo', '>=', $startYm.'01')
+            ->where('tglwo', '<=', $assessYm.'31')
             ->distinct()
             ->pluck('loan_number');
 

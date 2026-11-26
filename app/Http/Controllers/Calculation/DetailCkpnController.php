@@ -22,6 +22,13 @@ use Illuminate\View\View;
  */
 class DetailCkpnController extends BaseCalculationController
 {
+    /**
+     * Memo eadGroups() per periode × segmentasi dalam satu request.
+     *
+     * @var array<string, Collection>
+     */
+    private array $eadGroupsMemo = [];
+
     public function index(Request $request): View
     {
         $period = $this->resolvePeriod($request);
@@ -75,12 +82,15 @@ class DetailCkpnController extends BaseCalculationController
         $eadBucketKeys = $this->eadGroups($period->id)
             ->map(fn ($eg) => $eg->bucket_key)
             ->unique();
+        // Hanya 2 kolom kunci yang diambil: kolom `detail` (JSON besar) tidak perlu
+        // dihidrasi hanya untuk memeriksa kelengkapan kombinasi.
         $pdBucketKeys = DB::table('stage_pd_results')
             ->where('assessment_period_id', $period->id)
             ->where('method', $config['pd_method'])
+            ->select('group_key', 'bucket_no')
+            ->distinct()
             ->get()
-            ->map(fn ($r) => $r->group_key.'|'.(int) ($r->bucket_no ?? 1))
-            ->unique();
+            ->map(fn ($r) => $r->group_key.'|'.(int) ($r->bucket_no ?? 1));
         $missingPd = $eadBucketKeys->diff($pdBucketKeys);
 
         if ($missingPd->isNotEmpty()) {
@@ -148,60 +158,69 @@ class DetailCkpnController extends BaseCalculationController
             ->where('assessment_period_id', $periodId)
             ->delete();
 
-        $individuals = DB::table('stage_classifications')
+        $base = DB::table('stage_classifications')
             ->where('assessment_period_id', $periodId)
-            ->where('classification', 'INDIVIDUAL')
-            ->get();
+            ->where('classification', 'INDIVIDUAL');
 
-        if ($individuals->isEmpty()) {
+        // Nomor akad dipakai untuk whereIn agunan sekaligus jumlah progres.
+        $loanNumbers = (clone $base)->pluck('loan_number');
+        if ($loanNumbers->isEmpty()) {
             return;
         }
 
-        $saleCostPct = (float) $config['sale_cost_percentage'];
-
-        $collateralMap = Collateral::whereIn('loan_number', $individuals->pluck('loan_number'))
+        // Agunan dibutuhkan untuk SEMUA loan individual → 1 query agregat.
+        $collateralMap = Collateral::whereIn('loan_number', $loanNumbers)
             ->groupBy('loan_number')
             ->selectRaw('loan_number, SUM(liquidity_value) as total_liquidity')
             ->pluck('total_liquidity', 'loan_number')
             ->map(fn ($v) => (float) $v)
             ->toArray();
 
+        $totalInd = $loanNumbers->count();
+
+        $saleCostPct = (float) $config['sale_cost_percentage'];
         $now = now();
-        $batch = [];
-        $totalInd = max(1, $individuals->count());
         $indIdx = 0;
 
-        foreach ($individuals as $ind) {
-            $indIdx++;
-            if ($token !== null && ($indIdx % 50 === 0 || $indIdx === $totalInd)) {
-                $this->pushProgress($token, "Menghitung CKPN Individual rekening {$indIdx}/{$totalInd}…", 10 + ($indIdx / $totalInd) * 40, [
-                    'current' => $indIdx, 'total' => $totalInd, 'label' => 'CKPN Individual',
-                ]);
-            }
-            $loanNumber = $ind->loan_number;
-            $liquidity = (float) ($collateralMap[$loanNumber] ?? 0);
-            $nilai = (float) $ind->ead_amount;
-            $saleCost = round($liquidity * $saleCostPct, 2);
+        // chunkById: hanya 3 kolom yang diambil dan baris diproses per 500
+        // (bukan seluruh loan individual sekaligus di memori).
+        (clone $base)
+            ->select('id', 'loan_number', 'ead_amount')
+            ->chunkById(500, function ($individuals) use (&$indIdx, $totalInd, $token, $saleCostPct, $collateralMap, $periodId, $now) {
+                $batch = [];
 
-            $ckpn = CkpnCalculator::calculateIndividual($nilai, $liquidity, $saleCostPct);
+                foreach ($individuals as $ind) {
+                    $indIdx++;
+                    if ($token !== null && ($indIdx % 50 === 0 || $indIdx === $totalInd)) {
+                        $this->pushProgress($token, "Menghitung CKPN Individual rekening {$indIdx}/{$totalInd}…", 10 + ($indIdx / $totalInd) * 40, [
+                            'current' => $indIdx, 'total' => $totalInd, 'label' => 'CKPN Individual',
+                        ]);
+                    }
+                    $loanNumber = $ind->loan_number;
+                    $liquidity = (float) ($collateralMap[$loanNumber] ?? 0);
+                    $nilai = (float) $ind->ead_amount;
+                    $saleCost = round($liquidity * $saleCostPct, 2);
 
-            $batch[] = [
-                'assessment_period_id' => $periodId,
-                'loan_number' => $loanNumber,
-                'nilai_tercatat' => $nilai,
-                'liquidity_value' => round($liquidity, 2),
-                'sale_cost' => $saleCost,
-                'estimated_recovery' => round($liquidity - $saleCost, 2),
-                'ckpn_individual' => $ckpn,
-                'recovery_method' => $liquidity > 0 ? 'COLLATERAL_LIQUIDITY' : 'NO_COLLATERAL',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
+                    $ckpn = CkpnCalculator::calculateIndividual($nilai, $liquidity, $saleCostPct);
 
-        foreach (array_chunk($batch, 200) as $chunk) {
-            $this->safeInsert('stage_individual_ckpn', $chunk);
-        }
+                    $batch[] = [
+                        'assessment_period_id' => $periodId,
+                        'loan_number' => $loanNumber,
+                        'nilai_tercatat' => $nilai,
+                        'liquidity_value' => round($liquidity, 2),
+                        'sale_cost' => $saleCost,
+                        'estimated_recovery' => round($liquidity - $saleCost, 2),
+                        'ckpn_individual' => $ckpn,
+                        'recovery_method' => $liquidity > 0 ? 'COLLATERAL_LIQUIDITY' : 'NO_COLLATERAL',
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+
+                foreach (array_chunk($batch, 200) as $chunk) {
+                    $this->safeInsert('stage_individual_ckpn', $chunk);
+                }
+            });
     }
 
     private function computeCollective(int $periodId, array $config, ?string $token = null): void
@@ -328,9 +347,24 @@ class DetailCkpnController extends BaseCalculationController
      */
     private function eadGroups(int $periodId): Collection
     {
+        // eadGroups() dipakai dua kali dalam satu request (guard kelengkapan PD di
+        // finalize + computeCollective). Query join 526k baris + GROUP BY tersebut
+        // dihitung sekali saja per periode × segmentasi.
+        $dims = $this->segmentDimensions(request(), $periodId);
+        $memoKey = $periodId.'|'.implode('|', $dims);
+
+        return $this->eadGroupsMemo[$memoKey] ??= $this->buildEadGroups($periodId, $dims);
+    }
+
+    /**
+     * Bangun agregat EAD per segmen × dimensi risiko (query berat, di-memo oleh eadGroups()).
+     *
+     * @param  array<int, string>  $dims
+     */
+    private function buildEadGroups(int $periodId, array $dims): Collection
+    {
         $config = $this->configFor($periodId);
         $pdMethod = strtoupper((string) ($config['pd_method'] ?? 'NET_FLOW'));
-        $dims = $this->segmentDimensions(request(), $periodId);
         $periodeYm = $this->assessmentYm($periodId);
 
         // Dimensi segmentasi (OFFICE, AKAD, USAGE).

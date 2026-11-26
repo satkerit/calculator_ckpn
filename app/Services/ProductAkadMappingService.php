@@ -11,6 +11,15 @@ class ProductAkadMappingService
     private const CACHE_TTL = 86400; // 24 jam
 
     /**
+     * Memo per proses/request: Cache::remember tetap melakukan 1 query `cache`
+     * setiap pemanggilan (store database). Pemetaan ini dipanggil per baris
+     * (klasifikasi, LGD, export), sehingga tanpa memo satu run bisa memicu
+     * ribuan SELECT ke tabel cache.
+     */
+    private static ?array $akadMemo = null;
+    private static ?array $eadRuleMemo = null;
+
+    /**
      * Resolve product_code ke akad_code (cached bulk-load).
      * Fallback: numerik product_code → default strategy (MURA).
      */
@@ -48,7 +57,7 @@ class ProductAkadMappingService
      */
     private static function getMappings(): array
     {
-        return Cache::remember(self::CACHE_KEY . ':akad', self::CACHE_TTL, function () {
+        return self::$akadMemo ??= Cache::remember(self::CACHE_KEY . ':akad', self::CACHE_TTL, function () {
             return ProductAkadMapping::where('active', true)
                 ->pluck('akad_code', 'product_code')
                 ->toArray();
@@ -60,7 +69,7 @@ class ProductAkadMappingService
      */
     private static function getEadRuleTypes(): array
     {
-        return Cache::remember(self::CACHE_KEY . ':ead_rules', self::CACHE_TTL, function () {
+        return self::$eadRuleMemo ??= Cache::remember(self::CACHE_KEY . ':ead_rules', self::CACHE_TTL, function () {
             return ProductAkadMapping::where('active', true)
                 ->pluck('ead_rule_type', 'product_code')
                 ->toArray();
@@ -72,6 +81,8 @@ class ProductAkadMappingService
      */
     public static function invalidateCache(): void
     {
+        self::$akadMemo = null;
+        self::$eadRuleMemo = null;
         Cache::forget(self::CACHE_KEY . ':akad');
         Cache::forget(self::CACHE_KEY . ':ead_rules');
     }

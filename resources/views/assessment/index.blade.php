@@ -11,6 +11,16 @@
     </a>
 </div>
 
+@if(($duplicatePeriods ?? collect())->isNotEmpty())
+<div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+    <p class="text-sm font-medium text-amber-800">
+        Terdapat lebih dari satu periode assessment untuk bulan fiskal yang sama:
+        {{ $duplicatePeriods->map(fn ($d) => sprintf('%04d-%02d (%d periode)', $d->fiscal_year, $d->fiscal_month, $d->total))->implode(', ') }}.
+        Hapus salah satu agar perhitungan tidak ambigu.
+    </p>
+</div>
+@endif
+
 <!-- Bulk Actions Bar -->
 <div id="bulk-actions-bar" class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg hidden">
     <div class="flex justify-between items-center">

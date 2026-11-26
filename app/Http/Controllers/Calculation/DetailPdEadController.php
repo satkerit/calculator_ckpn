@@ -71,12 +71,13 @@ class DetailPdEadController extends BaseCalculationController
                 }
 
                 $batch = [];
+                $bucketLabels = BucketAssignmentService::bucketLabels();
                 foreach ($grouped as $bNo => $val) {
                     $batch[] = [
                         'assessment_period_id' => $periodId,
                         'group_key'            => 'ALL_SEGMENTS',
                         'bucket_no'            => $bNo,
-                        'hari_tunggakan'       => BucketAssignmentService::getBucketLabel($bNo),
+                        'hari_tunggakan'       => $bucketLabels[$bNo] ?? 'Unknown',
                         'office_code'          => null,
                         'akad_code'            => null,
                         'usage_code'           => null,
@@ -101,8 +102,9 @@ class DetailPdEadController extends BaseCalculationController
         }
 
         $labels = [];
+        $bucketLabels = BucketAssignmentService::bucketLabels();
         foreach ($rows as $r) {
-            $labels[(int) $r->bucket_no] = BucketAssignmentService::getBucketLabel((int) $r->bucket_no);
+            $labels[(int) $r->bucket_no] = $bucketLabels[(int) $r->bucket_no] ?? 'Unknown';
         }
 
         return [

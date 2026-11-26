@@ -119,26 +119,43 @@ class BucketAssignmentService
             ]);
     }
 
-    public static function getBucketLabel(int $bucketNo): string
+    /**
+     * Seluruh label bucket aktif dalam SATU query: [urutan => label].
+     *
+     * Dipakai halaman/export yang menampilkan label per baris agar tidak
+     * memicu satu query per baris (N+1) seperti getBucketLabel().
+     *
+     * @return array<int, string>
+     */
+    public static function bucketLabels(): array
     {
-        // bucket_no di seluruh sistem = urutan bucket (1..14), bukan ID tabel
-        $bucket = DB::table('bucket_definitions')
-            ->where('urutan', $bucketNo)
+        return DB::table('bucket_definitions')
             ->where('active', true)
-            ->first();
+            ->orderBy('urutan')
+            ->get(['urutan', 'hari_min', 'hari_max'])
+            ->mapWithKeys(fn ($b) => [(int) $b->urutan => self::formatLabel((int) $b->hari_min, $b->hari_max)])
+            ->all();
+    }
 
-        if (!$bucket) {
-            return 'Unknown';
-        }
-
-        if ($bucket->hari_min == 0 && $bucket->hari_max == 0) {
+    private static function formatLabel(int $hariMin, mixed $hariMax): string
+    {
+        if ($hariMin === 0 && (int) $hariMax === 0) {
             return '0 hari (Lancar)';
         }
 
-        if ($bucket->hari_max === null || (int) $bucket->hari_max >= 99999) {
-            return '> ' . $bucket->hari_min . ' hari / Write-Off';
+        if ($hariMax === null || (int) $hariMax >= 99999) {
+            return '> ' . $hariMin . ' hari / Write-Off';
         }
 
-        return "{$bucket->hari_min} - {$bucket->hari_max} hari";
+        return "{$hariMin} - " . (int) $hariMax . ' hari';
+    }
+
+    /**
+     * Label satu bucket. Panggil bucketLabels() lebih dulu bila dipakai per baris.
+     */
+    public static function getBucketLabel(int $bucketNo): string
+    {
+        // bucket_no di seluruh sistem = urutan bucket (1..14), bukan ID tabel
+        return self::bucketLabels()[$bucketNo] ?? 'Unknown';
     }
 }

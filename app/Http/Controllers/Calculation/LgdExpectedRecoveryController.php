@@ -70,11 +70,13 @@ class LgdExpectedRecoveryController extends BaseCalculationController
             // DAN tidak memiliki agunan bernilai (likuid <= 0).
             // WO yang beragunan bernilai masuk populasi LGD CS.
             // Pengurang = recovery tunai saja (pergerakan baki debet sejak WO).
+            // Range pada kolom tglwo (string yyyymmdd) — bukan SUBSTRING(tglwo,1,6) —
+            // supaya index snapshot_wo_tglwo_idx dipakai (range scan, bukan scan semua WO).
             $windowLoans = DB::table('snapshot')
                 ->where('write_off_flag', 1)
                 ->whereNotNull('tglwo')->where('tglwo', '<>', '')
-                ->whereRaw('SUBSTRING(tglwo, 1, 6) >= ?', [$startYm])
-                ->whereRaw('SUBSTRING(tglwo, 1, 6) <= ?', [$assessYm])
+                ->where('tglwo', '>=', $startYm.'01')
+                ->where('tglwo', '<=', $assessYm.'31')
                 ->distinct()
                 ->pluck('loan_number');
 
@@ -100,6 +102,17 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                     ->get(['loan_number', 'periode_snapshot', 'outstanding_balance', 'office_code', 'product_code', 'usage_type', 'financing_contract_code', 'tglwo'])
                     ->groupBy('loan_number');
 
+                // Preload write-off yang sudah ada (1 query, bukan 1 query per debitur).
+                $existingWriteOffs = DB::table('write_offs')
+                    ->whereIn('financing_id', $windowLoans)
+                    ->get(['id', 'financing_id'])
+                    ->keyBy('financing_id');
+
+                $writeOffInserts = [];   // baris baru write_offs
+                $writeOffUpdates = [];   // [id => nilai kolom yang berubah]
+                $writeOffIds = [];       // [loan_number => write_off_id] baris lama
+                $recoveryRows = [];      // [loan_number => daftar recovery baru]
+
                 $totalWo = max(1, $allSnaps->count());
                 $woIdx = 0;
                 $nowTs = now();
@@ -117,34 +130,22 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                     $woDate = $first->tglwo ? date('Y-m-d', strtotime($first->tglwo)) : null;
                     if (!$woDate) continue;
 
-                    // Snapshot di periode WO atau pertama setelahnya = saldo WO awal
-                    $woSnap = $snaps->first(fn($s) => (string)$s->periode_snapshot === $woYm)
-                           ?? $snaps->first(fn($s) => (string)$s->periode_snapshot >= $woYm)
-                           ?? $first;
-                    $woNominal = (float) $woSnap->outstanding_balance;
-
-                    // Upsert write_offs
-                    $writeOff = DB::table('write_offs')->where('financing_id', $loanNumber)->first();
-                    if (!$writeOff) {
-                        $writeOffId = DB::table('write_offs')->insertGetId([
-                            'financing_id'   => $loanNumber,
-                            'writeoff_date'  => $woDate,
-                            'amount'         => $woNominal,
-                            'recovery_rate'  => 0,
-                            'reason'         => 'calculated_from_snapshot',
-                            'created_at'     => $nowTs,
-                            'updated_at'     => $nowTs,
-                        ]);
-                    } else {
-                        $writeOffId = $writeOff->id;
-                        DB::table('write_offs')->where('id', $writeOffId)->update([
-                            'amount' => $woNominal,
-                            'updated_at' => $nowTs,
-                        ]);
+                    // Indeks snapshot per periode (yyyyymm) sekali per debitur: pencarian
+                    // tahunan di bawah menjadi O(1) alih-alih memindai koleksi tiap tahun.
+                    $snapByYm = [];
+                    foreach ($snaps as $s) {
+                        $snapByYm[(string) $s->periode_snapshot] = $s;
                     }
 
-                    // Hapus recoveries lama untuk recalc
-                    DB::table('recoveries')->where('write_off_id', $writeOffId)->delete();
+                    // Snapshot di periode WO atau pertama setelahnya = saldo WO awal
+                    $woSnap = $snapByYm[$woYm] ?? null;
+                    if ($woSnap === null) {
+                        foreach ($snapByYm as $ym => $s) {
+                            if ((string) $ym >= $woYm) { $woSnap = $s; break; }
+                        }
+                    }
+                    $woSnap ??= $first;
+                    $woNominal = (float) $woSnap->outstanding_balance;
 
                     // Track recovery per tahun: outstanding[y-1] - outstanding[y]
                     $woYear = (int) substr($woYm, 0, 4);
@@ -153,25 +154,23 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                     $prevBal = $woNominal;
 
                     for ($y = $woYear; $y <= $assessYear; $y++) {
-                        $endYm = $y.'12';
-                        $snapY = $snaps->first(fn($s) => substr((string)$s->periode_snapshot, 0, 4) === (string)$y && (string)$s->periode_snapshot >= $endYm);
+                        // Saldo akhir tahun y = snapshot Desember tahun y.
+                        $snapY = $snapByYm[$y.'12'] ?? null;
                         if (!$snapY && $y === $assessYear) {
                             // Periode assessment bukan Desember, ambil snapshot assessment
-                            $snapY = $snaps->first(fn($s) => (string)$s->periode_snapshot === $assessYm);
+                            $snapY = $snapByYm[$assessYm] ?? null;
                         }
 
                         $curBal = $snapY ? (float) $snapY->outstanding_balance : 0.0;
                         $recoverThisYear = max(0.0, $prevBal - $curBal);
 
                         if ($recoverThisYear > 0) {
-                            DB::table('recoveries')->insert([
-                                'write_off_id'    => $writeOffId,
+                            // Dikumpulkan dulu; ditulis batch setelah loop (butuh write_off_id).
+                            $recoveryRows[$loanNumber][] = [
                                 'recovery_date'   => $y.'-12-31',
                                 'amount'          => $recoverThisYear,
                                 'recovery_source' => 'CASH_PAYMENT_YEARLY',
-                                'created_at'      => $nowTs,
-                                'updated_at'      => $nowTs,
-                            ]);
+                            ];
                             $totalRecovery += $recoverThisYear;
                         }
 
@@ -179,9 +178,28 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                         if ($curBal <= 0) break; // Lunas
                     }
 
-                    // Update recovery_rate di write_offs
+                    // Kumpulkan perubahan write_offs; ditulis batch setelah loop.
                     $rate = $woNominal > 0 ? min(1.0, $totalRecovery / $woNominal) : 0;
-                    DB::table('write_offs')->where('id', $writeOffId)->update(['recovery_rate' => $rate]);
+                    $existing = $existingWriteOffs[$loanNumber] ?? $existingWriteOffs[(string) $loanNumber] ?? null;
+
+                    if ($existing) {
+                        $writeOffIds[(string) $loanNumber] = (int) $existing->id;
+                        $writeOffUpdates[(int) $existing->id] = [
+                            'amount' => $woNominal,
+                            'recovery_rate' => $rate,
+                            'updated_at' => $nowTs,
+                        ];
+                    } else {
+                        $writeOffInserts[] = [
+                            'financing_id'  => $loanNumber,
+                            'writeoff_date' => $woDate,
+                            'amount'        => $woNominal,
+                            'recovery_rate' => $rate,
+                            'reason'        => 'calculated_from_snapshot',
+                            'created_at'    => $nowTs,
+                            'updated_at'    => $nowTs,
+                        ];
+                    }
 
                     $akadCode = ProductAkadMappingService::resolveAkadCode($first->product_code ?? '');
                     $usageCode = $first->usage_type ?? $first->financing_contract_code ?? 'OTHER';
@@ -190,6 +208,50 @@ class LgdExpectedRecoveryController extends BaseCalculationController
                     $byGroup[$key]['wo'] = ($byGroup[$key]['wo'] ?? 0.0) + $woNominal;
                     $byGroup[$key]['recovery'] = ($byGroup[$key]['recovery'] ?? 0.0) + $totalRecovery;
                     $byGroup[$key]['count'] = ($byGroup[$key]['count'] ?? 0) + 1;
+                }
+
+                // ---- Tulis write-off & recovery secara batch (bukan per debitur) ----
+                $newIds = [];
+                if ($writeOffInserts !== []) {
+                    foreach (array_chunk($writeOffInserts, 200) as $chunk) {
+                        DB::table('write_offs')->insert($chunk);
+                    }
+                    foreach (DB::table('write_offs')
+                        ->whereIn('financing_id', array_column($writeOffInserts, 'financing_id'))
+                        ->get(['id', 'financing_id']) as $row) {
+                        $newIds[(string) $row->financing_id] = (int) $row->id;
+                    }
+                }
+
+                foreach ($writeOffUpdates as $id => $values) {
+                    DB::table('write_offs')->where('id', $id)->update($values);
+                }
+
+                // Hapus recovery lama hanya untuk write-off yang dihitung ulang.
+                $affectedIds = array_values(array_unique(array_merge(
+                    array_values($writeOffIds),
+                    array_values($newIds),
+                )));
+                foreach (array_chunk($affectedIds, 500) as $chunk) {
+                    DB::table('recoveries')->whereIn('write_off_id', $chunk)->delete();
+                }
+
+                $recoveryInserts = [];
+                foreach ($recoveryRows as $loanNumber => $rows) {
+                    $id = $writeOffIds[(string) $loanNumber] ?? $newIds[(string) $loanNumber] ?? null;
+                    if ($id === null) {
+                        continue;
+                    }
+                    foreach ($rows as $row) {
+                        $recoveryInserts[] = $row + [
+                            'write_off_id' => $id,
+                            'created_at'   => $nowTs,
+                            'updated_at'   => $nowTs,
+                        ];
+                    }
+                }
+                foreach (array_chunk($recoveryInserts, 500) as $chunk) {
+                    DB::table('recoveries')->insert($chunk);
                 }
             }
 

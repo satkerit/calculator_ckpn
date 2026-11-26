@@ -16,6 +16,24 @@ class PdNetflowCalculator
     private const DEFAULT_PROJECTION_MONTHS = 12;
 
     /**
+     * Periode snapshot yang bucket_no-nya sudah di-assign pada run ini.
+     *
+     * assignBucketsForPeriodFast() meng-UPDATE SELURUH baris satu periode,
+     * sehingga hasilnya sama untuk semua grup. Tanpa penanda ini, pemanggilan
+     * per grup × per periode historis mengulang UPDATE yang sama puluhan kali.
+     *
+     * @var array<string, true>
+     */
+    private array $bucketsAssigned = [];
+
+    /**
+     * Memo hasil resolvePeriodsInRange() per rentang [startYm|endYm] dalam satu run.
+     *
+     * @var array<string, list<string>>
+     */
+    private array $periodRangeMemo = [];
+
+    /**
      * Calculate 3 tabel PD Netflow dari snapshot data
      * 
      * @param int $assessmentPeriodId
@@ -133,10 +151,19 @@ class PdNetflowCalculator
 
     /**
      * Resolve daftar nilai mentah periode_snapshot dalam rentang [startYm, endYm] (perbandingan ternormalisasi).
+     *
+     * Hasil di-memo per run: `distinct()` pada 526k baris butuh full index scan, dan
+     * rentang yang sama dipakai updateMissingBuckets() + loadHistoricalSnapshots()
+     * untuk SETIAP grup. Tanpa memo: 2 × jumlah grup query scan penuh.
      */
     private function resolvePeriodsInRange(string $startYm, string $endYm): array
     {
-        return DB::table('snapshot')
+        $memoKey = $startYm.'|'.$endYm;
+        if (isset($this->periodRangeMemo[$memoKey])) {
+            return $this->periodRangeMemo[$memoKey];
+        }
+
+        $periods = DB::table('snapshot')
             ->distinct()
             ->pluck('periode_snapshot')
             ->filter(function ($p) use ($startYm, $endYm) {
@@ -146,6 +173,8 @@ class PdNetflowCalculator
             })
             ->values()
             ->all();
+
+        return $this->periodRangeMemo[$memoKey] = $periods;
     }
 
     /**
@@ -179,7 +208,13 @@ class PdNetflowCalculator
         $totalUpdated = 0;
 
         foreach ($periods as $periodeYm) {
-            $updated = $this->bucketService->assignBucketsForPeriodFast($periodeYm);
+            $key = (string) $periodeYm;
+            if (isset($this->bucketsAssigned[$key])) {
+                continue;
+            }
+            $this->bucketsAssigned[$key] = true;
+
+            $updated = $this->bucketService->assignBucketsForPeriodFast($key);
             $totalUpdated += $updated;
         }
 
@@ -480,18 +515,27 @@ class PdNetflowCalculator
             return;
         }
 
-        // Normalisasi periode key: cast Carbon/string ke YYYY-MM-DD format
-        $normalized = collect();
-        foreach ($allTransitions->groupBy('periode') as $periode => $group) {
-            $key = $periode instanceof \Carbon\Carbon
-                ? $periode->format('Y-m-d')
-                : (string) $periode;
-            $normalized[$key] = $group;
+        // Normalisasi periode key: cast Carbon/string ke YYYY-MM-DD format,
+        // sekaligus indeks rate [periode][from][to] agar lookup O(1) (bukan
+        // foreach linear per step diagonal).
+        $rateIndex = [];
+        foreach ($allTransitions as $t) {
+            $key = $t->periode instanceof \Carbon\Carbon
+                ? $t->periode->format('Y-m-d')
+                : (string) $t->periode;
+            $rateIndex[$key][(int) $t->from_bucket][(int) $t->to_bucket] = (float) $t->transition_rate;
         }
 
-        // Susun periode terurut sebagai indexed array
-        $sortedPeriodes = array_keys($normalized->toArray());
+        // Susun periode terurut sebagai indexed array (sudah ASC dari query)
+        $sortedPeriodes = array_keys($rateIndex);
         $periodIndex = array_flip($sortedPeriodes);
+
+        // Periode sebelumnya dihitung sekali per kolom (bukan per step):
+        // Carbon::parse(subMonth) tiap step di loop diagonal sangat mahal.
+        $prevPeriodByPeriode = [];
+        foreach ($sortedPeriodes as $p) {
+            $prevPeriodByPeriode[$p] = \Carbon\Carbon::parse($p)->subMonth()->endOfMonth()->toDateString();
+        }
         
         // Tentukan akhir periode historis (batas dimulainya proyeksi)
         $histEndIdx = $periodIndex[$histEndDate] ?? null;
@@ -551,20 +595,13 @@ class PdNetflowCalculator
                     }
 
                     $stepPeriode = $sortedPeriodes[$stepPeriodeIdx];
-                    $transitions = $normalized[$stepPeriode] ?? [];
 
-                    // Cari rate dari_bucket → bucket berikutnya
-                    $rate = null;
-                    foreach ($transitions as $t) {
-                        if ($t->from_bucket == $fromBucket && $t->to_bucket == $toBucket) {
-                            $rate = (float) $t->transition_rate;
-                            break;
-                        }
-                    }
+                    // Rate dari_bucket → bucket berikutnya (indeks, bukan pencarian linear)
+                    $rate = $rateIndex[$stepPeriode][$fromBucket][$toBucket] ?? null;
 
                     // Jika rate = 1.0 (default Excel ISBLANK) atau tidak ada → cek apakah bucket asal kosong
                     if ($rate === null || abs($rate - 1.0) < 1e-9) {
-                        $prevDate = \Carbon\Carbon::parse($stepPeriode)->subMonth()->endOfMonth()->toDateString();
+                        $prevDate = $prevPeriodByPeriode[$stepPeriode];
                         $prevOutstanding = $outstandingMap[$prevDate][$fromBucket] ?? 0.0;
                         if ($prevOutstanding <= 0) {
                             continue; // bucket asal kosong → skip step ini (tidak mempengaruhi produk)
